@@ -1,6 +1,6 @@
 # RTL Diagram Generator
 
-Describe modules, input/output ports and connections in JSON or the web editor. The generator uses ELK Layered placement and orthogonal routing to produce SVG and PNG diagrams. The library uses JavaScript ES modules and does not include an RTL parser.
+Describe modules, input/output ports and connections in JSON or the web editor. The generator uses ELK Layered placement and orthogonal routing to produce SVG and PNG diagrams. The library uses JavaScript ES modules and does not include an RTL parser. Try the [offline-capable web app](https://rexrainbow.github.io/blockflow/dist-offline/).
 
 ## Installation and development
 
