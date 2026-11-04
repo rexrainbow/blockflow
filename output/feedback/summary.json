@@ -1,0 +1,80 @@
+[
+  {
+    "name": "feedback",
+    "feedbackRouting": "elk",
+    "width": 1174.5,
+    "height": 516.25,
+    "feedbackBends": 4,
+    "feedbackLength": 1728,
+    "totalBends": 10,
+    "totalLength": 2943,
+    "route": {
+      "method": "elk"
+    }
+  },
+  {
+    "name": "feedback",
+    "feedbackRouting": "outer",
+    "width": 1194.5,
+    "height": 526.25,
+    "feedbackBends": 4,
+    "feedbackLength": 1766,
+    "totalBends": 10,
+    "totalLength": 2981,
+    "route": {
+      "method": "outer-aabb",
+      "side": "top",
+      "clearance": 20,
+      "originalBends": 4,
+      "waypoints": [
+        {
+          "x": 1193.25,
+          "y": 1.25
+        },
+        {
+          "x": 1.25,
+          "y": 1.25
+        }
+      ]
+    }
+  },
+  {
+    "name": "stress",
+    "feedbackRouting": "elk",
+    "width": 1174.5,
+    "height": 651.25,
+    "feedbackBends": 4,
+    "feedbackLength": 1696,
+    "totalBends": 10,
+    "totalLength": 2902,
+    "route": {
+      "method": "elk"
+    }
+  },
+  {
+    "name": "stress",
+    "feedbackRouting": "outer",
+    "width": 1194.5,
+    "height": 661.25,
+    "feedbackBends": 4,
+    "feedbackLength": 1756,
+    "totalBends": 10,
+    "totalLength": 2962,
+    "route": {
+      "method": "outer-aabb",
+      "side": "bottom",
+      "clearance": 20,
+      "originalBends": 4,
+      "waypoints": [
+        {
+          "x": 1193.25,
+          "y": 660
+        },
+        {
+          "x": 1.25,
+          "y": 660
+        }
+      ]
+    }
+  }
+]

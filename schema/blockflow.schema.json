@@ -1,0 +1,507 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:blockflow:diagram:1",
+  "title": "blockflow diagram input, version 1",
+  "description": "Raw input JSON, not a normalized model or layout result. Validate cross-object semantics with createDiagramModel; render to check layout. Defaults are annotations, not inserted values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "diagram", "modules"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "diagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "module": {
+              "$ref": "#/$defs/moduleStyle"
+            },
+            "connection": {
+              "$ref": "#/$defs/connectionStyle"
+            }
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "$ref": "#/$defs/module"
+      },
+      "description": "Module IDs must be unique. Module array order does not impose layout positions."
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/connection"
+      },
+      "default": []
+    },
+    "layout": {
+      "$ref": "#/$defs/layout"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      },
+      "description": "Optional hierarchical groups. Members reference block or group IDs. Each item has at most one parent; cycles are rejected. Unlisted items remain at root."
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$(?![\\s\\S])"
+    },
+    "endpoint": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$(?![\\s\\S])",
+      "description": "Existing ownerId.portId, where owner is a block or boundary group. Block sources are outputs and targets are inputs. Group inputs send inward and receive from outside; group outputs receive inward and send outside. Cross each enabled boundary through its ports."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        {
+          "pattern": "\\S"
+        },
+        {
+          "pattern": "^[^\\u0000-\\u001f\\ud800-\\udfff\\ufffe\\uffff\\u2028\\u2029]*$(?![\\s\\S])"
+        }
+      ],
+      "description": "Non-blank, single-line XML-compatible text; Unicode labels are allowed."
+    },
+    "positive": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1.7976931348623157e308
+    },
+    "nonNegative": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1.7976931348623157e308
+    },
+    "opacity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^(?:transparent|#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))$(?![\\s\\S])",
+      "description": "Hex RGB/RGBA or transparent; CSS names, rgb(), variables and URLs are unsupported."
+    },
+    "lineStyle": {
+      "enum": ["solid", "dashed", "dotted"]
+    },
+    "textStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "backgroundColor": {
+          "$ref": "#/$defs/color"
+        },
+        "fontSize": {
+          "$ref": "#/$defs/positive"
+        },
+        "padding": {
+          "$ref": "#/$defs/nonNegative"
+        },
+        "opacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "backgroundOpacity": {
+          "$ref": "#/$defs/opacity"
+        }
+      }
+    },
+    "moduleStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "borderColor": {
+          "$ref": "#/$defs/color"
+        },
+        "borderWidth": {
+          "$ref": "#/$defs/positive"
+        },
+        "borderStyle": {
+          "$ref": "#/$defs/lineStyle"
+        },
+        "borderOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "fillColor": {
+          "$ref": "#/$defs/color"
+        },
+        "fillOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "label": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "portLabel": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "inputPortLabel": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "outputPortLabel": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "connectionStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strokeColor": {
+          "$ref": "#/$defs/color"
+        },
+        "strokeWidth": {
+          "$ref": "#/$defs/positive"
+        },
+        "lineStyle": {
+          "$ref": "#/$defs/lineStyle"
+        },
+        "opacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "label": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ports"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/displayText",
+          "description": "Optional display name. Omit to display the ID and follow future ID changes."
+        },
+        "ports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/port"
+          },
+          "description": "Port IDs must be unique within this module, across both directions. Array order preserves per-side top-to-bottom port order."
+        },
+        "style": {
+          "$ref": "#/$defs/moduleStyle"
+        },
+        "width": {
+          "$ref": "#/$defs/positive",
+          "description": "Optional relative minimum width, measured against a shared fixed block-size unit (1). Omit for Auto. Does not scale text, strokes or padding. Port width remains bit width."
+        },
+        "height": {
+          "$ref": "#/$defs/positive",
+          "description": "Optional relative minimum height, measured against a shared fixed block-size unit (1). Omit for Auto. Does not scale text, strokes or padding. Port width remains bit width."
+        }
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "direction"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "direction": {
+          "enum": ["input", "output"]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Omit for unknown width. Explicit null is invalid. Compare widths only when both endpoints specify them."
+        },
+        "style": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "label": {
+          "$ref": "#/$defs/displayText",
+          "description": "Optional display name; omit to follow the port ID. Width notation is appended to the last line."
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "style": {
+          "$ref": "#/$defs/connectionStyle"
+        },
+        "feedback": {
+          "type": "boolean",
+          "default": false,
+          "description": "Prefer this connection as feedback during cycle breaking. False or omitted maps to ELK direction priority 10; true maps to 0. Still participates in layout; does not force backward routing, exclude rank constraints or activate staged mode."
+        },
+        "label": {
+          "$ref": "#/$defs/displayText",
+          "description": "Optional multiline display text. Omit for no label. Layout measures all lines and checks final routes for collisions."
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": ["right", "left"],
+          "default": "right"
+        },
+        "routing": {
+          "const": "orthogonal",
+          "default": "orthogonal"
+        },
+        "placement": {
+          "enum": ["default", "relaxed", "simple"],
+          "default": "default",
+          "description": "Prefer default or relaxed. simple is retained by the library for compatibility."
+        },
+        "feedbackRouting": {
+          "enum": ["elk", "outer"],
+          "default": "elk",
+          "description": "outer requires right direction and attempts exterior AABB routes, falling back to ELK when access is blocked."
+        },
+        "feedbackMargin": {
+          "$ref": "#/$defs/positive",
+          "default": 20
+        },
+        "feedbackLaneSpacing": {
+          "$ref": "#/$defs/positive",
+          "default": 12
+        },
+        "moduleSpacing": {
+          "$ref": "#/$defs/positive",
+          "default": 50
+        },
+        "layerSpacing": {
+          "$ref": "#/$defs/positive",
+          "default": 80
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "members"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/displayText",
+          "description": "Optional display name. Omit to display the ID and follow future ID changes."
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "style": {
+          "$ref": "#/$defs/groupStyle"
+        },
+        "portMode": {
+          "enum": ["direct", "boundary"],
+          "default": "direct",
+          "description": "Legacy alias: direct maps to Container, boundary maps to Boundary. Prefer type for new documents."
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/port"
+          },
+          "description": "Group interface definitions; active only in boundary mode. Empty and unused ports are valid."
+        },
+        "collapsed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide contents for Boundary or Collection. Container groups must remain expanded. JSON contents are retained."
+        },
+        "width": {
+          "$ref": "#/$defs/positive",
+          "description": "Optional relative minimum width in the shared block-size unit. Collapsed groups use regular-block geometry; expanded groups also grow to fit children. Omit for Auto."
+        },
+        "height": {
+          "$ref": "#/$defs/positive",
+          "description": "Optional relative minimum height in the shared block-size unit. Collapsed groups use regular-block geometry; expanded groups also grow to fit children. Omit for Auto."
+        },
+        "type": {
+          "enum": ["container", "boundary", "collection"],
+          "default": "container",
+          "description": "Container groups organize contents; Boundary groups expose real ports; Collection groups use virtual overview anchors when collapsed."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "collapsed": {
+                "const": true
+              }
+            },
+            "required": ["collapsed"]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "type": {
+                    "enum": ["boundary", "collection"]
+                  }
+                },
+                "required": ["type"]
+              },
+              {
+                "not": {
+                  "required": ["type"]
+                },
+                "properties": {
+                  "portMode": {
+                    "const": "boundary"
+                  }
+                },
+                "required": ["portMode"]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "boundary"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "portMode": {
+                "const": "boundary"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["container", "collection"]
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "portMode": {
+                "const": "direct"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "groupStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "borderColor": {
+          "$ref": "#/$defs/color"
+        },
+        "borderWidth": {
+          "$ref": "#/$defs/positive"
+        },
+        "borderStyle": {
+          "$ref": "#/$defs/lineStyle"
+        },
+        "borderOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "fillColor": {
+          "$ref": "#/$defs/color"
+        },
+        "fillOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "label": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "portLabel": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "inputPortLabel": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "outputPortLabel": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "displayText": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        {
+          "pattern": "\\S"
+        },
+        {
+          "pattern": "^[^\\u0000-\\u0009\\u000b\\u000c\\u000e-\\u001f\\ud800-\\udfff\\ufffe\\uffff\\u2028\\u2029]*$(?![\\s\\S])"
+        },
+        {
+          "pattern": "^(?:[^\\r]|\\r\\n)*$(?![\\s\\S])"
+        }
+      ],
+      "description": "Non-blank XML-compatible display text. LF line breaks are supported; CRLF is normalized to LF."
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "modules": {
+          "minItems": 1,
+          "type": "array"
+        }
+      }
+    },
+    {
+      "required": ["groups"],
+      "properties": {
+        "groups": {
+          "minItems": 1,
+          "type": "array"
+        }
+      }
+    }
+  ]
+}

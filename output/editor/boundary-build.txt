@@ -1,0 +1,15 @@
+
+> rtl-diagram@0.1.0 build
+> vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 21 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.89 kB │ gzip:  0.53 kB
+dist/assets/layout-BvuY0Ig7.js  1,508.14 kB
+dist/assets/index-C-RTvM1M.css     25.17 kB │ gzip:  5.72 kB
+dist/assets/index-C6maWEPG.js     103.65 kB │ gzip: 29.83 kB
+
+✓ built in 1.03s

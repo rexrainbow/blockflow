@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Control Feedback"
+  },
+  "modules": [
+    {
+      "id": "controller",
+      "label": "Controller",
+      "ports": [
+        {
+          "id": "status",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "command",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "datapath",
+      "label": "Data Path",
+      "ports": [
+        {
+          "id": "command",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "result",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "monitor",
+      "label": "Monitor",
+      "ports": [
+        {
+          "id": "result",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "status",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "controller.command",
+      "to": "datapath.command"
+    },
+    {
+      "from": "datapath.result",
+      "to": "monitor.result"
+    },
+    {
+      "from": "monitor.status",
+      "to": "controller.status"
+    }
+  ]
+}

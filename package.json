@@ -1,0 +1,52 @@
+{
+  "name": "rtl-diagram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/lib/index.js",
+    "./browser": "./src/lib/browser.js",
+    "./node": {
+      "node": "./src/lib/node.js"
+    },
+    "./dom": "./src/lib/export/dom.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "validate:diagram": "node scripts/validate-diagram.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "check": "node scripts/check.js",
+    "check:design": "node scripts/check-design.js",
+    "format": "prettier --write src/editor src/lib/browser.js src/lib/export/browser.js tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/view examples/dom-viewer.html examples/dom-viewer.js examples/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md",
+    "format:check": "prettier --check src/editor src/lib/browser.js src/lib/export/browser.js tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/view examples/dom-viewer.html examples/dom-viewer.js examples/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md",
+    "examples": "node examples/generate.js",
+    "examples:styles": "node examples/generate-styles.js",
+    "compare:placement": "node examples/compare-placement.js",
+    "compare:feedback": "node examples/compare-feedback.js",
+    "build:offline": "vite build --config vite.offline.config.js",
+    "test:e2e:offline": "npm run build:offline && playwright test --config playwright.offline.config.js",
+    "build:dom-example": "vite build --config vite.dom.config.js",
+    "test:e2e:dom": "npm run build:dom-example && playwright test --config playwright.dom.config.js",
+    "compare:collapse": "node examples/compare-collapse.js",
+    "compare:collection": "node examples/compare-collection.js",
+    "compare:views": "node examples/compare-group-view.js"
+  },
+  "dependencies": {
+    "elkjs": "0.12.1",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "@xmldom/xmldom": "0.9.12",
+    "ajv": "8.20.0",
+    "prettier": "3.9.10",
+    "vite": "8.3.5"
+  }
+}

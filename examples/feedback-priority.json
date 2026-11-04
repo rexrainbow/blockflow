@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Input / Mux feedback"
+  },
+  "modules": [
+    {
+      "id": "InputA",
+      "ports": [
+        {
+          "id": "ain",
+          "direction": "input"
+        },
+        {
+          "id": "aout",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "InputB",
+      "ports": [
+        {
+          "id": "bin",
+          "direction": "input"
+        },
+        {
+          "id": "bout",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Mux",
+      "ports": [
+        {
+          "id": "a",
+          "direction": "input"
+        },
+        {
+          "id": "b",
+          "direction": "input"
+        },
+        {
+          "id": "c",
+          "direction": "output"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "InputA.aout",
+      "to": "Mux.a"
+    },
+    {
+      "from": "InputB.bout",
+      "to": "Mux.b"
+    },
+    {
+      "from": "Mux.c",
+      "to": "InputA.ain",
+      "feedback": true
+    }
+  ],
+  "layout": {
+    "direction": "right"
+  }
+}

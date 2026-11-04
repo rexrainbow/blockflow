@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1229.3333333333333" height="399.25" viewBox="-20 -20 1229.3333333333333 399.25">
+<rect x="-20" y="-20" width="1229.3333333333333" height="399.25" fill="#ffffff"/>
+<g fill="none" stroke-linejoin="round">
+<path d="M 260.75 96.75 L 343.25 96.75" stroke="#2563eb" stroke-opacity="1" stroke-width="3" stroke-linecap="butt"/>
+<path d="M 549.25 96.75 L 631.75 96.75" stroke="#2563eb" stroke-opacity="1" stroke-width="3" stroke-linecap="butt"/>
+<path d="M 837.75 96.75 L 849.75 96.75 L 849.75 220.75 L 919.25 220.75" stroke="#2563eb" stroke-opacity="1" stroke-width="3" stroke-linecap="butt"/>
+<path d="M 260.75 120.75 L 272.75 120.75 L 272.75 245.25 L 342.25 245.25" stroke="#d97706" stroke-opacity="1" stroke-width="2" stroke-linecap="butt" stroke-dasharray="8 4"/>
+<path d="M 550.25 245.25 L 919.25 245.25" stroke="#d97706" stroke-opacity="1" stroke-width="2" stroke-linecap="butt" stroke-dasharray="8 4"/>
+<path d="M 837.75 333.25 L 849.75 333.25 L 849.75 269.25 L 919.25 269.25" stroke="#7c3aed" stroke-opacity="0.75" stroke-width="3" stroke-linecap="round" stroke-dasharray="0 9"/>
+<path d="M 1166.5833333333333 220.75 L 1187.3333333333333 220.75 L 1187.3333333333333 2 L 2 2 L 2 96.75 L 22.75 96.75" stroke="#dc2626" stroke-opacity="1" stroke-width="4" stroke-linecap="butt" stroke-dasharray="16 8"/>
+</g>
+<g>
+<rect x="23.75" y="23.75" width="236" height="121" fill="#f8fafc" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="2" stroke-linecap="butt"/>
+<rect x="344.25" y="23.75" width="204" height="97" fill="#f8fafc" fill-opacity="1" stroke="#334155" stroke-opacity="1" stroke-width="2" stroke-linecap="butt"/>
+<rect x="632.75" y="23.75" width="204" height="97" fill="#dbeafe" fill-opacity="0.40156862745098043" stroke="#334155" stroke-opacity="1" stroke-width="2" stroke-linecap="butt"/>
+<rect x="920.25" y="147.25" width="245.33333333333331" height="146" fill="#f8fafc" fill-opacity="1" stroke="#334155" stroke-opacity="1" stroke-width="2" stroke-linecap="butt"/>
+<rect x="343.75" y="174.75" width="205" height="95" fill="#fffbeb" fill-opacity="1" stroke="#d97706" stroke-opacity="1" stroke-width="3" stroke-linecap="butt" stroke-dasharray="12 6"/>
+<rect x="645.25" y="259.75" width="191" height="98" fill="#f8fafc" fill-opacity="1" stroke="#7c3aed" stroke-opacity="0.8" stroke-width="3" stroke-linecap="round" stroke-dasharray="0 9"/>
+</g>
+<g fill="#000000" font-family="monospace" font-size="12" dominant-baseline="central">
+<rect data-role="label-background" x="76.75" y="29.75" width="130" height="37" fill="#2563eb" fill-opacity="1"/>
+<text x="141.75" y="48.25" text-anchor="middle" font-size="18" fill="#ffffff" fill-opacity="1" xml:space="preserve">A / Source</text>
+<rect data-role="label-background" x="381.25" y="29.75" width="130" height="37" fill="#e2e8f0" fill-opacity="1"/>
+<text x="446.25" y="48.25" text-anchor="middle" font-size="18" fill="#0f172a" fill-opacity="1" xml:space="preserve">B / Decode</text>
+<rect data-role="label-background" x="663.75" y="29.75" width="142" height="37" fill="#e2e8f0" fill-opacity="1"/>
+<text x="734.75" y="48.25" text-anchor="middle" font-size="18" fill="#0f172a" fill-opacity="1" xml:space="preserve">C / Execute</text>
+<rect data-role="label-background" x="971.9166666666667" y="153.25" width="142" height="37" fill="#e2e8f0" fill-opacity="1"/>
+<text x="1042.9166666666667" y="171.75" text-anchor="middle" font-size="18" fill="#0f172a" fill-opacity="1" xml:space="preserve">D / Collect</text>
+<rect data-role="label-background" x="387.9166666666667" y="181.25" width="116.66666666666667" height="34" fill="#fef3c7" fill-opacity="1"/>
+<text x="446.25" y="198.25" text-anchor="middle" font-size="16" fill="#92400e" fill-opacity="1" xml:space="preserve">E / Bypass</text>
+<rect data-role="label-background" x="657.75" y="266.25" width="166" height="37" fill="#ede9fe" fill-opacity="0.7"/>
+<text x="740.75" y="284.75" text-anchor="middle" font-size="18" fill="#6d28d9" fill-opacity="1" xml:space="preserve">F / Auxiliary</text>
+<rect data-role="label-background" x="33.75" y="85.75" width="108" height="22" fill="#fee2e2" fill-opacity="1"/>
+<text x="35.75" y="96.75" text-anchor="start" font-size="12" fill="#b91c1c" fill-opacity="1" xml:space="preserve">feedback[7:0]</text>
+<rect data-role="label-background" x="165.75" y="85.75" width="84" height="22" fill="#dcfce7" fill-opacity="1"/>
+<text x="247.75" y="96.75" text-anchor="end" font-size="12" fill="#166534" fill-opacity="1" xml:space="preserve">b_out[7:0]</text>
+<rect data-role="label-background" x="165.75" y="109.75" width="84" height="22" fill="#dcfce7" fill-opacity="1"/>
+<text x="247.75" y="120.75" text-anchor="end" font-size="12" fill="#166534" fill-opacity="1" xml:space="preserve">e_out[7:0]</text>
+<rect data-role="label-background" x="354.25" y="85.75" width="76" height="22" fill="#e0f2fe" fill-opacity="1"/>
+<text x="356.25" y="96.75" text-anchor="start" font-size="12" fill="#075985" fill-opacity="1" xml:space="preserve">b_in[7:0]</text>
+<rect data-role="label-background" x="454.25" y="85.75" width="84" height="22" fill="#dcfce7" fill-opacity="1"/>
+<text x="536.25" y="96.75" text-anchor="end" font-size="12" fill="#166534" fill-opacity="1" xml:space="preserve">c_out[7:0]</text>
+<rect data-role="label-background" x="642.75" y="85.75" width="76" height="22" fill="#e0f2fe" fill-opacity="1"/>
+<text x="644.75" y="96.75" text-anchor="start" font-size="12" fill="#075985" fill-opacity="1" xml:space="preserve">c_in[7:0]</text>
+<rect data-role="label-background" x="742.75" y="85.75" width="84" height="22" fill="#dcfce7" fill-opacity="1"/>
+<text x="824.75" y="96.75" text-anchor="end" font-size="12" fill="#166534" fill-opacity="1" xml:space="preserve">d_out[7:0]</text>
+<rect data-role="label-background" x="930.25" y="209.75" width="76" height="22" fill="#e0f2fe" fill-opacity="1"/>
+<text x="932.25" y="220.75" text-anchor="start" font-size="12" fill="#075985" fill-opacity="1" xml:space="preserve">c_in[7:0]</text>
+<rect data-role="label-background" x="930.25" y="234.25" width="76" height="22" fill="#e0f2fe" fill-opacity="1"/>
+<text x="932.25" y="245.25" text-anchor="start" font-size="12" fill="#075985" fill-opacity="1" xml:space="preserve">e_in[7:0]</text>
+<rect data-role="label-background" x="930.25" y="258.25" width="76" height="22" fill="#e0f2fe" fill-opacity="1"/>
+<text x="932.25" y="269.25" text-anchor="start" font-size="12" fill="#075985" fill-opacity="1" xml:space="preserve">f_in[7:0]</text>
+<rect data-role="label-background" x="1030.25" y="208.25" width="125.33333333333333" height="25" fill="#fee2e2" fill-opacity="1"/>
+<text x="1153.5833333333333" y="220.75" text-anchor="end" font-size="14" fill="#b91c1c" fill-opacity="1" xml:space="preserve">feedback[7:0]</text>
+<text x="356.25" y="245.25" text-anchor="start" font-size="12" fill="#92400e" fill-opacity="1" xml:space="preserve">e_in[7:0]</text>
+<text x="536.25" y="245.25" text-anchor="end" font-size="12" fill="#92400e" fill-opacity="1" xml:space="preserve">d_out[7:0]</text>
+<rect data-role="label-background" x="741.75" y="322.25" width="84" height="22" fill="#ede9fe" fill-opacity="1"/>
+<text x="823.75" y="333.25" text-anchor="end" font-size="12" fill="#6d28d9" fill-opacity="1" xml:space="preserve">d_out[7:0]</text>
+</g>
+</svg>

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1214.5" height="691.25" viewBox="-20 -20 1214.5 691.25">
+<rect x="-20" y="-20" width="1214.5" height="691.25" fill="#ffffff"/>
+<g fill="none" stroke-linejoin="round">
+<path d="M 247.25 429 L 257.25 429 L 257.25 362 L 327.25 362" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 547.25 362 L 627.25 362" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 847.25 314 L 927.25 314" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 247.25 525 L 257.25 525 L 257.25 592 L 327.25 592" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 547.25 592 L 857.25 592 L 857.25 386 L 927.25 386" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 847.25 156 L 857.25 156 L 857.25 242 L 927.25 242" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1163.25 338 L 1173.25 338 L 1173.25 650 L 1.25 650 L 1.25 525 L 11.25 525" stroke="#000000" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+</g>
+<g>
+<rect x="11.75" y="369.5" width="235" height="203" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="327.75" y="302.5" width="219" height="155" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="627.75" y="230.5" width="219" height="203" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="927.75" y="182.5" width="235" height="227" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="327.75" y="508.5" width="219" height="131" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="707.75" y="0.5" width="139" height="179" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+</g>
+<g fill="#000000" font-family="monospace" font-size="12" dominant-baseline="central">
+<text x="129.25" y="387" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">A</text>
+<text x="437.25" y="320" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">B</text>
+<text x="737.25" y="248" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">C</text>
+<text x="1045.25" y="200" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">D</text>
+<text x="437.25" y="526" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">E</text>
+<text x="777.25" y="18" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">F</text>
+<text x="21.25" y="429" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i0[7:0]</text>
+<text x="21.25" y="453" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i1[7:0]</text>
+<text x="21.25" y="477" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i2[7:0]</text>
+<text x="21.25" y="501" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i3[7:0]</text>
+<text x="21.25" y="525" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">feedback[7:0]</text>
+<text x="237.25" y="429" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">b_out[7:0]</text>
+<text x="237.25" y="453" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o1[7:0]</text>
+<text x="237.25" y="477" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o2[7:0]</text>
+<text x="237.25" y="501" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o3[7:0]</text>
+<text x="237.25" y="525" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">e_out[7:0]</text>
+<text x="237.25" y="549" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o5[7:0]</text>
+<text x="337.25" y="362" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">b_in[7:0]</text>
+<text x="337.25" y="386" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i1[7:0]</text>
+<text x="537.25" y="362" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">b_out[7:0]</text>
+<text x="537.25" y="386" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o1[7:0]</text>
+<text x="537.25" y="410" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o2[7:0]</text>
+<text x="537.25" y="434" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o3[7:0]</text>
+<text x="637.25" y="290" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i0[7:0]</text>
+<text x="637.25" y="314" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i1[7:0]</text>
+<text x="637.25" y="338" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i2[7:0]</text>
+<text x="637.25" y="362" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">c_in[7:0]</text>
+<text x="637.25" y="386" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i4[7:0]</text>
+<text x="637.25" y="410" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i5[7:0]</text>
+<text x="837.25" y="290" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o0[7:0]</text>
+<text x="837.25" y="314" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">c_out[7:0]</text>
+<text x="937.25" y="242" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">f_in[7:0]</text>
+<text x="937.25" y="266" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i1[7:0]</text>
+<text x="937.25" y="290" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i2[7:0]</text>
+<text x="937.25" y="314" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">c_in[7:0]</text>
+<text x="937.25" y="338" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i4[7:0]</text>
+<text x="937.25" y="362" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i5[7:0]</text>
+<text x="937.25" y="386" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">e_in[7:0]</text>
+<text x="1153.25" y="242" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o0[7:0]</text>
+<text x="1153.25" y="266" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o1[7:0]</text>
+<text x="1153.25" y="290" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o2[7:0]</text>
+<text x="1153.25" y="314" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o3[7:0]</text>
+<text x="1153.25" y="338" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">feedback[7:0]</text>
+<text x="337.25" y="568" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i0[7:0]</text>
+<text x="337.25" y="592" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">e_in[7:0]</text>
+<text x="337.25" y="616" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_i2[7:0]</text>
+<text x="537.25" y="568" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o0[7:0]</text>
+<text x="537.25" y="592" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">e_out[7:0]</text>
+<text x="837.25" y="60" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o0[7:0]</text>
+<text x="837.25" y="84" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o1[7:0]</text>
+<text x="837.25" y="108" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o2[7:0]</text>
+<text x="837.25" y="132" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">aux_o3[7:0]</text>
+<text x="837.25" y="156" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">f_out[7:0]</text>
+</g>
+</svg>

@@ -1,0 +1,23 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["src/editor", "src/lib/export", "src/lib/view", "examples"],
+  "locale": "en-US",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast", "CRUD"],
+  "ownership": {
+    "Select/Listbox": "native"
+  },
+  "requiredCommands": ["unit", "build", "e2e", "design", "offline", "dom"],
+  "commands": {
+    "unit": "npm test",
+    "build": "npm run build",
+    "e2e": "npm run test:e2e",
+    "design": "npm run check:design",
+    "offline": "npm run test:e2e:offline",
+    "dom": "npm run test:e2e:dom"
+  },
+  "evidence": {
+    "crudFullFlow": "e2e/editor.spec.js",
+    "failurePaths": "e2e/editor.spec.js"
+  }
+}

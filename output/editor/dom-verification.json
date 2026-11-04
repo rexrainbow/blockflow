@@ -1,0 +1,51 @@
+{
+  "feature": "DOM exporter and reusable interactive view",
+  "entries": [
+    "rtl-diagram/browser",
+    "rtl-diagram/dom"
+  ],
+  "unit": {
+    "passed": 255,
+    "command": "npm test"
+  },
+  "editor": {
+    "passed": 45,
+    "command": "npm run test:e2e"
+  },
+  "offlineEditor": {
+    "passed": 9,
+    "command": "npm run test:e2e:offline"
+  },
+  "domViewer": {
+    "passed": 8,
+    "command": "npm run test:e2e:dom"
+  },
+  "checks": [
+    "Normal, offline editor and standalone DOM example builds",
+    "62 JavaScript files syntax checked",
+    "Prettier",
+    "Canonical design tokens/owners",
+    "Strict premium audit: zero findings"
+  ],
+  "coverage": [
+    "Mouse and keyboard block/group/port/connection activation",
+    "on/off/once, reentrant once and listener failure isolation",
+    "Read-only event payloads and source/target identities",
+    "Stable connection selection/state after array reorder",
+    "Runtime state/value updates independent of static export",
+    "Atomic layout validation and markup/attribute safety",
+    "Pan/click distinction, zoom, keyboard focus reveal",
+    "Multiple independent views and idempotent destroy",
+    "Narrow accessibility and file:// offline startup"
+  ],
+  "example": "dist-dom/dom-viewer.html",
+  "docs": "docs/dom-viewer.md",
+  "screenshots": [
+    "output/editor/dom-viewer.png",
+    "output/editor/dom-viewer-narrow.png"
+  ],
+  "limitations": [
+    "Port-value badges do not participate in layout and may overlap in dense graphs",
+    "Domain-specific register forms, simulation and hardware access belong to the host application"
+  ]
+}

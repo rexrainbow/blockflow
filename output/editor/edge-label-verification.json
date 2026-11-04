@@ -1,0 +1,46 @@
+{
+  "feature": "Connection labels",
+  "unit": {
+    "command": "npm test",
+    "passed": 237
+  },
+  "browser": {
+    "command": "npm run test:e2e",
+    "passed": 41
+  },
+  "offline": {
+    "command": "npm run test:e2e:offline",
+    "passed": 7
+  },
+  "checks": [
+    "Syntax: 54 JavaScript files",
+    "Design tokens and canonical owners",
+    "Prettier",
+    "Strict premium audit: zero findings",
+    "Normal and offline builds"
+  ],
+  "coverage": [
+    "Label validation and per-property inheritance",
+    "Crossing and parallel route avoidance",
+    "Warning fallback retains visible text",
+    "Nested groups and final outer feedback routes",
+    "Staged alignment and labels in each round",
+    "Create/edit/clear and undo/redo",
+    "Style dialog cancel/commit/invalid field/keyboard",
+    "Preview label selection",
+    "SVG equality, PNG rasterization, file offline export",
+    "Narrow viewport and axe accessibility"
+  ],
+  "artifacts": [
+    "output/labels/connection-labels.svg",
+    "output/labels/connection-labels.png",
+    "output/labels/connection-labels.layout.json",
+    "output/editor/connection-labels.png",
+    "output/editor/connection-labels-narrow.png",
+    "output/editor/offline-connection-labels.png"
+  ],
+  "limitations": [
+    "Heuristic placement cannot guarantee clearance on every dense graph",
+    "Staged mode preserves its Y constraints; shared corridor reservation replaces ELK label dummy nodes"
+  ]
+}

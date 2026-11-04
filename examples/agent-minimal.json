@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Source to Sink"
+  },
+  "modules": [
+    {
+      "id": "Source",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Sink",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "Source.data",
+      "to": "Sink.data"
+    }
+  ],
+  "layout": {
+    "direction": "right"
+  }
+}

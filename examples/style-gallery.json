@@ -1,0 +1,247 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Portable styles: aligned pipeline, branches and feedback",
+    "style": {
+      "connection": {
+        "strokeColor": "#2563eb",
+        "strokeWidth": 3
+      },
+      "module": {
+        "borderColor": "#334155",
+        "borderWidth": 2,
+        "fillColor": "#f8fafc",
+        "label": {
+          "color": "#0f172a",
+          "fontSize": 18,
+          "backgroundColor": "#e2e8f0",
+          "padding": 5
+        },
+        "portLabel": {
+          "fontSize": 12,
+          "padding": 2
+        },
+        "inputPortLabel": {
+          "color": "#075985",
+          "backgroundColor": "#e0f2fe"
+        },
+        "outputPortLabel": {
+          "color": "#166534",
+          "backgroundColor": "#dcfce7"
+        }
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "A",
+      "label": "A / Source",
+      "style": {
+        "borderColor": "#2563eb",
+        "label": {
+          "color": "#ffffff",
+          "backgroundColor": "#2563eb"
+        }
+      },
+      "ports": [
+        {
+          "id": "feedback",
+          "direction": "input",
+          "width": 8,
+          "style": {
+            "color": "#b91c1c",
+            "backgroundColor": "#fee2e2"
+          }
+        },
+        {
+          "id": "b_out",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "e_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "label": "B / Decode",
+      "ports": [
+        {
+          "id": "b_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "c_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "label": "C / Execute",
+      "style": {
+        "fillColor": "#dbeafe80",
+        "fillOpacity": 0.8
+      },
+      "ports": [
+        {
+          "id": "c_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "d_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "label": "D / Collect",
+      "ports": [
+        {
+          "id": "c_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "e_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "f_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "feedback",
+          "direction": "output",
+          "width": 8,
+          "style": {
+            "color": "#b91c1c",
+            "backgroundColor": "#fee2e2",
+            "fontSize": 14
+          }
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "label": "E / Bypass",
+      "style": {
+        "borderColor": "#d97706",
+        "borderWidth": 3,
+        "borderStyle": "dashed",
+        "fillColor": "#fffbeb",
+        "label": {
+          "color": "#92400e",
+          "backgroundColor": "#fef3c7",
+          "fontSize": 16
+        },
+        "portLabel": {
+          "color": "#92400e",
+          "backgroundColor": "transparent"
+        }
+      },
+      "ports": [
+        {
+          "id": "e_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "d_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "F",
+      "label": "F / Auxiliary",
+      "style": {
+        "borderColor": "#7c3aed",
+        "borderWidth": 3,
+        "borderStyle": "dotted",
+        "borderOpacity": 0.8,
+        "label": {
+          "color": "#6d28d9",
+          "backgroundColor": "#ede9fe",
+          "backgroundOpacity": 0.7
+        },
+        "outputPortLabel": {
+          "color": "#6d28d9",
+          "backgroundColor": "#ede9fe"
+        }
+      },
+      "ports": [
+        {
+          "id": "d_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "A.b_out",
+      "to": "B.b_in"
+    },
+    {
+      "from": "B.c_out",
+      "to": "C.c_in"
+    },
+    {
+      "from": "C.d_out",
+      "to": "D.c_in"
+    },
+    {
+      "from": "A.e_out",
+      "to": "E.e_in",
+      "style": {
+        "strokeColor": "#d97706",
+        "lineStyle": "dashed",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "from": "E.d_out",
+      "to": "D.e_in",
+      "style": {
+        "strokeColor": "#d97706",
+        "lineStyle": "dashed",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "from": "F.d_out",
+      "to": "D.f_in",
+      "style": {
+        "strokeColor": "#7c3aed",
+        "lineStyle": "dotted",
+        "opacity": 0.75
+      }
+    },
+    {
+      "from": "D.feedback",
+      "to": "A.feedback",
+      "style": {
+        "strokeColor": "#dc2626",
+        "strokeWidth": 4,
+        "lineStyle": "dashed"
+      }
+    }
+  ],
+  "layout": {
+    "direction": "right",
+    "feedbackRouting": "outer"
+  }
+}

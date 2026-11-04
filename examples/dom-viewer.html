@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PortSketch · Interactive DOM viewer</title>
+    <script type="module" src="./dom-viewer.js"></script>
+  </head>
+  <body>
+    <main class="dom-demo">
+      <header class="demo-heading">
+        <div>
+          <p class="demo-eyebrow">PORTSKETCH / DOM EXPORT</p>
+          <h1>Interactive diagram</h1>
+        </div>
+        <p>Click a block, port or connection. Drag to pan; scroll to zoom.</p>
+      </header>
+      <nav id="demo-controls" class="demo-controls" aria-label="Diagram controls"></nav>
+      <div class="demo-workbench">
+        <section class="demo-panel" aria-label="Diagram">
+          <div id="viewer" class="demo-viewer" aria-busy="true"></div>
+        </section>
+        <section class="demo-panel demo-events" aria-labelledby="events-heading">
+          <h2 id="events-heading">Events</h2>
+          <p id="demo-status" role="status">Laying out diagram…</p>
+          <pre id="event-log" tabindex="0" aria-label="Recent view events"></pre>
+          <p class="demo-note">
+            Status colors and port values are display state. This example does not run a simulation.
+          </p>
+        </section>
+      </div>
+      <noscript>This example requires JavaScript.</noscript>
+    </main>
+  </body>
+</html>

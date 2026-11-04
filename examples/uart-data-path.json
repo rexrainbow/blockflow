@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "UART Data Path"
+  },
+  "modules": [
+    {
+      "id": "uart_rx",
+      "label": "UART RX",
+      "ports": [
+        {
+          "id": "clk",
+          "direction": "input"
+        },
+        {
+          "id": "reset",
+          "direction": "input"
+        },
+        {
+          "id": "rx",
+          "direction": "input"
+        },
+        {
+          "id": "data",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "valid",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "fifo",
+      "label": "FIFO",
+      "ports": [
+        {
+          "id": "clk",
+          "direction": "input"
+        },
+        {
+          "id": "reset",
+          "direction": "input"
+        },
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "write",
+          "direction": "input"
+        },
+        {
+          "id": "data_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "processor",
+      "label": "Processor",
+      "ports": [
+        {
+          "id": "clk",
+          "direction": "input"
+        },
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "result",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "uart_rx.data",
+      "to": "fifo.data"
+    },
+    {
+      "from": "uart_rx.valid",
+      "to": "fifo.write"
+    },
+    {
+      "from": "fifo.data_out",
+      "to": "processor.data"
+    }
+  ],
+  "layout": {
+    "direction": "right",
+    "routing": "orthogonal",
+    "moduleSpacing": 50,
+    "layerSpacing": 80
+  }
+}

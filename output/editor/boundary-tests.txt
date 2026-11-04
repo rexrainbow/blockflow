@@ -1,0 +1,31 @@
+✔ boundary ports validate nested faces and scopes without modifying input (3.585ms)
+✔ boundary validation rejects outer bypass (0.632ms)
+✔ boundary validation rejects inner bypass (0.3201ms)
+✔ boundary validation rejects wrong internal source (0.2895ms)
+✔ boundary validation rejects wrong internal target (0.2984ms)
+✔ boundary validation rejects wrong external target (0.2052ms)
+✔ boundary validation rejects wrong external source (0.2816ms)
+✔ boundary validation rejects width mismatch (0.2459ms)
+✔ boundary validation rejects multiple incoming drivers (0.2905ms)
+✔ boundary validation rejects invalid mode (0.2622ms)
+✔ boundary validation rejects duplicate port (0.2232ms)
+✔ boundary validation rejects invalid port label (0.3359ms)
+✔ boundary validation rejects inactive endpoint (0.2586ms)
+✔ direct groups retain inactive ports; boundary fanout and segment-only widths are allowed (1.0737ms)
+✔ group output endpoints still allow only one internal driver (0.2869ms)
+✔ native nested boundary routes and unused ports right (205.6496ms)
+✔ native nested boundary routes and unused ports left (44.7581ms)
+✔ empty boundary pass-through and external feedback preserve port order right (20.9755ms)
+✔ empty boundary pass-through and external feedback preserve port order left (31.9484ms)
+✔ outer feedback keeps internal boundary-scoped feedback inside its group (52.643ms)
+✔ boundary ports work beneath a Direct ancestor with mixed port heights and multiple outputs (54.5319ms)
+✔ group-only pass-through supports global exterior feedback routing (28.6567ms)
+✔ pass-through beside real children merges relay routes and retains connection labels (35.492ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 841.3647

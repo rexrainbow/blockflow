@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Nested boundary ports",
+    "style": {
+      "connection": {
+        "strokeColor": "#2563eb",
+        "label": {
+          "fontSize": 12,
+          "backgroundColor": "#ffffff",
+          "padding": 2
+        }
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "Source",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "Decode",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "Sink",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "Outer",
+      "label": "Processing subsystem",
+      "members": [
+        "Inner"
+      ],
+      "portMode": "boundary",
+      "ports": [
+        {
+          "id": "in",
+          "label": "Data\nin",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "spare",
+          "label": "Reserved",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "label": "Result",
+          "direction": "output",
+          "width": 8
+        }
+      ],
+      "style": {
+        "borderColor": "#2563eb",
+        "borderStyle": "solid",
+        "fillColor": "#eff6ff",
+        "portLabel": {
+          "fontSize": 12,
+          "color": "#1e40af"
+        }
+      }
+    },
+    {
+      "id": "Inner",
+      "label": "Decoder stage",
+      "members": [
+        "Decode"
+      ],
+      "portMode": "boundary",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 8
+        }
+      ],
+      "style": {
+        "borderColor": "#0f766e",
+        "fillColor": "#f0fdfa",
+        "inputPortLabel": {
+          "color": "#0f766e"
+        }
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "Source.out",
+      "to": "Outer.in",
+      "label": "Request"
+    },
+    {
+      "from": "Outer.in",
+      "to": "Inner.in"
+    },
+    {
+      "from": "Inner.in",
+      "to": "Decode.in"
+    },
+    {
+      "from": "Decode.out",
+      "to": "Inner.out"
+    },
+    {
+      "from": "Inner.out",
+      "to": "Outer.out"
+    },
+    {
+      "from": "Outer.out",
+      "to": "Sink.in",
+      "label": "Response"
+    }
+  ],
+  "layout": {
+    "direction": "right"
+  }
+}

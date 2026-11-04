@@ -1,0 +1,6 @@
+
+> rtl-diagram@0.1.0 format:check
+> prettier --check src/editor src/lib/browser.js src/lib/export/browser.js tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/view examples/dom-viewer.html examples/dom-viewer.js examples/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md
+
+Checking formatting...
+All matched files use Prettier code style!

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Direct Feedback"
+  },
+  "modules": [
+    {
+      "id": "counter",
+      "label": "Counter",
+      "ports": [
+        {
+          "id": "feedback",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "enable",
+          "direction": "input"
+        },
+        {
+          "id": "value",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "counter.value",
+      "to": "counter.feedback"
+    }
+  ]
+}

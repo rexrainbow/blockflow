@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3890" height="660" viewBox="-20 -20 3890 660">
+<rect x="-20" y="-20" width="3890" height="660" fill="#ffffff"/>
+<g fill="none" stroke-linejoin="round">
+<rect data-role="group" data-group="Outer" x="376.5" y="0.5" width="3089" height="619" fill="#eff6ff" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect data-role="group" data-group="Inner" x="905.5" y="145.5" width="1401" height="395" fill="#f0fdfa" fill-opacity="1" stroke="#0f766e" stroke-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-dasharray="4 2"/>
+<path d="M 140 327 L 376 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 376 327 L 513 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 677 327 L 905 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 905 327 L 1024 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1188 327 L 1528 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1188 327 L 1198 327 L 1198 438 L 1268 438" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1692 327 L 1772 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1448 438 L 1702 438 L 1702 351 L 1772 351" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1960 327 L 2307 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 2307 327 L 2631 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 376 327 L 493 327 L 493 551 L 2387 551" stroke="#64748b" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 2551 551 L 2561 551 L 2561 351 L 2631 351" stroke="#64748b" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 2851 327 L 2931 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 3095 327 L 3105 327 L 3105 361 L 3466 361" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 3466 361 L 3710 361" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 1960 327 L 1970 327 L 1970 398 L 2040 398" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 2180 398 L 2190 398 L 2190 472 L 1014 472 L 1014 351 L 1024 351" stroke="#b45309" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt" stroke-dasharray="6 3"/>
+<path d="M 3095 327 L 3175 327" stroke="#2563eb" stroke-opacity="1" stroke-width="2.5" stroke-linecap="butt"/>
+<path d="M 3315 327 L 3325 327 L 3325 134 L 503 134 L 503 351 L 513 351" stroke="#7c3aed" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt" stroke-dasharray="6 3"/>
+</g>
+<g>
+<rect x="0.5" y="267.5" width="139" height="83" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="1024.5" y="267.5" width="163" height="107" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="3710.5" y="301.5" width="139" height="83" fill="#ffffff" fill-opacity="1" stroke="#000000" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="513.5" y="267.5" width="163" height="107" fill="#f8fbff" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="2387.5" y="491.5" width="163" height="83" fill="#f8fbff" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="2631.5" y="267.5" width="219" height="107" fill="#f8fbff" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="2931.5" y="267.5" width="163" height="83" fill="#f8fbff" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="3175.5" y="267.5" width="139" height="83" fill="#f8fbff" fill-opacity="1" stroke="#2563eb" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="1528.5" y="267.5" width="163" height="83" fill="#ffffff" fill-opacity="1" stroke="#0f766e" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="1268.5" y="378.5" width="179" height="83" fill="#ffffff" fill-opacity="1" stroke="#0f766e" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="1772.5" y="267.5" width="187" height="107" fill="#ffffff" fill-opacity="1" stroke="#0f766e" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<rect x="2040.5" y="338.5" width="139" height="83" fill="#ffffff" fill-opacity="1" stroke="#0f766e" stroke-opacity="1" stroke-width="1" stroke-linecap="butt"/>
+<circle data-role="group-port" data-group="Outer" data-port="in" cx="376" cy="327" r="3" fill="#ffffff" stroke="#2563eb" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt"/>
+<circle data-role="group-port" data-group="Outer" data-port="spare" cx="376" cy="405" r="3" fill="#ffffff" stroke="#2563eb" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt"/>
+<circle data-role="group-port" data-group="Outer" data-port="out" cx="3466" cy="361" r="3" fill="#ffffff" stroke="#2563eb" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt"/>
+<circle data-role="group-port" data-group="Inner" data-port="in" cx="905" cy="327" r="3" fill="#ffffff" stroke="#0f766e" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt"/>
+<circle data-role="group-port" data-group="Inner" data-port="out" cx="2307" cy="327" r="3" fill="#ffffff" stroke="#0f766e" stroke-opacity="1" stroke-width="1.5" stroke-linecap="butt"/>
+</g>
+<g fill="#000000" font-family="monospace" font-size="12" dominant-baseline="central">
+<g data-role="connection-label" data-connection="connection_0">
+<rect data-role="label-background" x="228" y="297.75" width="60" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="258" y="308.75" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Request</text>
+</g>
+<g data-role="connection-label" data-connection="connection_2">
+<rect data-role="label-background" x="765" y="297.75" width="52" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="791" y="308.75" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Queued</text>
+</g>
+<g data-role="connection-label" data-connection="connection_4">
+<rect data-role="label-background" x="1324" y="297.75" width="68" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="1358" y="308.75" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Dispatch</text>
+</g>
+<g data-role="connection-label" data-connection="connection_7">
+<rect data-role="label-background" x="1642.75" y="408.75" width="44" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="1664.75" y="419.75" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Flags</text>
+</g>
+<g data-role="connection-label" data-connection="connection_9">
+<rect data-role="label-background" x="2431" y="297.75" width="76" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="2469" y="308.75" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Processed</text>
+</g>
+<g data-role="connection-label" data-connection="connection_10">
+<rect data-role="label-background" x="1268" y="558.25" width="52" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="1294" y="569.25" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Bypass</text>
+</g>
+<g data-role="connection-label" data-connection="connection_14">
+<rect data-role="label-background" x="3554" y="331.75" width="68" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="3588" y="342.75" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Response</text>
+</g>
+<g data-role="connection-label" data-connection="connection_16">
+<rect data-role="label-background" x="1533.25" y="443.25" width="44" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="1555.25" y="454.25" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Retry</text>
+</g>
+<g data-role="connection-label" data-connection="connection_18">
+<rect data-role="label-background" x="1892" y="105.25" width="44" height="22" fill="#ffffff" fill-opacity="1"/>
+<text x="1914" y="116.25" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Ready</text>
+</g>
+<text x="395" y="34" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Processing subsystem</text>
+<text x="924" y="179" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Decode / execute core</text>
+<text x="384" y="303" text-anchor="start" font-size="12" fill="#1e40af" fill-opacity="1" xml:space="preserve"><tspan x="384" y="294">Data</tspan><tspan x="384" y="312">in[7:0]</tspan></text>
+<text x="384" y="390" text-anchor="start" font-size="12" fill="#1e40af" fill-opacity="1" xml:space="preserve">Reserved</text>
+<text x="3458" y="346" text-anchor="end" font-size="12" fill="#1e40af" fill-opacity="1" xml:space="preserve">Result[7:0]</text>
+<text x="913" y="312" text-anchor="start" font-size="12" fill="#0f766e" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="2299" y="312" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="70" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Source</text>
+<text x="1106" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Decode</text>
+<text x="3780" y="319" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Sink</text>
+<text x="595" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Ingress</text>
+<text x="2469" y="509" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Bypass</text>
+<text x="2741" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">ResultMux</text>
+<text x="3013" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">OutputQueue</text>
+<text x="3245" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Monitor</text>
+<text x="1610" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Execute</text>
+<text x="1358" y="396" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Check</text>
+<text x="1866" y="285" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Join</text>
+<text x="2110" y="356" text-anchor="middle" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">Trace</text>
+<text x="130" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="1034" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="1178" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="1034" y="351" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">retry</text>
+<text x="3720" y="361" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="523" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="523" y="351" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">ready</text>
+<text x="667" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="2397" y="551" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="2541" y="551" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="2641" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">processed[7:0]</text>
+<text x="2641" y="351" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">bypass[7:0]</text>
+<text x="2841" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="2941" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="3085" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="3185" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="3305" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">ready</text>
+<text x="1538" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="1682" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="1278" y="438" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="1438" y="438" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">flags[7:0]</text>
+<text x="1782" y="327" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">data[7:0]</text>
+<text x="1782" y="351" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">flags[7:0]</text>
+<text x="1950" y="327" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">out[7:0]</text>
+<text x="2050" y="398" text-anchor="start" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">in[7:0]</text>
+<text x="2170" y="398" text-anchor="end" font-size="12" fill="#000000" fill-opacity="1" xml:space="preserve">retry</text>
+</g>
+</svg>

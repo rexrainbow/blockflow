@@ -1,0 +1,315 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "placement-stress"
+  },
+  "modules": [
+    {
+      "id": "A",
+      "label": "A",
+      "ports": [
+        {
+          "id": "aux_i0",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i1",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i2",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i3",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "feedback",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "b_out",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o1",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o2",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o3",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "e_out",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o5",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "label": "B",
+      "ports": [
+        {
+          "id": "b_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i1",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "b_out",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o1",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o2",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o3",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "label": "C",
+      "ports": [
+        {
+          "id": "aux_i0",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i1",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i2",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "c_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i4",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i5",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_o0",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "c_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "label": "D",
+      "ports": [
+        {
+          "id": "f_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i1",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i2",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "c_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i4",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i5",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "e_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_o0",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o1",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o2",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o3",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "feedback",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "label": "E",
+      "ports": [
+        {
+          "id": "aux_i0",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "e_in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_i2",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "aux_o0",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "e_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    },
+    {
+      "id": "F",
+      "label": "F",
+      "ports": [
+        {
+          "id": "aux_o0",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o1",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o2",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "aux_o3",
+          "direction": "output",
+          "width": 8
+        },
+        {
+          "id": "f_out",
+          "direction": "output",
+          "width": 8
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "A.b_out",
+      "to": "B.b_in"
+    },
+    {
+      "from": "B.b_out",
+      "to": "C.c_in"
+    },
+    {
+      "from": "C.c_out",
+      "to": "D.c_in"
+    },
+    {
+      "from": "A.e_out",
+      "to": "E.e_in"
+    },
+    {
+      "from": "E.e_out",
+      "to": "D.e_in"
+    },
+    {
+      "from": "F.f_out",
+      "to": "D.f_in"
+    },
+    {
+      "from": "D.feedback",
+      "to": "A.feedback"
+    }
+  ],
+  "layout": {
+    "direction": "right",
+    "placement": "default",
+    "moduleSpacing": 50,
+    "layerSpacing": 80
+  }
+}

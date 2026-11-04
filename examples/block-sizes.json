@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Mux with relative block sizes"
+  },
+  "modules": [
+    {
+      "id": "A",
+      "width": 1,
+      "height": 1,
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 1,
+      "height": 1,
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "width": 1,
+      "height": 1,
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Mux",
+      "width": 1.2,
+      "height": 3.5,
+      "ports": [
+        {
+          "id": "a",
+          "direction": "input"
+        },
+        {
+          "id": "b",
+          "direction": "input"
+        },
+        {
+          "id": "c",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "A.out",
+      "to": "Mux.a"
+    },
+    {
+      "from": "B.out",
+      "to": "Mux.b"
+    },
+    {
+      "from": "C.out",
+      "to": "Mux.c"
+    }
+  ],
+  "layout": {
+    "direction": "right"
+  }
+}
