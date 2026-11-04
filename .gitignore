@@ -4,6 +4,4 @@ test-results/
 playwright-report/
 .vite/
 
-dist-offline/
-
 dist-dom/
