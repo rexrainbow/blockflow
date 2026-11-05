@@ -501,9 +501,9 @@ test('legacy local drafts restore as once layout and discard obsolete field draf
   await page.reload();
   await ready(page);
   expect(await documentState(page)).toEqual(original);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('blockflow.editor.v1')).formDrafts)).toEqual(
-    [],
-  );
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('blockflow.editor.v1')).formDrafts),
+  ).toEqual([]);
 });
 
 test('Convert to boundary group preserves size, appearance and links, with atomic undo and group sizing', async ({
@@ -1097,6 +1097,97 @@ async function importJson(page, doc, filename = 'diagram.json') {
   if (await page.getByRole('button', { name: 'Switch document', exact: true }).isVisible())
     await page.getByRole('button', { name: 'Switch document', exact: true }).click();
 }
+
+async function dropJsonFiles(page, files, target = '#preview-host') {
+  const transfer = await page.evaluateHandle((files) => {
+    const transfer = new DataTransfer();
+    for (const file of files) {
+      transfer.items.add(
+        new File([file.text ?? ' '.repeat(file.size ?? 0)], file.name, { type: file.type ?? '' }),
+      );
+    }
+    return transfer;
+  }, files);
+  try {
+    expect(
+      await page
+        .locator(target)
+        .evaluate(
+          (element, transfer) =>
+            !element.dispatchEvent(
+              new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }),
+            ),
+          transfer,
+        ),
+    ).toBe(true);
+    await page.locator(target).dispatchEvent('drop', { dataTransfer: transfer });
+  } finally {
+    await transfer.dispose();
+  }
+}
+
+test('dropping JSON uses Open JSON validation, dirty confirmation, migration and undo', async ({ page }) => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/agent-minimal.json', import.meta.url), 'utf8'),
+  );
+  const legacy = structuredClone(input);
+  legacy.layout.orderMode = 'staged';
+  legacy.connections[0].order = 1;
+  await page.locator('#diagram-name').fill('Keep my edits');
+  await page.locator('#diagram-name').press('Enter');
+  await ready(page);
+  await previewOnly(page);
+  const before = await documentState(page);
+  const file = { name: 'diagram.JSON', text: JSON.stringify(legacy) };
+  const url = page.url();
+  await dropJsonFiles(page, [file], '.preview-canvas');
+  const dialog = page.getByRole('dialog', { name: 'Switch documents?', exact: true });
+  await expect(dialog).toBeVisible();
+  expect(await documentState(page)).toEqual(before);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await documentState(page)).toEqual(before);
+  await dropJsonFiles(page, [file]);
+  await dialog.getByRole('button', { name: 'Switch document', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(input);
+  expect(page.url()).toBe(url);
+  await expect(page.locator('#workspace')).toBeHidden();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(before);
+});
+
+test('file drops reject invalid files and preserve active dialog drafts', async ({ page }) => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/agent-minimal.json', import.meta.url), 'utf8'),
+  );
+  await page.locator('#diagram-name').fill('File drop recovery');
+  await page.locator('#diagram-name').press('Enter');
+  await ready(page);
+  const before = await documentState(page);
+  const valid = { name: 'diagram.json', text: JSON.stringify(input) };
+  for (const [files, message] of [
+    [[{ ...valid, name: 'diagram.txt' }], 'Drop a JSON file (.json)'],
+    [[valid, valid], 'Drop one JSON file at a time'],
+    [[{ name: 'broken.json', text: '{broken' }], 'Invalid JSON'],
+    [[{ name: 'invalid.json', text: '{"version":2}' }], 'Cannot open file'],
+    [[{ name: 'large.json', size: 5 * 1024 * 1024 + 1 }], 'exceeds 5 MB'],
+  ]) {
+    await dropJsonFiles(page, files, '#block-list');
+    await expect(page.locator('#message')).toContainText(message);
+    expect(await documentState(page)).toEqual(before);
+    await expect(page.getByRole('dialog')).toBeHidden();
+  }
+  await page.locator('.block-hit').first().dblclick();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('spinbutton', { name: 'Border width', exact: true }).fill('7');
+  await dropJsonFiles(page, [valid], '#editor-dialog');
+  await expect(page.locator('#message')).toContainText('Close the current dialog');
+  await expect(dialog.getByRole('spinbutton', { name: 'Border width', exact: true })).toHaveValue('7');
+  expect(await documentState(page)).toEqual(before);
+  await page.keyboard.press('Escape');
+  expect(await documentState(page)).toEqual(before);
+});
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');

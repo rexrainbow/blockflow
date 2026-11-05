@@ -316,6 +316,30 @@ test('portable folder opens as classic scripts and runs a Blob layout worker wit
   await page.screenshot({ path: 'output/editor/offline-startup.png' });
 });
 
+test('offline file drop opens JSON through the shared import workflow', async ({ page }) => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/agent-minimal.json', import.meta.url), 'utf8'),
+  );
+  const transfer = await page.evaluateHandle((text) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([text], 'dropped.json', { type: 'application/json' }));
+    return transfer;
+  }, JSON.stringify(input));
+  try {
+    const url = page.url();
+    await page.locator('#preview-host').dispatchEvent('dragover', { dataTransfer: transfer });
+    await page.locator('#preview-host').dispatchEvent('drop', { dataTransfer: transfer });
+    await expect(page.locator('#diagram-name')).toHaveValue(input.diagram.name);
+    await ready(page);
+    expect(page.url()).toBe(url);
+    const download = page.waitForEvent('download');
+    await command(page, 'file', 'Save JSON');
+    expect(JSON.parse(await readFile(await (await download).path(), 'utf8'))).toEqual(input);
+  } finally {
+    await transfer.dispose();
+  }
+});
+
 test('file editor supports Feedback, undo/redo, JSON/SVG/PNG downloads and draft restoration', async ({
   page,
 }) => {

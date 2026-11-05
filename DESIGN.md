@@ -44,6 +44,10 @@ Unresolved label clearance uses the existing preview message surface without blo
 
 ## Overview
 
+JSON file drops use the existing Open JSON workflow and notification/replacement dialog
+surfaces. Accept one file across the editor with a copy cursor, without adding a second
+import flow or changing internal drag/reorder visuals. Keep active dialog drafts intact.
+
 The audience is engineers building RTL block diagrams; the single job is to turn blocks and
 port connections into a useful, exportable diagram without writing JSON. This is a product
 tool, not a landing page. The user specified desktop-oriented settings beside a zoomable SVG.

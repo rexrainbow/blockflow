@@ -35,6 +35,14 @@ Document edits persist locally as a recoverable draft, not a cloud save. Storage
 show a persistent warning. JSON download marks a document saved. New/import/example replace
 documents only after an app dialog if unsaved, and remain recoverable with Undo.
 
+Dropping one JSON file anywhere inside the editor uses the same openFile pipeline as
+File > Open JSON: size limit, JSON parsing, legacy migration, model validation and dirty
+replacement confirmation. Prevent browser navigation on file drag/drop; use the copy cursor
+when available. Reject multiple files and unsupported file types through the existing notice
+without changing the document. Keep internal block/group/port/connection reordering separate.
+An open dialog retains its draft; ask the user to close it before accepting a dropped file.
+Only one file read runs at a time. The same behavior works in the offline build.
+
 Port width omitted means unknown (normalized null), not one bit. Only two explicit widths
 must match. One explicit side determines the connection's display width without changing
 the unknown port. No width inference across fanout. Inputs cannot have multiple drivers.

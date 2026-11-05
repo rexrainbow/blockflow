@@ -1770,7 +1770,8 @@ class Editor {
   }
 
   async openFile(file) {
-    if (!file) return;
+    if (!file || this.openingFile) return;
+    this.openingFile = true;
     try {
       if (file.size > 5 * 1024 * 1024) throw new Error('This JSON file exceeds 5 MB. Choose a smaller file.');
       const original = JSON.parse(await file.text());
@@ -1788,6 +1789,7 @@ class Editor {
         true,
       );
     } finally {
+      this.openingFile = false;
       this.root.querySelector('#file-input').value = '';
     }
   }
@@ -1857,6 +1859,35 @@ class Editor {
     }
   }
 
+  isFileDrag(event) {
+    return (
+      Array.from(event.dataTransfer?.types ?? []).includes('Files') ||
+      Boolean(event.dataTransfer?.files.length)
+    );
+  }
+
+  openDroppedFile(transfer) {
+    if (this.dialog.open) {
+      this.announce('Close the current dialog before opening a file.', true);
+      return;
+    }
+    if (this.openingFile) {
+      this.announce('A file is already being opened. Try again when it finishes.', true);
+      return;
+    }
+    const files = Array.from(transfer.files);
+    if (files.length !== 1) {
+      this.announce('Drop one JSON file at a time. Your current document is unchanged.', true);
+      return;
+    }
+    const file = files[0];
+    if (!/\.json$/i.test(file.name) && file.type !== 'application/json') {
+      this.announce('Drop a JSON file (.json). Your current document is unchanged.', true);
+      return;
+    }
+    this.openFile(file);
+  }
+
   dragEvents() {
     this.root.addEventListener('dragstart', (event) => {
       const handle = event.target.closest('[data-action="drag"]');
@@ -1871,6 +1902,11 @@ class Editor {
       handle.closest('[data-drop-kind]').classList.add('dragging');
     });
     this.root.addEventListener('dragover', (event) => {
+      if (this.isFileDrag(event)) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = this.dialog.open || this.openingFile ? 'none' : 'copy';
+        return;
+      }
       if (!this.dragData) return;
       const row = event.target.closest('[data-drop-kind]');
       if (!row) return;
@@ -1938,6 +1974,11 @@ class Editor {
     });
     this.root.addEventListener('drop', (event) => {
       event.preventDefault();
+      if (this.isFileDrag(event)) {
+        this.clearDrag();
+        this.openDroppedFile(event.dataTransfer);
+        return;
+      }
       const data = this.dragData;
       if (!data) return;
       const row = event.target.closest('[data-drop-kind]');

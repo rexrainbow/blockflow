@@ -1,5 +1,0 @@
-
-> rtl-diagram@0.1.0 check:design
-> node scripts/check-design.js
-
-Design color tokens and canonical capability ownership verified.

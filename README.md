@@ -23,6 +23,26 @@ Use `npm.cmd` in PowerShell to avoid changing the script execution policy. Other
 
 Generated examples are written to `output/`. They include a UART data path, direct feedback and feedback across three modules, with right/left variants, SVG, PNG at 2x scale and layout JSON.
 
+### Generated files
+
+`output/` is ignored by Git. It contains generated diagrams, layout JSON, comparison
+reports, browser screenshots and temporary offline test copies. These files are created
+locally and are not included in a fresh clone. Keep source examples in `examples/` and
+regenerate the outputs as needed after installing dependencies:
+
+| Command                          | Output directory            |
+| -------------------------------- | --------------------------- |
+| `npm.cmd run examples`           | `output/`                   |
+| `npm.cmd run examples:styles`    | `output/styles/`            |
+| `npm.cmd run compare:placement`  | `output/placement/`         |
+| `npm.cmd run compare:feedback`   | `output/feedback/`          |
+| `npm.cmd run compare:collapse`   | `output/boundary-collapse/` |
+| `npm.cmd run compare:collection` | `output/collection/`        |
+| `npm.cmd run compare:views`      | `output/group-view/`        |
+
+Browser tests create screenshots and test artifacts under `output/editor/`. Output paths
+mentioned below refer to local files available after running the corresponding command.
+
 ## Offline editor
 
 After installing the project's development dependencies, run:
@@ -51,6 +71,10 @@ npm.cmd run test:e2e:offline
 ```
 
 ## Web editor
+
+Drop a JSON file anywhere inside the editor to open it, using the same validation and
+unsaved-change confirmation as **File > Open JSON**. Drop one file at a time; this also
+works in the offline editor.
 
 - **Nested groups:** **Add group** at the bottom of the Blocks list creates a subgroup inside the selected group, or a root group when no group is selected. Group action menus also offer **Add subgroup** and **Move to group...**. Drag blocks and groups into another group or the root drop area. An item cannot move into itself or its descendants. Creating a group around a block preserves its parent location and connection endpoints.
 - List groups support **Collapse all / Expand all**. Searching blocks/groups shows matches and their ancestor paths. Selecting a search result or a member in the preview reveals and locates it in the list. Details shows a clickable full path. **Ungroup** promotes direct members to the original parent while retaining nested groups, blocks and connections; the operation supports Undo. Group names and **Style** settings for borders, backgrounds and titles are edited separately.
@@ -211,7 +235,7 @@ npm.cmd run examples:styles
 ```
 
 - [Complete JSON example](examples/style-gallery.json)
-- [Style gallery SVG](output/styles/style-gallery.svg) / [PNG](output/styles/style-gallery.png)
+- After running the command above, open `output/styles/style-gallery.svg` or `output/styles/style-gallery.png` locally.
 - [Style fields and inheritance rules](docs/agent-guide.md#optional-styles), with exact keys in the [JSON Schema](schema/blockflow.schema.json)
 
 `output/styles/` contains SVG, PNG at 2x scale and layout JSON. Custom fonts, bold/italic text, arrows, rounded corners, shadows, gradients and animation are not supported as portable style fields. Unknown style fields fail validation. An interactive DOM exporter is available separately, as described below.
@@ -251,11 +275,11 @@ The command runs three strategies on each of three diagrams: nine cases, all wit
 
 Unconnected `aux_i*` / `aux_o*` ports change row positions and block height. The complete feedback graph has six blocks and seven connections.
 
-Output is written to `output/placement/`. Start with the [comparison summary](output/placement/summary.md), or open the combined diagrams:
+After running `npm.cmd run compare:placement`, start with `output/placement/summary.md`, or open the combined diagrams locally:
 
-- [Branching and merging comparison](output/placement/placement-branch-comparison.svg)
-- [Complete feedback comparison](output/placement/placement-feedback-comparison.svg)
-- [Height and port stress comparison](output/placement/placement-stress-comparison.svg)
+- Branching and merging: `output/placement/placement-branch-comparison.svg`
+- Complete feedback: `output/placement/placement-feedback-comparison.svg`
+- Height and port stress: `output/placement/placement-stress-comparison.svg`
 
 Each case also produces SVG, PNG at 2x scale and layout JSON; combined diagrams use the same scale. The summary includes top/center Y ranges for A/B/C/D, bend counts, wire length and diagram dimensions. JSON includes per-connection metrics. Smaller Y ranges mean closer alignment. Width/height exclude the SVG's 20 px margin.
 
@@ -285,7 +309,7 @@ Generate paired ELK/exterior comparisons without overwriting each other:
 npm.cmd run compare:feedback
 ```
 
-- [Feedback bend and length summary](output/feedback/summary.md)
+After running the command above, open `output/feedback/summary.md` locally for feedback bend counts and wire lengths.
 
 See the generated summary for measurements from the current implementation. Exterior routing does not guarantee a shorter or smaller overall diagram.
 Web editor block keys are editable separately from display names. Renaming updates all connection
