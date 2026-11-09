@@ -1,5 +1,6 @@
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../lib/index.js';
 import { connectionKey } from '../state/commands.js';
+import { endpointLabel } from '../../lib/endpoints.js';
 
 self.addEventListener('message', async ({ data }) => {
   // ELK's bundled worker can assign self.onmessage internally. Keep our document
@@ -11,7 +12,7 @@ self.addEventListener('message', async ({ data }) => {
     for (const edge of layout.connections) {
       const connection = data.document.connections[Number(edge.id.slice('connection_'.length))];
       edge.editorKey = connectionKey(connection);
-      edge.editorLabel = `${connection.from} to ${connection.to}`;
+      edge.editorLabel = `${endpointLabel(connection.from)} to ${endpointLabel(connection.to)}`;
     }
     self.postMessage({ revision: data.revision, layout, svg: renderSvg(layout) });
   } catch (error) {

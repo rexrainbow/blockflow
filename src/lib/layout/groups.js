@@ -1,18 +1,29 @@
 import { ancestors, descendants } from '../hierarchy.js';
+import {portSide} from '../direction.js';
 import { textSize, textBounds, moduleGeometry, BLOCK_SIZE_UNIT } from '../geometry.js';
 
-export function groupGeometry(group) {
+export function groupGeometry(group, direction = 'right') {
+  if(direction==='down') {
+    const inset=18+group.style.borderWidth,label=textSize(group.label,group.style.label),title=group.style.label.hidden?0:label.height+2*group.style.label.padding+12;
+    const size=p=>{const t=textSize(p.displayName,p.style),pad=p.style.hidden?0:p.style.padding;return {width:t.width+2*pad,height:t.height+2*pad};};
+    const ports=group.ports??[];
+    const lane=side=>Math.max(0,...ports.filter(p=>p.direction===side).map(p=>size(p).height));
+    const column=side=>ports.filter(p=>p.direction===side).reduce((sum,p)=>sum+2*(size(p).width+6)+12,0);
+    const inputHeight=lane('input'),outputHeight=lane('output');
+    const top=inset+inputHeight+12+title+12,bottom=inset+outputHeight+24,left=Math.max(inset+12,label.width+2*(group.style.label.hidden?0:group.style.label.padding)+2*inset),right=inset+12;
+    return {inset,title,inputHeight,top,bottom,left,right,width:Math.max(180,(group.width??0)*BLOCK_SIZE_UNIT.width,label.width+2*(group.style.label.hidden?0:group.style.label.padding)+2*inset,left+right+Math.max(column('input'),column('output'))),height:Math.max((group.height??0)*BLOCK_SIZE_UNIT.height,top+bottom+84)};
+  }
   const label = textSize(group.label, group.style.label);
   const inset = 18 + group.style.borderWidth;
-  const title = label.height + 2 * group.style.label.padding + 12;
-  const basic={inset,title,width:Math.max(180,(group.width??0)*BLOCK_SIZE_UNIT.width,label.width+2*group.style.label.padding+2*inset),height:Math.max((group.height??0)*BLOCK_SIZE_UNIT.height,title+2*inset+32)};
+  const title = group.style.label.hidden?0:label.height + 2 * group.style.label.padding + 12;
+  const basic={inset,title,width:Math.max(180,(group.width??0)*BLOCK_SIZE_UNIT.width,label.width+2*(group.style.label.hidden?0:group.style.label.padding)+2*inset),height:Math.max((group.height??0)*BLOCK_SIZE_UNIT.height,title+2*inset+32)};
   if(group.portMode!=='boundary') return {...basic,top:inset+title,left:inset,right:inset,bottom:inset};
-  const ports=group.ports??[], measured=ports.map(port=>({port,...textSize(port.displayName,port.style)}));
-  const maxHeight=Math.max(0,...measured.map(item=>item.height+2*item.port.style.padding));
-  const lane=direction=>Math.max(0,...measured.filter(item=>item.port.direction===direction).map(item=>item.width+2*item.port.style.padding));
+  const ports=group.ports??[], measured=ports.map(port=>({port,...(!port.style.hidden?textSize(port.displayName,port.style):{width:0,height:0})}));
+  const maxHeight=Math.max(0,...measured.map(item=>item.height+(!item.port.style.hidden?2*item.port.style.padding:0)));
+  const lane=direction=>Math.max(0,...measured.filter(item=>item.port.direction===direction).map(item=>item.width+(!item.port.style.hidden?2*item.port.style.padding:0)));
   const top=inset+title+maxHeight+12,bottom=inset+12;
   const left=inset+lane('input')+24,right=inset+lane('output')+24;
-  const column=direction=>measured.filter(item=>item.port.direction===direction).reduce((sum,item)=>sum+2*(item.height+2*item.port.style.padding+6)+12,0);
+  const column=direction=>measured.filter(item=>item.port.direction===direction).reduce((sum,item)=>sum+2*(item.height+(!item.port.style.hidden?2*item.port.style.padding:0)+6)+12,0);
   return {...basic,top,bottom,left,right,width:Math.max(basic.width,left+right+140),height:Math.max(basic.height,top+bottom+Math.max(column('input'),column('output')))};
 }
 
@@ -24,17 +35,17 @@ export function applyGroups(graph, model) {
   const leaves = graph.children;
   for (const group of model.groups) {
     if (group.collapsed) {
-      const geometry=moduleGeometry(group);
+      const geometry=moduleGeometry(group, model.layout.direction);
       nodes.set(group.id,{id:group.id,width:geometry.width,height:geometry.height+(group.stackLayers??0)*6,
         layoutOptions:{'elk.portConstraints':'FIXED_POS'},
         ports:group.ports.map(port=>({id:group.id+'.'+port.id,width:0,height:0,
-          x:port.direction==='input'?0:geometry.width,y:geometry.rowCenters[port.order],
-          layoutOptions:{'elk.port.side':port.direction==='input'?'WEST':'EAST'},
+          x:geometry.portPoints[port.id].x,y:geometry.portPoints[port.id].y+(model.layout.direction==='down'&&port.direction==='output'?(group.stackLayers??0)*6:0),
+          layoutOptions:{'elk.port.side':portSide(model.layout.direction,port.direction==='input')},
         })),
       });
       continue;
     }
-    const { top,left,right,bottom,width,height } = groupGeometry(group);
+    const { top,left,right,bottom,width,height } = groupGeometry(group, model.layout.direction);
     nodes.set(group.id, { id: group.id, width, height,
       layoutOptions: {
         'elk.algorithm': 'layered', 'elk.direction': model.layout.direction.toUpperCase(),
@@ -44,13 +55,13 @@ export function applyGroups(graph, model) {
         'elk.layered.spacing.nodeNodeBetweenLayers': graph.layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'],
       },
       ...(group.portMode==='boundary'?{
-        ports:group.ports.map(port=>({id:group.id+'.'+port.id,width:0,height:2*(textSize(port.displayName,port.style).height+2*port.style.padding+6),
-          layoutOptions:{'elk.port.side':port.direction==='input'?'WEST':'EAST','elk.port.index':String(port.direction==='input'?group.ports.length-1-port.order:port.order)}})),
+        ports:group.ports.map(port=>({id:group.id+'.'+port.id,width:model.layout.direction==='down'?2*((!port.style.hidden?textSize(port.displayName,port.style).width+2*port.style.padding:0)+6):0,height:model.layout.direction==='down'?0:2*((!port.style.hidden?textSize(port.displayName,port.style).height+2*port.style.padding:0)+6),
+          layoutOptions:{'elk.port.side':portSide(model.layout.direction,port.direction==='input'),'elk.port.index':String(model.layout.direction==='down'?(port.direction==='input'?port.order:group.ports.length-1-port.order):(port.direction==='input'?group.ports.length-1-port.order:port.order))}})),
       }:{}),
     });
     if(group.portMode==='boundary') Object.assign(nodes.get(group.id).layoutOptions,{
       'elk.portConstraints':'FIXED_ORDER','elk.spacing.portPort':'12',
-      'elk.spacing.portsSurrounding':`[top=${top},left=0,bottom=${bottom},right=0]`,
+      'elk.spacing.portsSurrounding':model.layout.direction==='down'?`[top=0,left=${left},bottom=0,right=${right}]`:`[top=${top},left=0,bottom=${bottom},right=0]`,
       'elk.nodeSize.constraints':'[MINIMUM_SIZE,PORTS]',
     });
   }
@@ -64,8 +75,8 @@ export function applyGroups(graph, model) {
         // layout-only; absoluteGraph merges both halves back to one real edge.
         const owner=nodes.get(ref.scope),id='@relay:'+ref.id;
         owner.children.push({id,width:0,height:0,layoutOptions:{'elk.portConstraints':'FIXED_POS'},ports:[
-          {id:id+'.in',width:0,height:0,x:0,y:0,layoutOptions:{'elk.port.side':'WEST'}},
-          {id:id+'.out',width:0,height:0,x:0,y:0,layoutOptions:{'elk.port.side':'EAST'}},
+          {id:id+'.in',width:0,height:0,x:0,y:0,layoutOptions:{'elk.port.side':portSide(model.layout.direction,true)}},
+          {id:id+'.out',width:0,height:0,x:0,y:0,layoutOptions:{'elk.port.side':portSide(model.layout.direction,false)}},
         ]});
         owner.edges??=[];
         owner.edges.push({...edge,id:edge.id+'~in',targets:[id+'.in']},{...edge,id:edge.id+'~out',sources:[id+'.out'],labels:[]});
@@ -117,9 +128,9 @@ export function absoluteGraph(graph) {
 export function groupResults(model, nodes) {
   return [...(model.groups ?? [])].sort((a, b) => ancestors(model, a.id).length - ancestors(model, b.id).length).map(group => {
     const node = nodes.get(group.id);
-    const { inset, title } = groupGeometry(group);
-    const geometry=group.collapsed?moduleGeometry(group):null;
-    const labelPosition = geometry ? {x:node.x+node.width/2,y:node.y+geometry.titleY,anchor:'middle'} : { x: node.x + inset + group.style.label.padding, y: node.y + inset + title / 2, anchor: 'start' };
+    const { inset, title, inputHeight=0 } = groupGeometry(group, model.layout.direction);
+    const geometry=group.collapsed?moduleGeometry(group, model.layout.direction):null;
+    const labelPosition = geometry ? {x:node.x+geometry.titleX,y:node.y+geometry.titleY,anchor:'middle'} : { x: node.x + inset + (group.style.label.hidden?0:group.style.label.padding), y: node.y + inset + title / 2 + (model.layout.direction==='down'?inputHeight+12:0), anchor: 'start' };
     return { ...structuredClone(group), blockIds: [...descendants(model, group.id)].filter(id => model.modules.some(module => module.id === id)), depth: ancestors(model, group.id).length, x: node.x, y: node.y, width: node.width, height: node.height,
       labelPosition, labelBounds: textBounds(group.label, labelPosition, group.style.label),
       ...(group.stackLayers!==undefined?{faceHeight:geometry.height}:{}),
@@ -127,9 +138,11 @@ export function groupResults(model, nodes) {
         const placed=node.ports.find(item=>item.id===group.id+'.'+port.id);
         const x=node.x+placed.x+(placed.width??0)/2,y=node.y+placed.y+(placed.height??0)/2;
         const size=textSize(port.displayName,port.style);
-        const offset=(geometry?.portInset??8)+port.style.padding;
-        const labelPosition={x:x+(port.direction==='input'?offset:-offset),y:geometry?y:y-size.height/2-port.style.padding-6,anchor:port.direction==='input'?'start':'end'};
-        return {...structuredClone(port),x,y,labelPosition,labelBounds:textBounds(port.displayName,labelPosition,port.style)};
+        const visible=!port.style.hidden;
+        const offset=(geometry?.portInset??8)+(visible?port.style.padding:0);
+        const local=geometry?.portLabels?.[port.id];
+        const labelPosition=model.layout.direction==='down'?(local?{...local,x:node.x+local.x,y:node.y+local.y}:{x:x+(visible?8+size.width/2+port.style.padding:0),y:y+(port.direction==='input'?1:-1)*(8+(visible?size.height/2+port.style.padding:0)),anchor:'middle'}):{x:x+(port.direction==='input'?offset:-offset),y:geometry||!visible?y:y-size.height/2-port.style.padding-6,anchor:port.direction==='input'?'start':'end'};
+        return {...structuredClone(port),x,y,labelPosition,labelBounds:visible?textBounds(port.displayName,labelPosition,port.style):{x,y,width:0,height:0}};
       }):[],
     };
   });
@@ -139,24 +152,22 @@ export function groupResults(model, nodes) {
  * Repair only affected columns, with short orthogonal joins beside the wall.
  * Group padding reserves these lanes, so internal joins stay outside children.
  */
-export function preserveGroupPortOrder(groups, connections) {
-  const moved=new Map();
+export function preserveGroupPortOrder(groups, connections, flow = 'right') {
+  const down=flow==='down',axis=down?'x':'y',cross=down?'y':'x',moved=new Map();
   for(const group of groups) for(const direction of ['input','output']) {
     if(group.collapsed) continue;
     const ports=group.ports.filter(port=>port.direction===direction);
-    if(ports.every((port,i)=>!i||port.y>ports[i-1].y)) continue;
-    const geometry=groupGeometry(group);
-    const half=port=>textSize(port.displayName,port.style).height+2*port.style.padding+6;
-    const available=group.height-geometry.top-geometry.bottom;
-    const free=available-ports.reduce((sum,port)=>sum+2*half(port),0);
+    if(ports.every((port,i)=>!i||port[axis]>ports[i-1][axis])) continue;
+    const geometry=groupGeometry(group,flow);
+    const half=port=>(!port.style.hidden?textSize(port.displayName,port.style)[down?'width':'height']+2*port.style.padding:0)+6;
+    const leading=geometry[down?'left':'top'],trailing=geometry[down?'right':'bottom'];
+    const free=group[down?'width':'height']-leading-trailing-ports.reduce((sum,p)=>sum+2*half(p),0);
     const gap=Math.max(12,free/(ports.length+1));
-    let cursor=group.y+geometry.top+Math.max(0,(free-gap*(ports.length-1))/2);
+    let cursor=group[axis]+leading+Math.max(0,(free-gap*(ports.length-1))/2);
     for(const port of ports) {
-      const previous={x:port.x,y:port.y};
-      const y=cursor+half(port),dy=y-port.y;
-      port.y=y;port.labelPosition.y+=dy;port.labelBounds.y+=dy;
-      moved.set(group.id+'.'+port.id,{previous,port});
-      cursor=y+half(port)+gap;
+      const previous={x:port.x,y:port.y},value=cursor+half(port),delta=value-port[axis];
+      port[axis]=value;port.labelPosition[axis]+=delta;port.labelBounds[axis]+=delta;
+      moved.set(group.id+'.'+port.id,{previous,port});cursor=value+half(port)+gap;
     }
   }
   const same=(a,b)=>Math.abs(a.x-b.x)<1e-6&&Math.abs(a.y-b.y)<1e-6;
@@ -166,10 +177,9 @@ export function preserveGroupPortOrder(groups, connections) {
       const points=start?section.points:[...section.points].reverse();
       if(!same(points[0],move.previous)) continue;
       const next=points[1];
-      if(Math.abs(next.y-move.previous.y)>1e-6||Math.abs(next.x-move.previous.x)<1e-6)
-        throw new Error('Expected horizontal group port departure');
-      const x=move.previous.x+Math.sign(next.x-move.previous.x)*Math.min(6,Math.abs(next.x-move.previous.x)/2);
-      const joined=[{x:move.port.x,y:move.port.y},{x,y:move.port.y},{x,y:move.previous.y},...points.slice(1)];
+      if(Math.abs(next[axis]-move.previous[axis])>1e-6||Math.abs(next[cross]-move.previous[cross])<1e-6) throw new Error('Expected flow-aligned group port departure');
+      const elbow=move.previous[cross]+Math.sign(next[cross]-move.previous[cross])*Math.min(6,Math.abs(next[cross]-move.previous[cross])/2);
+      const joined=[{x:move.port.x,y:move.port.y},{[cross]:elbow,[axis]:move.port[axis]},{[cross]:elbow,[axis]:move.previous[axis]},...points.slice(1)];
       section.points=start?joined:joined.reverse();
     }
   }

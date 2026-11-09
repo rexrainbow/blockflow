@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Hidden label styles",
+    "style": { "module": { "portLabel": { "hidden": true } } }
+  },
+  "terminals": [
+    {
+      "id": "ExternalInput",
+      "label": "Hidden external input",
+      "direction": "input",
+      "width": 8,
+      "style": { "hidden": true }
+    },
+    { "id": "ExternalOutput", "direction": "output", "width": 8 }
+  ],
+  "modules": [
+    {
+      "id": "Processor",
+      "label": "Hidden processor name",
+      "style": { "label": { "hidden": true } },
+      "ports": [
+        { "id": "in", "direction": "input", "width": 8 },
+        { "id": "out", "direction": "output", "width": 8, "style": { "hidden": false } }
+      ]
+    }
+  ],
+  "groups": [{ "id": "Frame", "members": ["Processor"], "style": { "label": { "hidden": true } } }],
+  "connections": [
+    {
+      "from": { "terminal": "ExternalInput" },
+      "to": "Processor.in",
+      "label": "Hidden connection name",
+      "style": { "label": { "hidden": true } }
+    },
+    { "from": "Processor.out", "to": { "terminal": "ExternalOutput" }, "label": "Visible output" }
+  ]
+}

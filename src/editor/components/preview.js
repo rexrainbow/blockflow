@@ -180,7 +180,11 @@ export class Preview {
     const node = element.closest('[data-module]');
     if (node)
       return {
-        kind: this.layout?.groups?.some((group) => group.id === node.dataset.module) ? 'group' : 'module',
+        kind: this.layout?.terminals?.some((item) => item.id === node.dataset.module)
+          ? 'terminal'
+          : this.layout?.groups?.some((group) => group.id === node.dataset.module)
+            ? 'group'
+            : 'module',
         id: node.dataset.module,
       };
     const edge = element.closest('[data-edge]');
@@ -341,9 +345,11 @@ export class Preview {
       .querySelectorAll('.connection-selection-outline, .connection-selection-halo')
       .forEach((item) => item.remove());
     this.world.querySelectorAll('.selection-outline').forEach((item) => item.remove());
-    const node = [...(this.layout?.modules ?? []), ...(this.layout?.groups ?? [])].find(
-      (module) => module.id === id,
-    );
+    const node = [
+      ...(this.layout?.modules ?? []),
+      ...(this.layout?.groups ?? []),
+      ...(this.layout?.terminals ?? []),
+    ].find((module) => module.id === id);
     if (!node) return;
     const rect = document.createElementNS(NS, 'rect');
     for (const [key, value] of Object.entries({
@@ -422,10 +428,12 @@ export class Preview {
       this.lastClick = null;
       this.doubleClickTarget = null;
     }
-    const nextItems = [...layout.modules, ...(layout.groups ?? [])];
-    const survivors = [...(previous?.modules ?? []), ...(previous?.groups ?? [])].filter((m) =>
-      nextItems.some((n) => n.id === m.id),
-    );
+    const nextItems = [...layout.modules, ...(layout.groups ?? []), ...(layout.terminals ?? [])];
+    const survivors = [
+      ...(previous?.modules ?? []),
+      ...(previous?.groups ?? []),
+      ...(previous?.terminals ?? []),
+    ].filter((m) => nextItems.some((n) => n.id === m.id));
     const center = {
       x: (this.host.clientWidth / 2 - this.x) / this.scale,
       y: (this.host.clientHeight / 2 - this.y) / this.scale,
@@ -509,6 +517,16 @@ export class Preview {
         hit.append(rect, circle);
         this.world.append(hit);
       }
+    for (const terminal of layout.terminals ?? []) {
+      const hit = document.createElementNS(NS, 'rect');
+      for (const key of ['x', 'y', 'width', 'height']) hit.setAttribute(key, terminal[key]);
+      hit.classList.add('terminal-hit');
+      hit.dataset.module = terminal.id;
+      hit.setAttribute('tabindex', '0');
+      hit.setAttribute('role', 'button');
+      hit.setAttribute('aria-label', 'Select terminal ' + terminal.label);
+      this.world.append(hit);
+    }
     this.renderGroupControls();
     if (reset || !previous) this.fit();
     else if (anchor) {

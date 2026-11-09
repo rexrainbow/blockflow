@@ -26,6 +26,17 @@ function routeCost(sections) {
 
 /** Post-placement exterior routing. All geometry here is locally owned by layout. */
 export function routeOuterFeedback(result, model) {
+  if(model.layout.direction==='down') {
+    const point=p=>({x:p.y,y:p.x}),box=b=>({...b,x:b.y,y:b.x,width:b.height,height:b.width});
+    const node=n=>({...box(n),ports:(n.ports??[]).map(p=>({...p,...point(p)})),labelBounds:box(n.labelBounds),headerObstacle:box({...n,height:n.labelBounds.y+n.labelBounds.height-n.y+8})});
+    const projected={modules:result.modules.map(node),groups:(result.groups??[]).map(node),connections:result.connections.map(e=>({...e,sections:e.sections.map(s=>({points:s.points.map(point)}))}))};
+    routeOuterFeedback(projected,{...model,layout:{...model.layout,direction:'right',feedbackSide:({left:'top',right:'bottom',auto:'auto'})[model.layout.feedbackSide??'auto']}});
+    for(const [i,edge] of projected.connections.entries()) {
+      result.connections[i].sections=edge.sections.map(s=>({points:s.points.map(point)}));
+      if(edge.routingInfo) result.connections[i].routingInfo={...edge.routingInfo,...(edge.routingInfo.side?{side:edge.routingInfo.side==='top'?'left':'right'}:{}),...(edge.routingInfo.waypoints?{waypoints:edge.routingInfo.waypoints.map(point)}:{})};
+    }
+    return;
+  }
   const { modules, connections } = result;
   const boundsNodes = [...modules, ...(result.groups ?? [])];
   if(!boundsNodes.length) return;
@@ -43,6 +54,7 @@ export function routeOuterFeedback(result, model) {
   };
   const candidates = connections.filter(connection => {
     const ref=refs.get(connection.id);
+    if(ref.source.terminal!==undefined||ref.target.terminal!==undefined) {connection.routingInfo={method:'elk',reason:'terminal'};return false;}
     if(model.rootGroupId || ref.boundaryScoped) {connection.routingInfo={method:'elk',reason:model.rootGroupId?'group-view':'boundary-scope'};return false;}
     const { source, target } = endpoints(connection);
     return source.x > target.x + EPSILON;
@@ -57,7 +69,8 @@ export function routeOuterFeedback(result, model) {
     const extraStroke = Math.max(0, halfStroke - (connection.width > 1 ? 1.25 : 0.75));
     const margin = (model.layout.feedbackMargin ?? 20) + lane * (model.layout.feedbackLaneSpacing ?? 12) + extraStroke;
     const right = bounds.right + margin, left = bounds.left - margin;
-    const routes = ['top', 'bottom'].map(side => {
+    const preferred=model.layout.feedbackSide??'auto';
+    const routes = (preferred==='auto'?['top','bottom']:[preferred]).map(side => {
       const y = side === 'top' ? bounds.top - margin : bounds.bottom + margin;
       // The two corners constrain the exterior main segment; elbow points
       // preserve eastbound output departure and eastbound input arrival.
@@ -72,7 +85,7 @@ export function routeOuterFeedback(result, model) {
         const endpoint = refs.get(connection.id);
         const terminal = (i === 0 && (node.id === endpoint.source.moduleId || (node.blockIds ?? node.members)?.includes(endpoint.source.moduleId)))
           || (i === points.length - 2 && (node.id === endpoint.target.moduleId || (node.blockIds ?? node.members)?.includes(endpoint.target.moduleId)));
-        if (terminal && node.members && !node.collapsed) return crossesInterior(points[i], b, { ...node, height: node.labelBounds.y + node.labelBounds.height - node.y + 8 });
+        if (terminal && node.members && !node.collapsed) return crossesInterior(points[i], b, node.headerObstacle ?? { ...node, height: node.labelBounds.y + node.labelBounds.height - node.y + 8 });
         const obstacle = terminal || extraStroke === 0 ? node : {
           x: node.x - halfStroke, y: node.y - halfStroke,
           width: node.width + 2 * halfStroke, height: node.height + 2 * halfStroke,

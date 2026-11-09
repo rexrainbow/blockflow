@@ -11,6 +11,96 @@ const portable = new URL('../output/editor/offline copy \u6e2c\u8a66/', import.m
 const fileUrl = new URL('index.html', portable).href;
 const feedbackFile = fileURLToPath(new URL('../examples/feedback-priority.json', import.meta.url));
 
+test('offline Flow switches vertical geometry and saves direction with mapped feedback', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/vertical-flow.json', import.meta.url)));
+  await ready(page);
+  const flow = page.getByRole('combobox', { name: 'Flow direction', exact: true });
+  await expect(flow).toHaveValue('down');
+  await flow.selectOption('right');
+  await ready(page);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const saved = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(saved.layout.direction).toBe('right');
+  expect(saved.layout.feedbackSide).toBe('top');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  await expect(flow).toHaveValue('down');
+});
+
+test('offline Concat example imports abstract and sized paths and exports bars', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/concat.json', import.meta.url)));
+  await ready(page);
+  await expect(page.locator('[data-appearance="bar"]')).toHaveCount(2);
+  const event = page.waitForEvent('download');
+  await command(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await event).path(), 'utf8');
+  expect(svg.match(/data-appearance="bar"/g)).toHaveLength(2);
+  expect((await sharp(Buffer.from(svg)).png().toBuffer()).length).toBeGreaterThan(1000);
+});
+
+test('offline hidden terminal text can be restored with the shared style control', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/hidden-labels.json', import.meta.url)));
+  await ready(page);
+  await page.locator('.terminal-hit[data-module="ExternalInput"]').dblclick();
+  await page.getByRole('combobox', { name: 'Hidden', exact: true }).selectOption('false');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  expect(await page.locator('#preview-host svg text').allTextContents()).toContain(
+    'Hidden external input[7:0]',
+  );
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const saved = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(saved.terminals[0].style.hidden).toBe(false);
+  expect(saved.terminals[0].label).toBe('Hidden external input');
+});
+
+test('offline signal schematic retains appearances, arrow geometry and feedback side in exports', async ({
+  page,
+}) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/signal-schematic.json', import.meta.url)));
+  await ready(page);
+  await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(4);
+  await expect(page.locator('[data-appearance="stacked"]')).toHaveCount(2);
+  const event = page.waitForEvent('download');
+  await command(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await event).path(), 'utf8');
+  expect(svg.match(/data-role="connection-arrow"/g)).toHaveLength(4);
+  expect(svg).toContain('data-appearance="stacked"');
+  expect(svg).not.toContain('>out<');
+  expect((await sharp(Buffer.from(svg)).png().toBuffer()).length).toBeGreaterThan(1000);
+});
+
+test('offline terminals retain object endpoints and support Preview label editing', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/terminals.json', import.meta.url)));
+  await ready(page);
+  await expect(page.locator('.terminal-hit')).toHaveCount(5);
+  await page.locator('.terminal-hit[data-module="OverlayIn"]').click({ button: 'right' });
+  await page
+    .locator('#preview-actions-menu')
+    .getByRole('button', { name: 'Edit label…', exact: true })
+    .click();
+  await page.getByRole('textbox', { name: 'Label', exact: true }).fill('Offline\ninput');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await ready(page);
+  const download = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const saved = JSON.parse(await readFile(await (await download).path(), 'utf8'));
+  expect(saved.terminals[0].label).toBe('Offline\ninput');
+  expect(saved.connections[0].from).toEqual({ terminal: 'OverlayIn' });
+});
+
 test('offline Group view expands hidden contents for scoped SVG while JSON retains the full graph', async ({
   page,
 }) => {

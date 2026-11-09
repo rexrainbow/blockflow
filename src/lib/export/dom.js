@@ -210,7 +210,11 @@ class DiagramView {
       });
     for (const group of (layout.groups ?? []).filter((group) => !group.collapsed))
       add('group', group.id, group.id, group, group, 'Select group ' + compact(group.label), [
-        rectangle(group.labelBounds),
+        rectangle(
+          group.style.label.hidden
+            ? { x: group.x, y: group.y, width: group.width, height: 18 + group.style.borderWidth }
+            : group.labelBounds,
+        ),
       ]);
     for (const edge of layout.connections)
       add(
@@ -232,6 +236,16 @@ class DiagramView {
           .filter((port) => port.virtual)
           .map((port) => this.node('circle', { cx: port.x, cy: port.y, r: 7, class: 'hit-area' })),
       ]);
+    for (const terminal of layout.terminals ?? [])
+      add(
+        'terminal',
+        terminal.id,
+        terminal.id,
+        terminal,
+        terminal,
+        'Select terminal ' + compact(terminal.label),
+        [rectangle(terminal)],
+      );
     for (const block of layout.modules) {
       add('block', block.id, block.id, block, block, 'Select block ' + compact(block.label), [
         rectangle({ x: block.x, y: block.y, width: block.width, height: block.height }),

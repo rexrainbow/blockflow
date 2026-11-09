@@ -27,17 +27,17 @@ export function checkLayout(model, layout) {
   assert.deepEqual(layout.connections.map(c => c.id), model.connections.map(c => c.id));
   const anchors = new Map();
   for (const [i, module] of layout.modules.entries()) {
-    assert.ok(module.width >= 140 && module.height > 0);
+    assert.ok(module.width > 0 && module.height > 0);
     assert.ok(module.x >= 0 && module.y >= 0);
     assert.ok(module.x + module.width <= layout.width + 1e-6);
     assert.ok(module.y + module.height <= layout.height + 1e-6);
     assert.deepEqual(module.ports.map(p => p.id), model.modules[i].ports.map(p => p.id));
     const geometry = moduleGeometry(model.modules[i]);
-    assert.ok(samePoint(module.labelPosition, { x: module.x + module.width / 2, y: module.y + geometry.titleY }));
+    assert.ok(samePoint(module.labelPosition, { x: module.x + geometry.titleX, y: module.y + geometry.titleY }));
     for (const port of module.ports) {
       const expected = model.modules[i].ports.find(p => p.id === port.id);
       assert.ok(near(port.x, module.x + (port.direction === 'input' ? 0 : module.width)));
-      assert.ok(near(port.y, module.y + geometry.rowCenters[expected.order]));
+      assert.ok(near(port.y, module.y + geometry.portPoints[expected.id].y));
       assert.ok(near(port.labelPosition.y, port.y));
       anchors.set(`${module.id}.${port.id}`, port);
     }

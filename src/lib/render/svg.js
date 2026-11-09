@@ -25,12 +25,21 @@ export function renderSvg(layout) {
       const d = section.points.map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
       lines.push(`<path d="${d}" ${stroke}/>`);
     }
+    if(connection.arrow) lines.push(`<polygon data-role="connection-arrow" points="${connection.arrow.points.map(p=>`${p.x},${p.y}`).join(' ')}" ${fillAttributes(style.strokeColor,style.opacity)} stroke="none"/>`);
   }
   lines.push('</g>', '<g>');
   for (const module of [...layout.modules,...(layout.groups??[]).filter(group=>group.collapsed)]) {
     const style = { ...BLOCK_STYLE, ...module.style };
     // The entire border fits inside the module's outer bounds and port anchors.
     const inset = style.borderWidth / 2;
+    if(module.body) {
+      lines.push(`<g data-role="block-body" data-appearance="${escape(module.body.type)}" transform="translate(${module.x} ${module.y})">`);
+      for(const shape of module.body.shapes) {
+        const geometry=shape.kind==='rect'?`x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}"`:`points="${shape.points.map(p=>`${p.x},${p.y}`).join(' ')}"`;
+        lines.push(`<${shape.kind==='rect'?'rect':'polygon'} ${geometry} stroke-linejoin="round" ${fillAttributes(style.fillColor,style.fillOpacity)} ${strokeAttributes(style.borderColor,style.borderOpacity,style.borderWidth,style.borderStyle)}/>`);
+      }
+      lines.push('</g>');continue;
+    }
     // Backing cards stay within the reserved footprint and leave both port sides clear.
     for(let layer=module.stackLayers??0;layer>0;layer--) {
       const offset=layer*6;
@@ -42,6 +51,7 @@ export function renderSvg(layout) {
   lines.push('</g>', '<g fill="#000000" font-family="monospace" font-size="12" dominant-baseline="central">');
   function text(value, position, bounds, partial) {
     const style = { ...TEXT_STYLE, ...partial };
+    if (style.hidden) return;
     const background = paint(style.backgroundColor, style.backgroundOpacity);
     if (background.opacity > 0) {
       if (!bounds) throw new Error('Text background requires labelBounds from layout');
@@ -58,6 +68,11 @@ export function renderSvg(layout) {
     lines.push('</g>');
   }
   for (const group of layout.groups ?? []) text(group.label, group.labelPosition, group.labelBounds, group.style.label);
+  for(const terminal of layout.terminals??[]) {
+    lines.push(`<g data-role="terminal" data-terminal="${escape(terminal.id)}">`);
+    text(terminal.displayName,terminal.labelPosition,terminal.labelBounds,terminal.style);
+    lines.push('</g>');
+  }
   for(const group of layout.groups??[]) for(const port of group.ports??[]) text(port.displayName,port.labelPosition,port.labelBounds,port.style);
   for (const module of layout.modules) text(module.label, module.labelPosition, module.labelBounds, module.style?.label);
   for (const module of layout.modules) for (const port of module.ports) text(port.displayName, port.labelPosition, port.labelBounds, port.style);

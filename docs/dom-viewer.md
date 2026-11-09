@@ -52,6 +52,7 @@ preventing other listeners. Async handlers manage their own rejected promises.
 | `blockclick`      | `id`, `key`, `data`                                                                               |
 | `groupclick`      | `id`, `key`, `data`                                                                               |
 | `portclick`       | `id` (full `owner.port`), `key`, `ownerId`, `ownerType`, `blockId` or `groupId`, `portId`, `data` |
+| `terminalclick`   | `id`, `key`, `data`                                                                               |
 | `connectionclick` | `id`, `key`, `source`, `target`, `data`                                                           |
 | `backgroundclick` | No target                                                                                         |
 | `selectionchange` | `selection`, `previous`, `reason` (`api`, `interaction`, `layout`)                                |
@@ -64,7 +65,17 @@ selection. State, layout and viewport notifications use null. These notification
 the view's selection or navigation. `data` is the
 target's layout record. A port's `data` contains its label, direction, width and position;
 its ID remains independent of its display name. `source` and `target` use
-`{ moduleId, portId }`. Layout results now include these endpoint records on connections.
+`{ moduleId, portId }` for ports or `{ terminal: id }` for external terminals.
+Layout results include these endpoint records on connections.
+
+External terminals appear in `layout.terminals` as text-only targets. Use
+`view.getElement('terminal', id)` and `view.select({ type: 'terminal', id })`.
+Activating one emits `terminalclick` with `id`, `key`, `data` and the normal originalEvent.
+Terminal layout records carry geometric width/height, signal `bitWidth`, `anchor` and text
+bounds/style. Connection keys use `@terminal:ID` for terminal ends, such as
+`@terminal:OverlayIn->TGEN.overlay_in`, and remain stable across array reordering.
+These keys are view identities, not raw JSON references. Group views omit root terminal
+targets; selection/state pruning follows normal setLayout behavior.
 
 Boundary group ports are ordinary `port` targets using `Group.port` IDs. Their descriptors
 include `ownerType: "group"`, `ownerId` and `groupId`; block ports include
@@ -191,8 +202,21 @@ See `examples/collection-instances.json`.
 
 ### Scoped layouts
 
+Ordinary block appearance bodies (Stacked and Trapezoid), hidden port labels and connection
+destination arrows use the shared layout/SVG geometry. Block selection includes the complete
+appearance footprint. Hidden labels keep their real port hit targets and identities; arrows
+remain part of their owning connection. See `examples/block-appearances.json`.
+
 Pass the optional second argument {rootGroupId: 'Inner'} to layoutDiagram(model), then use
 that result with mountDiagram/exportDom/setLayout as usual. The result's rootGroupId records
 the scope. Original port IDs and connection endpoint keys remain stable; targets outside
 the view are pruned through normal setLayout behavior. A surviving group port retains
 ownerType group, selection and runtime values. The whole source must be validated first.
+
+### Vertical flow
+
+Layouts produced with `layout.direction: "down"` retain horizontal text, top/bottom port
+anchors, left-to-right port order and horizontal Concat bars. The viewer uses those computed
+bodies, labels and routes directly. Port/connection keys and event payload identities do not
+change when relaying out another direction. Use `setLayout(nextLayout, {fit: true})` to fit
+a new axis explicitly. See `examples/vertical-flow.json`.

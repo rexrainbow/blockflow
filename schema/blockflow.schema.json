@@ -56,6 +56,13 @@
         "$ref": "#/$defs/group"
       },
       "description": "Optional hierarchical groups. Members reference block or group IDs. Each item has at most one parent; cycles are rejected. Unlisted items remain at root."
+    },
+    "terminals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/terminal"
+      },
+      "description": "Root external inputs and outputs. IDs share the block/group namespace. Each connected terminal must connect to a real block or boundary-group port."
     }
   },
   "$defs": {
@@ -64,9 +71,21 @@
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$(?![\\s\\S])"
     },
     "endpoint": {
-      "type": "string",
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$(?![\\s\\S])",
-      "description": "Existing ownerId.portId, where owner is a block or boundary group. Block sources are outputs and targets are inputs. Group inputs send inward and receive from outside; group outputs receive inward and send outside. Cross each enabled boundary through its ports."
+      "anyOf": [
+        {
+          "$ref": "#/$defs/portEndpoint"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["terminal"],
+          "properties": {
+            "terminal": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      ]
     },
     "text": {
       "type": "string",
@@ -125,6 +144,11 @@
         },
         "backgroundOpacity": {
           "$ref": "#/$defs/opacity"
+        },
+        "hidden": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide text, background and width notation without reserving text space. The owning object and endpoints remain."
         }
       }
     },
@@ -182,6 +206,11 @@
         },
         "label": {
           "$ref": "#/$defs/textStyle"
+        },
+        "endArrow": {
+          "enum": ["none", "triangle"],
+          "default": "none",
+          "description": "Arrow at the connection target, using line color and opacity."
         }
       }
     },
@@ -215,8 +244,62 @@
         "height": {
           "$ref": "#/$defs/positive",
           "description": "Optional relative minimum height, measured against a shared fixed block-size unit (1). Omit for Auto. Does not scale text, strokes or padding. Port width remains bit width."
+        },
+        "appearance": {
+          "$ref": "#/$defs/appearance",
+          "description": "Optional geometric appearance. Omit for Rectangle on ordinary blocks or Bar on Concat. Appearance does not change module semantics."
+        },
+        "type": {
+          "enum": ["block", "concat"],
+          "default": "block",
+          "description": "Concat combines inputs in array order, first input at the high end. Requires one or more inputs and exactly one output. Width sum is checked only when every port has an explicit width; widths are never inferred."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "concat"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "ports": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "properties": {
+                        "direction": {
+                          "const": "input"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "minContains": 1,
+                    "type": "array"
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "direction": {
+                          "const": "output"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "minContains": 1,
+                    "maxContains": 1,
+                    "type": "array"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "port": {
       "type": "object",
@@ -274,8 +357,9 @@
       "additionalProperties": false,
       "properties": {
         "direction": {
-          "enum": ["right", "left"],
-          "default": "right"
+          "enum": ["right", "down", "left"],
+          "default": "right",
+          "description": "Flow direction. Right and Down are offered in the editor; Left remains available for existing documents."
         },
         "routing": {
           "const": "orthogonal",
@@ -289,7 +373,7 @@
         "feedbackRouting": {
           "enum": ["elk", "outer"],
           "default": "elk",
-          "description": "outer requires right direction and attempts exterior AABB routes, falling back to ELK when access is blocked."
+          "description": "outer requires right or down direction and attempts exterior AABB routes, falling back to ELK when access is blocked."
         },
         "feedbackMargin": {
           "$ref": "#/$defs/positive",
@@ -306,8 +390,41 @@
         "layerSpacing": {
           "$ref": "#/$defs/positive",
           "default": 80
+        },
+        "feedbackSide": {
+          "enum": ["auto", "top", "bottom", "left", "right"],
+          "default": "auto",
+          "description": "Exterior side: auto/top/bottom for horizontal flow, auto/left/right for down. Only used by outer routing; blocked access keeps the ELK route."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "direction": {
+                "const": "down"
+              }
+            },
+            "required": ["direction"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "feedbackSide": {
+                "enum": ["auto", "left", "right"]
+              }
+            }
+          },
+          "else": {
+            "type": "object",
+            "properties": {
+              "feedbackSide": {
+                "enum": ["auto", "top", "bottom"]
+              }
+            }
+          }
+        }
+      ]
     },
     "group": {
       "type": "object",
@@ -483,6 +600,94 @@
         }
       ],
       "description": "Non-blank XML-compatible display text. LF line breaks are supported; CRLF is normalized to LF."
+    },
+    "portEndpoint": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$(?![\\s\\S])",
+      "description": "Existing ownerId.portId, where owner is a block or boundary group. Block sources are outputs and targets are inputs. Group inputs send inward and receive from outside; group outputs receive inward and send outside. Cross each enabled boundary through its ports."
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "direction"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "direction": {
+          "enum": ["input", "output"],
+          "description": "Direction relative to the diagram: input sends inward; output receives from inside. Inputs appear left and outputs right."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Omit for unknown width. Explicit null is invalid. Compare widths only when both endpoints specify them."
+        },
+        "style": {
+          "$ref": "#/$defs/textStyle"
+        },
+        "label": {
+          "$ref": "#/$defs/displayText",
+          "description": "Optional display name; omit to follow the port ID. Width notation is appended to the last line."
+        }
+      }
+    },
+    "appearance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "rectangle"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "stacked"
+            },
+            "layers": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3,
+              "default": 2
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "trapezoid"
+            },
+            "rightHeightRatio": {
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 1,
+              "default": 0.6
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "bar"
+            }
+          }
+        }
+      ]
     }
   },
   "anyOf": [

@@ -4,6 +4,112 @@ import { readFile } from 'node:fs/promises';
 import { convertToBoundaryGroup } from '../src/editor/state/commands.js';
 const file = new URL('../dist-dom/dom-viewer.html', import.meta.url).href;
 
+test('vertical geometry keeps DOM port activation and connection selection through direction changes', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/vertical-flow.json', import.meta.url), 'utf8'));
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    view.getElement('port', 'Combine.high').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const port = view.selection;
+    view.select({ type: 'connection', key: 'Combine.out->Stage.in' });
+    raw.layout.direction = 'right';
+    raw.layout.feedbackSide = 'top';
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    return { port, selection: view.selection };
+  }, raw);
+  expect(result.port).toMatchObject({ type: 'port', key: 'Combine.high' });
+  expect(result.selection).toMatchObject({ type: 'connection', key: 'Combine.out->Stage.in' });
+});
+
+test('Concat bar keeps block and port identity in the DOM viewer', async ({ page }) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/concat.json', import.meta.url), 'utf8'));
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    view.getElement('block', 'Combine').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const selection = view.selection;
+    view.getElement('port', 'Combine.high').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return {
+      selection,
+      port: view.selection,
+      type: view.layout.modules.find((m) => m.id === 'Combine').type,
+    };
+  }, raw);
+  expect(result.selection).toMatchObject({ type: 'block', key: 'Combine' });
+  expect(result.port).toMatchObject({ type: 'port', key: 'Combine.high' });
+  expect(result.type).toBe('concat');
+  await expect(page.locator('[data-appearance="bar"]')).toHaveCount(2);
+});
+
+test('hidden labels retain DOM terminal, group and port targets without invisible text', async ({ page }) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/hidden-labels.json', import.meta.url), 'utf8'));
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    const activate = (kind, id) => {
+      view.getElement(kind, id).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return view.selection;
+    };
+    return {
+      terminal: activate('terminal', 'ExternalInput'),
+      group: activate('group', 'Frame'),
+      port: activate('port', 'Processor.in'),
+      terminalWidth: view.getElement('terminal', 'ExternalInput').querySelector('rect').getAttribute('width'),
+      groupWidth: view.getElement('group', 'Frame').querySelector('rect').getAttribute('width'),
+    };
+  }, raw);
+  expect(result.terminal).toMatchObject({ type: 'terminal', key: 'ExternalInput' });
+  expect(result.group).toMatchObject({ type: 'group', key: 'Frame' });
+  expect(result.port).toMatchObject({ type: 'port', key: 'Processor.in' });
+  expect(Number(result.terminalWidth)).toBeGreaterThan(0);
+  expect(Number(result.groupWidth)).toBeGreaterThan(0);
+  expect(await page.locator('svg text').allTextContents()).not.toContain('Hidden external input[7:0]');
+});
+
+test('appearance bodies and arrows mount in DOM and retain block selection', async ({ page }) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/block-appearances.json', import.meta.url), 'utf8'),
+  );
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    view.getElement('block', 'Bank').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return { selection: view.selection, body: view.layout.modules.find((m) => m.id === 'Mux').body.type };
+  }, raw);
+  expect(result.selection).toMatchObject({ type: 'block', key: 'Bank' });
+  expect(result.body).toBe('trapezoid');
+  await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(2);
+  await expect(page.locator('[data-appearance="stacked"] rect')).toHaveCount(3);
+});
+
+test('terminal DOM targets emit terminalclick and keep endpoint identities when reordered', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    let terminal;
+    view.once(
+      'terminalclick',
+      (event) => (terminal = { id: event.id, type: event.type, data: event.data.direction }),
+    );
+    view.getElement('terminal', 'OverlayIn').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const selection = view.selection;
+    view.select({ type: 'connection', key: '@terminal:OverlayIn->TGEN.overlay_in' });
+    const edge = view.selection;
+    raw.connections.reverse();
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)));
+    return { terminal, selection, edge, after: view.selection };
+  }, raw);
+  expect(result.terminal).toMatchObject({ id: 'OverlayIn', type: 'terminalclick', data: 'input' });
+  expect(result.selection).toMatchObject({ type: 'terminal', key: 'OverlayIn' });
+  expect(result.edge.source).toEqual({ terminal: 'OverlayIn' });
+  expect(result.after.key).toBe(result.edge.key);
+});
+
 test('Group view layouts mount with original boundary port identities and prune external targets', async ({
   page,
 }) => {

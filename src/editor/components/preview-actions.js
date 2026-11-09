@@ -1,10 +1,22 @@
 import { groupType } from '../../lib/group-type.js';
 
 // The toolbar disclosure and pointer/keyboard context menu share these definitions.
-export function previewActions(group, rootGroupId = null) {
+export function previewActions(group, rootGroupId = null, kind = null) {
   return [
     { action: 'preview-style', label: 'Edit style…', handler: 'openPreviewStyle' },
     { action: 'preview-label', label: 'Edit label…', handler: 'openPreviewLabel' },
+    {
+      action: 'preview-terminal',
+      label: 'Edit terminal…',
+      handler: 'openTerminalDetails',
+      hidden: kind !== 'terminal',
+    },
+    {
+      action: 'preview-delete-terminal',
+      label: 'Delete terminal',
+      handler: 'deleteTerminal',
+      hidden: kind !== 'terminal',
+    },
     {
       action: 'preview-view-contents',
       label: 'View contents',

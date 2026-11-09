@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "diagram": { "name": "Vertical signal composition", "style": { "connection": { "endArrow": "triangle" } } },
+  "layout": { "direction": "down", "feedbackRouting": "outer", "feedbackSide": "left" },
+  "terminals": [
+    { "id": "FunctionInput", "label": "Function input", "direction": "input", "width": 16 },
+    { "id": "OverlayInput", "label": "Overlay input", "direction": "input", "width": 16 },
+    { "id": "Output", "direction": "output", "width": 32 }
+  ],
+  "modules": [
+    {
+      "id": "Source",
+      "ports": [
+        { "id": "in", "direction": "input", "width": 16 },
+        { "id": "feedback", "direction": "input", "width": 16 },
+        { "id": "out", "direction": "output", "width": 16 }
+      ]
+    },
+    {
+      "id": "Function",
+      "appearance": { "type": "stacked", "layers": 2 },
+      "ports": [
+        { "id": "in", "direction": "input", "width": 16 },
+        { "id": "out", "direction": "output", "width": 16 }
+      ]
+    },
+    {
+      "id": "Overlay",
+      "appearance": { "type": "trapezoid", "rightHeightRatio": 0.6 },
+      "ports": [
+        { "id": "in", "direction": "input", "width": 16 },
+        { "id": "out", "direction": "output", "width": 16 }
+      ]
+    },
+    {
+      "id": "Combine",
+      "type": "concat",
+      "label": "Concat",
+      "style": { "label": { "hidden": true }, "portLabel": { "hidden": true } },
+      "ports": [
+        { "id": "high", "direction": "input", "width": 16 },
+        { "id": "low", "direction": "input", "width": 16 },
+        { "id": "out", "direction": "output", "width": 32 }
+      ]
+    },
+    {
+      "id": "Mux",
+      "ports": [
+        { "id": "in", "direction": "input", "width": 32 },
+        { "id": "out", "direction": "output", "width": 32 }
+      ]
+    },
+    {
+      "id": "Bank",
+      "ports": [
+        { "id": "in", "direction": "input", "width": 32 },
+        { "id": "feedback", "direction": "output", "width": 16 }
+      ]
+    }
+  ],
+  "groups": [
+    { "id": "Frontend", "label": "Input processing", "members": ["Function", "Overlay", "Combine"] },
+    {
+      "id": "Stage",
+      "label": "Selection stage",
+      "type": "boundary",
+      "members": ["Mux"],
+      "ports": [
+        { "id": "in", "direction": "input", "width": 32 },
+        { "id": "out", "direction": "output", "width": 32 }
+      ]
+    }
+  ],
+  "connections": [
+    { "from": { "terminal": "FunctionInput" }, "to": "Source.in" },
+    { "from": "Source.out", "to": "Function.in" },
+    { "from": { "terminal": "OverlayInput" }, "to": "Overlay.in" },
+    { "from": "Function.out", "to": "Combine.high", "label": "High part" },
+    { "from": "Overlay.out", "to": "Combine.low", "label": "Low part" },
+    { "from": "Combine.out", "to": "Stage.in", "label": "Combined bus" },
+    { "from": "Stage.in", "to": "Mux.in" },
+    { "from": "Mux.out", "to": "Stage.out" },
+    { "from": "Stage.out", "to": "Bank.in" },
+    { "from": "Stage.out", "to": { "terminal": "Output" } },
+    { "from": "Bank.feedback", "to": "Source.feedback", "feedback": true, "label": "Feedback" }
+  ]
+}

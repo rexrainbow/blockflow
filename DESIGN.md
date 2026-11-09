@@ -288,6 +288,17 @@ interface copy and document styles.
 
 ## Preview editing actions
 
+External terminals reuse text typography and the Preview hit/selection layer, without
+block frames or port lists. External inputs occupy the left and outputs the right; retain
+per-side document order. Measure multiline text/padding before routing. The Connections
+footer owns Add terminal; Add connection offers New external input/output through the
+shared terminal dialog and returns to the preserved connection draft. No new workspace tab
+or separate terminal list. Terminal details reuse field/textarea/select adapters and the
+owned modal, with atomic Save/Cancel and inline errors. Preview's shared actions expose
+Edit style, Edit label, Edit terminal and Delete terminal only where applicable. Text style
+reuses the existing Style dialog. Invalid/stale editing, focus restoration, view/camera,
+Undo and offline behavior follow existing owners. Reuse primary hover/focus tokens.
+
 Preview's toolbar disclosure and pointer/Shift+F10 context menu use one action definition
 in components/preview-actions.js. Right-click selects the target before opening the menu.
 Block, group and edge targets offer Edit style… and Edit label…; group navigation and
@@ -331,3 +342,25 @@ all selection/Style interactions. First entry fits; subsequent entries restore t
 camera with logical anchoring through geometry changes and host resizes. View state is
 session UI state, outside JSON/history, and resets on document replacement/reload. SVG/PNG
 export the current view; Save JSON retains the full project. No new visual tokens.
+
+## Block appearances and signal notation
+
+Preview's Flow is a native select beside View using the same preview-view-control styling.
+Keep Left to right / Top to bottom readable and allow the header to wrap on narrow screens.
+Layout settings shares the value and shows axis-appropriate exterior feedback sides. Reuse
+existing status, Undo and fit/camera behavior. Down changes geometry and port rows, never
+rotates glyphs or introduces a separate canvas/menu. Concat becomes a horizontal bar.
+
+Concat uses the canonical block list footer's Add Concat button and the existing block
+detail/Port/Style controls. Keep footer wrapping at narrow widths. Reuse native selects,
+text-style inheritance, field-help guidance and standard validation/status surfaces. Its
+default Bar is a compact rectangular body, with ordered inputs on the left and a centered
+output on the right. Hidden text can make it a thin bar without removing accessible names.
+
+Reuse the shared transactional Style modal and its existing Block/Group/Line tabs. Native
+Appearance selects Rectangle, Stacked or Trapezoid; reveal only its relevant numeric field
+with units/range/default help. Use the existing style-grid, field errors and focus handling.
+Hidden text and End arrow use explicit inheritance selects; Layout settings owns diagram
+visibility/arrow defaults and Auto/Top/Bottom exterior feedback side. Preserve existing
+spacing, tokens and responsive dialog scrolling. Draw trusted shape primitives and arrow
+triangles through shared SVG geometry, with no editor-only controls in image exports.

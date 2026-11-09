@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "diagram": { "name": "TGEN external interfaces" },
+  "modules": [
+    {
+      "id": "TGEN",
+      "label": "TGEN\nBank x2",
+      "height": 2,
+      "style": { "portLabel": { "opacity": 0 } },
+      "ports": [
+        { "id": "overlay_in", "direction": "input" },
+        { "id": "external_in", "direction": "input" },
+        { "id": "overlay_out", "direction": "output" },
+        { "id": "interrupts", "direction": "output" },
+        { "id": "interconnections", "direction": "output" }
+      ]
+    }
+  ],
+  "terminals": [
+    { "id": "OverlayIn", "direction": "input", "label": "Overlay-input" },
+    { "id": "ExternalIn", "direction": "input", "label": "External-input" },
+    { "id": "OverlayOut", "direction": "output", "label": "Overlay-output\nOverlay-direction" },
+    { "id": "Interrupts", "direction": "output", "label": "Interrupts" },
+    { "id": "Interconnections", "direction": "output", "label": "Interconnections" }
+  ],
+  "connections": [
+    { "from": { "terminal": "OverlayIn" }, "to": "TGEN.overlay_in" },
+    { "from": { "terminal": "ExternalIn" }, "to": "TGEN.external_in" },
+    { "from": "TGEN.overlay_out", "to": { "terminal": "OverlayOut" } },
+    { "from": "TGEN.interrupts", "to": { "terminal": "Interrupts" } },
+    { "from": "TGEN.interconnections", "to": { "terminal": "Interconnections" } }
+  ]
+}

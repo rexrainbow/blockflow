@@ -8,6 +8,7 @@ import {
 export { portOwner } from '../../lib/connectivity.js';
 import { parentOf, canPlace } from '../../lib/hierarchy.js';
 import { createDiagramModel } from '../../lib/model.js';
+import { endpointKey, endpointFromKey } from '../../lib/endpoints.js';
 
 export function emptyDocument() {
   return {
@@ -20,7 +21,33 @@ export function emptyDocument() {
 }
 
 export function connectionKey(connection) {
-  return `${connection.from}->${connection.to}`;
+  return `${endpointKey(connection.from)}->${endpointKey(connection.to)}`;
+}
+
+export function saveTerminal(document, previous, terminal) {
+  const candidate = structuredClone(document);
+  const index = candidate.terminals?.findIndex((item) => item.id === previous) ?? -1;
+  if (previous && index < 0) throw new Error('This terminal is no longer available.');
+  if (index >= 0) candidate.terminals[index] = terminal;
+  else {
+    candidate.terminals ??= [];
+    candidate.terminals.push(terminal);
+  }
+  if (previous && previous !== terminal.id)
+    for (const edge of candidate.connections ?? [])
+      for (const end of ['from', 'to'])
+        if (edge[end]?.terminal === previous) edge[end] = { terminal: terminal.id };
+  validateDocument(candidate);
+  document.terminals = candidate.terminals;
+  if (candidate.connections) document.connections = candidate.connections;
+}
+
+export function removeTerminal(document, id) {
+  document.terminals = (document.terminals ?? []).filter((item) => item.id !== id);
+  if (!document.terminals.length) delete document.terminals;
+  document.connections = (document.connections ?? []).filter(
+    (edge) => edge.from?.terminal !== id && edge.to?.terminal !== id,
+  );
 }
 
 export function validateDocument(document) {
@@ -47,9 +74,26 @@ export function assertId(id, existing, previous) {
     throw new Error('This name already exists. Choose another name.');
 }
 
-export function addModule(document) {
-  const id = nextId([...document.modules, ...(document.groups ?? [])], 'block');
-  document.modules.push({ id, ports: [] });
+export function addModule(document, type = 'block') {
+  const id = nextId(
+    [...document.modules, ...(document.groups ?? []), ...(document.terminals ?? [])],
+    type === 'concat' ? 'concat' : 'block',
+  );
+  document.modules.push(
+    type === 'concat'
+      ? {
+          id,
+          type,
+          label: 'Concat',
+          ports: [
+            { id: 'a', direction: 'input' },
+            { id: 'b', direction: 'input' },
+            { id: 'out', direction: 'output' },
+          ],
+          style: { label: { hidden: true }, portLabel: { hidden: true } },
+        }
+      : { id, ports: [] },
+  );
   return id;
 }
 
@@ -57,6 +101,9 @@ export function addModule(document) {
 export function convertToBoundaryGroup(document, id) {
   const block = document.modules.find((module) => module.id === id);
   if (!block) throw new Error('This block is no longer available.');
+  if (block.type === 'concat') throw new Error('Concat cannot be converted to a boundary group.');
+  if (block.appearance && block.appearance.type !== 'rectangle')
+    throw new Error('Choose Rectangle appearance before converting this block to a boundary group.');
   if ((document.groups ?? []).some((group) => group.id === id))
     throw new Error('This key is already used by a group.');
   if (!block.ports?.length) throw new Error('Add at least one port before converting this block.');
@@ -72,6 +119,7 @@ export function convertToBoundaryGroup(document, id) {
     collapsed: true,
     style: { ...structuredClone(block.style ?? {}), ...normalized.style },
   };
+  delete group.appearance;
   const modules = document.modules.filter((module) => module !== block),
     groups = [...(document.groups ?? []), group];
   const problems = boundaryConnectionProblems({ ...document, modules, groups });
@@ -87,9 +135,11 @@ export function renameModule(document, previous, value) {
   const module = document.modules.find((item) => item.id === previous);
   if (!module) throw new Error('This block is no longer available.');
   const used = new Set(
-    [...document.modules.filter((item) => item.id !== previous), ...(document.groups ?? [])].map(
-      (item) => item.id,
-    ),
+    [
+      ...document.modules.filter((item) => item.id !== previous),
+      ...(document.groups ?? []),
+      ...(document.terminals ?? []),
+    ].map((item) => item.id),
   );
   let id = requested;
   let suffix = 2;
@@ -101,7 +151,8 @@ export function renameModule(document, previous, value) {
     const prefix = `${previous}.`;
     for (const connection of document.connections ?? []) {
       for (const end of ['from', 'to']) {
-        if (connection[end].startsWith(prefix)) connection[end] = id + connection[end].slice(previous.length);
+        if (typeof connection[end] === 'string' && connection[end].startsWith(prefix))
+          connection[end] = id + connection[end].slice(previous.length);
       }
     }
   }
@@ -112,11 +163,17 @@ export function removeModule(document, id) {
   document.modules = document.modules.filter((module) => module.id !== id);
   for (const group of document.groups ?? []) group.members = group.members.filter((member) => member !== id);
   document.connections = (document.connections ?? []).filter(
-    (c) => !c.from.startsWith(`${id}.`) && !c.to.startsWith(`${id}.`),
+    (c) => !endpointKey(c.from).startsWith(`${id}.`) && !endpointKey(c.to).startsWith(`${id}.`),
   );
 }
 
 export function addPort(module, direction) {
+  if (
+    module.type === 'concat' &&
+    direction === 'output' &&
+    module.ports.some((p) => p.direction === 'output')
+  )
+    throw new Error('Concat has exactly one output.');
   module.ports ??= [];
   const id = nextId(module.ports, direction === 'input' ? 'in' : 'out');
   module.ports.push({ id, direction });
@@ -125,6 +182,13 @@ export function addPort(module, direction) {
 
 export function removePort(document, moduleId, portId) {
   const module = portOwner(document, moduleId);
+  const port = module.ports.find((p) => p.id === portId);
+  if (
+    module.type === 'concat' &&
+    port &&
+    (port.direction === 'output' || module.ports.filter((p) => p.direction === 'input').length === 1)
+  )
+    throw new Error('Concat requires at least one input and exactly one output.');
   module.ports = module.ports.filter((port) => port.id !== portId);
   const ref = `${moduleId}.${portId}`;
   document.connections = (document.connections ?? []).filter((c) => c.from !== ref && c.to !== ref);
@@ -161,7 +225,7 @@ export function movePort(module, direction, from, to) {
 }
 
 export function endpoints(document, direction) {
-  return [...document.modules, ...boundaryGroups(document)].flatMap((owner) =>
+  const ports = [...document.modules, ...boundaryGroups(document)].flatMap((owner) =>
     (owner.ports ?? [])
       .filter((port) => groupType(owner) === 'boundary' || port.direction === direction)
       .map((port) => ({
@@ -175,13 +239,32 @@ export function endpoints(document, direction) {
         width: port.width ?? null,
       })),
   );
+  return [
+    ...ports,
+    ...(document.terminals ?? [])
+      .filter((item) => item.direction === (direction === 'output' ? 'input' : 'output'))
+      .map((item) => ({
+        ref: endpointKey({ terminal: item.id }),
+        label: `External ${item.direction}: ${item.label ?? item.id} [${item.id}]`.replace(
+          /\s*\r?\n\s*/g,
+          ' / ',
+        ),
+        width: item.width ?? null,
+      })),
+  ];
 }
 
 export function targetReason(document, sourceRef, targetRef, excluding = -1) {
+  sourceRef = typeof sourceRef === 'string' ? endpointFromKey(sourceRef) : sourceRef;
+  targetRef = typeof targetRef === 'string' ? endpointFromKey(targetRef) : targetRef;
   const pair = createConnectionContext(document).resolve(sourceRef, targetRef);
   if (pair.error)
     return pair.error.startsWith('Unknown port') ? 'Select a valid source and target.' : pair.error;
-  if ((document.connections ?? []).some((edge, i) => i !== excluding && edge.to === targetRef))
+  if (
+    (document.connections ?? []).some(
+      (edge, i) => i !== excluding && endpointKey(edge.to) === endpointKey(targetRef),
+    )
+  )
     return 'Input already connected';
   const a = pair.source.port.width ?? null,
     b = pair.target.port.width ?? null;
@@ -257,7 +340,10 @@ export function groupOf(document, id) {
 }
 
 export function addGroup(document, member, parent = member ? groupOf(document, member) : '') {
-  const id = nextId([...document.modules, ...(document.groups ?? [])], 'group');
+  const id = nextId(
+    [...document.modules, ...(document.groups ?? []), ...(document.terminals ?? [])],
+    'group',
+  );
   document.groups ??= [];
   document.groups.push({ id, members: [] });
   if (parent) placeBlock(document, id, parent);
@@ -270,7 +356,7 @@ export function removeGroup(document, id) {
   if (!removed) return;
   if (
     (document.connections ?? []).some(
-      (edge) => edge.from.startsWith(id + '.') || edge.to.startsWith(id + '.'),
+      (edge) => endpointKey(edge.from).startsWith(id + '.') || endpointKey(edge.to).startsWith(id + '.'),
     )
   )
     throw new Error('Disconnect group ' + id + ' ports before ungrouping.');

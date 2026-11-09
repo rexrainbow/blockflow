@@ -1029,14 +1029,17 @@ input[type='checkbox'] {
 .panning .preview-canvas {
   cursor: grabbing;
 }
-.block-hit {
+.block-hit,
+.terminal-hit {
   fill: transparent;
   cursor: pointer;
 }
-.block-hit:hover {
+.block-hit:hover,
+.terminal-hit:hover {
   fill: color-mix(in srgb, var(--primary) 5%, transparent);
 }
-.block-hit:focus-visible {
+.block-hit:focus-visible,
+.terminal-hit:focus-visible {
   stroke: var(--primary);
   stroke-width: 2px;
   outline: none;

@@ -26,8 +26,8 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
 
 - Required root fields are `version` (exactly `1`), `diagram` and `modules`.
   `diagram.name` is required. `modules` must remain present even in a group-only document
-  (`modules: []`). Optional root fields are `connections` (defaults to `[]`), `layout`
-  and `groups`.
+  (`modules: []`). Optional root fields are `connections` (defaults to `[]`), `layout`,
+  `groups` and `terminals`.
 - IDs match `[A-Za-z_][A-Za-z0-9_]*`. Module IDs are unique across the diagram; port IDs
   are unique within their module, across inputs and outputs. Keep existing IDs unless asked
   to rename them; update every affected `from` and `to` when renaming.
@@ -50,14 +50,40 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
   such as `1`, `1.1` or `3.5`. They set minimum dimensions, independently of port bit widths.
   Omit for Auto; contents can make a block larger. Height spreads port rows without scaling
   text or strokes. Extra size does not guarantee straight connections. See `examples/block-sizes.json`.
-- Port array order controls top-to-bottom order on each side. Inputs stay left, outputs right.
+- Port array order controls order on each side: top-to-bottom for horizontal flow, left-to-right for Down. Inputs/outputs use left/right sides horizontally and top/bottom in Down.
   Module or connection array order alone does not enforce block positions. Do not invent
   coordinates, connection IDs, `alignmentGroups`, HTML/CSS or renderer-specific fields.
+
+## External terminals
+
+Use optional root `terminals` for external named interfaces without real blocks; see
+[examples/terminals.json](../examples/terminals.json). Each entry requires `id` and
+`direction` (`input` or `output`), and accepts optional multiline `label`, positive safe-integer
+bit `width` and text `style`. Omit label for ID fallback and width for unknown; explicit null
+is invalid. Terminal IDs share the block/group namespace and use the same ID syntax.
+
+A connection end can be the exact object `{ "terminal": "OverlayIn" }`, instead of an
+ordinary `"Block.port"` string. Do not use null, a bare terminal ID, an `@terminal:` string
+or an object with additional fields. External inputs are valid only as `from`; external
+outputs only as `to`. Each such connection must have a real block/Boundary-group port at
+the other end. Inputs may fan out; outputs have at most one incoming driver. Duplicate
+edges and mismatched explicit widths are rejected. Widths are not inferred across branches.
+
+Terminals are root-level items, cannot occur in group members and cannot bypass Boundary
+ports. They may remain unconnected, but the document still needs a real block or group.
+Inputs stay left and outputs right for Right/Left, and use top/bottom for Down; array order is preserved per side. Label text and padding reserve layout space. Save only real terminal definitions
+and original endpoint objects, never the helper nodes used internally for layout.
+
+Terminal style is a direct text style with built-in text defaults, not module border/fill
+style. Normalized terminal width is bit width; layout terminal `width`/`height` are geometric
+dimensions and `bitWidth` carries signal width. Layout also provides `anchor`, `labelPosition`
+and `labelBounds`. Collection projection retains terminal identity; group views omit root
+terminals and external edges. Existing block-only input remains valid without this field.
 
 ## Layout
 
 All visible connections are laid out together (once). There is no layout mode, edge order
-or main-path alignment setting. Prefer direction right; left is also supported with native
+or main-path alignment setting. Use direction right or down; legacy left is also supported with native
 ELK routing. Labels may trigger bounded spacing retries on the same complete graph.
 Use feedback:true to express feedback preference and feedbackRouting:outer for the optional
 AABB exterior route; these do not create layout batches.
@@ -65,19 +91,20 @@ AABB exterior route; these do not create layout batches.
 All accepted input `layout` fields are listed below. Defaults describe library behavior;
 schema validation does not insert them into JSON.
 
-| Field                 | Accepted values                      | Default        |
-| --------------------- | ------------------------------------ | -------------- |
-| `direction`           | `"right"`, `"left"`                  | `"right"`      |
-| `routing`             | `"orthogonal"` only                  | `"orthogonal"` |
-| `placement`           | `"default"`, `"relaxed"`, `"simple"` | `"default"`    |
-| `feedbackRouting`     | `"elk"`, `"outer"`                   | `"elk"`        |
-| `feedbackMargin`      | Positive finite number               | `20`           |
-| `feedbackLaneSpacing` | Positive finite number               | `12`           |
-| `moduleSpacing`       | Positive finite number               | `50`           |
-| `layerSpacing`        | Positive finite number               | `80`           |
+| Field                 | Accepted values                                    | Default        |
+| --------------------- | -------------------------------------------------- | -------------- |
+| `direction`           | `"right"`, `"down"`, `"left"`                      | `"right"`      |
+| `routing`             | `"orthogonal"` only                                | `"orthogonal"` |
+| `placement`           | `"default"`, `"relaxed"`, `"simple"`               | `"default"`    |
+| `feedbackRouting`     | `"elk"`, `"outer"`                                 | `"elk"`        |
+| `feedbackSide`        | `"auto"`, `"top"`, `"bottom"`, `"left"`, `"right"` | `"auto"`       |
+| `feedbackMargin`      | Positive finite number                             | `20`           |
+| `feedbackLaneSpacing` | Positive finite number                             | `12`           |
+| `moduleSpacing`       | Positive finite number                             | `50`           |
+| `layerSpacing`        | Positive finite number                             | `80`           |
 
 Prefer `default` or `relaxed` placement; `simple` remains available for compatibility.
-`feedbackRouting: "outer"` requires `direction: "right"`; the library rejects `left`
+`feedbackRouting: "outer"` requires `direction: "right"` or `"down"`; the library rejects `left`
 with `outer` even though this combination passes structural schema validation.
 Exterior routing falls back to ELK when access is blocked.
 
@@ -161,6 +188,64 @@ both fields. All layouts use once.
 
 ## Optional styles
 
+### Concat modules
+
+Use `type: "concat"` on a module for ordered concatenation; ordinary modules omit `type`
+or use `"block"`. Concat requires at least one input and exactly one output. Input port
+array order is composition order, first at the high end for bit concatenation. Keep all
+ports and ordinary `Module.port` connection references; never connect multiple drivers to
+a single input. See [examples/concat.json](../examples/concat.json).
+
+Omit widths for abstract concatenation. If any Concat port lacks a width, skip the sum
+check and preserve unknown widths. Only when every input and the output have explicit
+widths must output equal the input sum. This is an authoritative model check; structural
+schema validation cannot compare sums. Never infer or propagate widths. Existing connection
+checks still reject unequal explicitly known endpoint widths.
+
+Concat defaults to `{ "type": "bar" }` geometry when `appearance` is omitted; ordinary
+blocks still default to Rectangle. Bar is a portable appearance with no extra parameters,
+compact automatic width and centered output anchors. Explicit relative minima still apply.
+Hide title and port text using `style.label.hidden` / `style.portLabel.hidden` for a thin
+bar. Changing appearance does not remove Concat validation. No automatic bit-range labels are generated. Down flow uses a horizontal bar with inputs ordered left to right. Concat cannot convert to a Boundary group.
+
+### Block appearance and signal notation
+
+An ordinary module optionally accepts `appearance`. Omit it for the original rectangle,
+or use `{ "type": "rectangle" }`. Other profiles are
+`{ "type": "stacked", "layers": 2 }` (integer 1–3 backing plates, default 2) and
+`{ "type": "trapezoid", "rightHeightRatio": 0.6 }` (finite 0.2–1, default 0.6).
+Only keys for the selected type are accepted. Geometry controls title, side-port placement
+and the full footprint; text and relative minimum sizes can enlarge it. Routing uses
+conservative rectangular bounds. Stacked is visual only: no members, count, expand action
+or endpoint projection. Groups reject `appearance`; reset a module to Rectangle before
+converting it to a Boundary group. See [block appearances](../examples/block-appearances.json).
+
+Every text style accepts boolean `hidden`, default `false`. Terminal and individual Port
+use `style.hidden`; Block/Group/Connection names use `style.label.hidden`. Shared Port
+styles use `portLabel.hidden`, `inputPortLabel.hidden` and `outputPortLabel.hidden` at the
+same diagram/module/group layers as other text properties. Existing per-property precedence
+applies; explicit `false` restores text hidden by an inherited `true`.
+
+Hidden text includes backgrounds and bus notation and reserves no text space. Preserve the
+original name, IDs, endpoints and owning object. Terminal anchors and real Port targets remain
+usable. Omitted labels still use ID fallback where supported; blank labels remain invalid.
+`showPortLabels` is removed with no compatibility handling; update input files to text-style
+`hidden`. See [hidden labels](../examples/hidden-labels.json).
+
+`diagram.style.connection.endArrow` and connection `style.endArrow` accept `none` (default)
+or `triangle`. The arrow points into the destination along the final routed segment and
+inherits line color/opacity. Its size is limited by that segment. Geometry participates in
+image bounds and edge-label avoidance and is shared by SVG, PNG and DOM.
+
+`layout.feedbackSide` accepts `auto` (default), `top`/`bottom` for horizontal flow, or `left`/`right` for Down. A side incompatible with the direction is invalid, even when Outer is disabled. It applies only when
+`feedbackRouting` is `outer` (requires Right or Down). Auto compares accessible sides by
+bends then length. A blocked requested side keeps the original ELK route and reports
+`routingInfo.reason: "outer-access-blocked"`; it does not silently switch sides. Existing
+terminal, boundary-scope and group-view fallbacks still apply. This is a diagram-wide setting.
+See [signal schematic](../examples/signal-schematic.json) for all four features together.
+
+### Portable style fields
+
 Use `diagram.style.module` / `diagram.style.connection` for defaults, and module/port/edge
 `style` for overrides. Module styles include `label`, `portLabel`, `inputPortLabel` and
 `outputPortLabel`; port styles are text styles directly. Port precedence is diagram common,
@@ -236,3 +321,19 @@ scope projection. Group-view output has rootGroupId and keeps original connectio
 port ownership. The root is shown expanded without changing its stored collapsed flag;
 descendants honor theirs. Outside edges, including outside same-group feedback, are omitted.
 SVG/PNG from this layout show only the group; source JSON still describes the whole design.
+
+## Vertical flow
+
+Use `layout.direction: "down"` for Top to bottom. Keep all module, port, terminal and
+connection identities, widths and Concat input order. Inputs use top ports and outputs bottom
+ports, with each side ordered left to right. Text remains horizontal, with space measured
+for names and padding. Concat Bar becomes horizontal; trapezoid input/output sides become
+top/bottom, with the existing `rightHeightRatio` parameter controlling the shorter output side.
+Stack backing plates remain part of the full occupied bounds. Width/height minima remain
+screen dimensions. Groups, collapsed groups, virtual Collection ports and scoped views use
+the same axis. Terminals appear above/below the diagram.
+
+Down exterior routing uses `feedbackSide: "auto"`, `"left"` or `"right"`; use `top`/`bottom`
+only for horizontal flow. The editor maps sides when its Flow select changes axes; raw JSON
+must already be consistent. Scoped/boundary/terminal and blocked-access fallbacks still
+apply. See [vertical-flow.json](../examples/vertical-flow.json).

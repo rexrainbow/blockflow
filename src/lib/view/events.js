@@ -2,6 +2,7 @@ export const VIEW_EVENTS = Object.freeze([
   'blockclick',
   'groupclick',
   'portclick',
+  'terminalclick',
   'connectionclick',
   'backgroundclick',
   'selectionchange',

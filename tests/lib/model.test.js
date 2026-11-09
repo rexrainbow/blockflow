@@ -15,7 +15,7 @@ test('normalize defaults, same-side order, bus names; no input references', () =
   assert.equal(model.modules[0].ports[1].width, null);
   assert.equal(model.modules[0].ports[0].side, 'right');
   assert.equal(model.connections[0].id, 'connection_0');
-  assert.deepEqual(model.layout, { direction: 'right', routing: 'orthogonal', placement: 'default', feedbackRouting: 'elk', feedbackMargin: 20, feedbackLaneSpacing: 12, moduleSpacing: 50, layerSpacing: 80 });
+  assert.deepEqual(model.layout, { direction: 'right', routing: 'orthogonal', placement: 'default', feedbackRouting: 'elk', feedbackSide: 'auto', feedbackMargin: 20, feedbackLaneSpacing: 12, moduleSpacing: 50, layerSpacing: 80 });
   model.modules[0].ports[0].id = 'changed';
   model.diagram.name = 'changed';
   assert.deepEqual(input, before);

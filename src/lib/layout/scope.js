@@ -20,5 +20,5 @@ export function scopeModel(model, rootGroupId) {
     if(resolved.error) throw new Error(resolved.error);
     return [{...edge,scope:resolved.scope,boundaryScoped:resolved.boundaryScoped,insideSelfLoop:resolved.insideSelfLoop}];
   });
-  return {...model,rootGroupId,modules,groups,connections};
+  return {...model,rootGroupId,modules,groups,connections,...(model.terminals?{terminals:[]}: {})};
 }

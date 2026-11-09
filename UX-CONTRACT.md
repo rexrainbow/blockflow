@@ -1,5 +1,58 @@
 # Diagram Studio behavior contract
 
+## Flow direction
+
+Preview uses a native Flow select beside View for Left to right / Top to bottom, sharing
+layout.direction with Layout settings. Preserve a legacy Left choice only while a Left
+document is selected. Axis changes map exterior sides Top/Bottom ↔ Left/Right atomically,
+preserve endpoint/Concat order and selection, and fit after the latest worker result is
+accepted. Undo/Redo also synchronize selectors and fit. Clear cached scope cameras on a
+direction change so another view cannot restore geometry from a different axis. Invalid or
+pending results retain the existing export/action guards.
+
+Text remains horizontal; measure ports, names and terminals for the selected axis. Down
+uses top/bottom ports ordered left to right, a horizontal Concat bar and output-shortened
+trapezoids. Groups, real and virtual interfaces, collection stacks and scoped views follow
+the same flow. Feedback-side options depend on the axis; blocked exterior access keeps ELK.
+Use shared select styling, wrapping toolbar layout and normal keyboard behavior. SVG/PNG,
+offline and DOM use the accepted layout geometry without editor-only controls.
+
+## Concat
+
+Add Concat reuses Add block's creation, group placement, selection and history flow. Create
+two input ports and one output with unspecified widths, a stored Concat name and hidden
+title/port text. Reuse existing Port rename, width, text style, ordering and deletion controls;
+disable Add output and reject deletion of the sole output or last input atomically. Show
+composition-order and optional-width guidance in block details. First input is the high part;
+reordering is a real semantic edit with Undo. Ordinary block behavior stays unchanged.
+
+Only all-explicit input/output widths trigger the sum check. Mismatches disable accepted
+preview/image export through normal validation and remain recoverable after draft reload.
+No width inference or bit-range text is generated. Style shows Bar as Concat's implicit
+appearance and preserves omission on unchanged OK. Concat remains selectable as a block,
+including hidden names and real port targets. Reject Boundary conversion to preserve its
+semantics. Preview, scoped groups, SVG/PNG, offline and DOM share geometry and identity.
+
+## Block appearances and signal notation
+
+Block Style reuses the existing Block tab for Appearance and conditional Stack layers or
+Right height ratio controls. Rectangle remains the implicit default. Numeric blanks use
+profile defaults; malformed parameters remain drafts with inline errors and focused fields.
+OK commits appearance and style together as one undoable transaction; Cancel discards both.
+Shape changes preserve selection, endpoints and the existing camera anchoring behavior.
+Visual stacking has no group membership, disclosure control or member count. Conversion to
+Boundary requires Rectangle; explain this without silently dropping a shape.
+
+Every text-style section exposes Hidden with Inherit default, Yes and No. Hidden affects
+only text, background and width notation, preserves names/identity and reserves no text
+space. Per-property inheritance allows explicit false to restore a hidden label. Connection Style's
+Line tab adds End arrow with Inherit default, None and Triangle. Layout settings adds shared
+Hide port labels and Default end arrow, plus Auto/Top/Bottom Feedback side. Those settings
+commit immediately with Undo, as existing layout settings do. Explain that Feedback side
+applies only to Outer routing and blocked access keeps ELK. Hidden port text reserves no
+space, while port targets, endpoint identities and accessible names remain usable. Terminal names can be hidden through their own text style. Shapes, arrows and visibility use the same layout/SVG path for Preview,
+offline, SVG/PNG export and DOM viewer. No new dependencies or separate interaction system.
+
 Connection labels are optional multiline document text. Blank editor input removes the
 property; JSON requires non-blank text when present. Changes commit on blur (Enter inserts a newline) with the
 existing IME, invalid draft, history and camera behavior. Add connection accepts the same
@@ -388,6 +441,26 @@ SVG/PNG, offline and DOM share the result. Synthetic anchor activation selects/e
 for the group, not a port. Hidden real targets and transient states follow normal pruning.
 
 ## Preview style and visibility editing
+
+External terminals are root objects with global IDs, input/output direction, optional
+multiline label, bit width and portable text style. Raw endpoint objects use only `terminal`;
+ordinary Block.port strings remain valid. Inputs source inward, outputs receive outward;
+reject terminal-to-terminal links, multiple output drivers, mismatched explicit widths,
+duplicate links and boundary bypass. Terminal membership in groups is invalid.
+
+Connections owns Add terminal; Add connection can open New external input/output and must
+restore its selected endpoints, label and feedback draft on Save or Cancel/Escape. Saving
+the terminal is its own undoable document edit; cancelling connection creation keeps an
+explicitly saved terminal. The shared terminal dialog validates ID/direction/width before
+committing, preserves invalid input and reports a focused inline error. Referenced key
+renames update all endpoint objects atomically; unsafe direction/width edits change nothing.
+
+Preview terminal targets use normal selection, double-click Style and the shared context
+actions: Edit label, Edit style, Edit terminal and Delete terminal. Delete removes dependent
+connections in one Undo step. Hidden/invalid/stale targets cannot be edited. Restore focus
+after modal close and asynchronous layout without resetting mode/zoom. No block frame is
+drawn; helper nodes exist only inside layout. Group views omit root terminals; Collection
+projection preserves original terminal endpoints. Exports and offline mode share geometry.
 
 The shared action definitions in components/preview-actions.js own the Preview toolbar
 disclosure and right-click/Shift+F10 context menu. Select the clicked target before opening.

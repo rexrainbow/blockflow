@@ -1,5 +1,6 @@
 import { ancestors } from './hierarchy.js';
 import { groupType } from './group-type.js';
+import { endpointLabel } from './endpoints.js';
 
 export const portOwner = (document, id) => [...document.modules, ...(document.groups ?? [])].find(item => item.id === id);
 export const boundaryGroups = document => (document.groups ?? []).filter(group => groupType(group) === 'boundary');
@@ -7,7 +8,8 @@ export const boundaryGroups = document => (document.groups ?? []).filter(group =
 /** Shared endpoint/face rules for model validation and editor option filtering. */
 export function createConnectionContext(document) {
   const groups = new Map((document.groups ?? []).map(group => [group.id, group]));
-  const owners = new Map([...document.modules, ...groups.values()].map(owner => [owner.id, owner]));
+  const terminals = new Map((document.terminals ?? []).map(item => [item.id, item]));
+  const owners = new Map([...document.modules, ...groups.values(), ...terminals.values()].map(owner => [owner.id, owner]));
   const paths = new Map([...owners.keys()].map(id => [id, ancestors(document,id)]));
   const ports = new Map();
   for (const owner of owners.values()) {
@@ -15,6 +17,13 @@ export function createConnectionContext(document) {
     for (const port of owner.ports ?? []) ports.set(owner.id+'.'+port.id,{owner,port});
   }
   const lookup = (value, field) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (Object.keys(value).length !== 1 || typeof value.terminal !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(value.terminal) || value.terminal.trim() !== value.terminal)
+        return {error:'Expected an endpoint object with only a terminal ID',field};
+      const terminal=terminals.get(value.terminal);
+      if (!terminal) return {error:'Unknown terminal: '+value.terminal,field};
+      return {owner:terminal,port:{...terminal,width:terminal.width??null,direction:terminal.direction==='input'?'output':'input'},ref:{terminal:terminal.id},isGroup:false,isTerminal:true};
+    }
     if (typeof value !== 'string' || /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.exec(value)?.[0] !== value)
       return {error:'Expected moduleId.portId',field};
     const found=ports.get(value);
@@ -25,6 +34,7 @@ export function createConnectionContext(document) {
     resolve(from,to) {
       const source=lookup(from,'from');if (source.error) return source;
       const target=lookup(to,'to');if (target.error) return target;
+      if(source.isTerminal && target.isTerminal) return {error:'A terminal connection must have a real port at the other end',field:'to'};
       const pass=source.isGroup&&source.owner.id===target.owner.id&&source.port.direction==='input'&&target.port.direction==='output';
       const face=(end,peer)=>end.isGroup&&(end.owner.id===peer.owner.id?pass:paths.get(peer.owner.id).includes(end.owner.id));
       source.inside=face(source,target);target.inside=face(target,source);
@@ -50,6 +60,6 @@ export function boundaryConnectionProblems(document) {
   const context=createConnectionContext(document);
   return (document.connections??[]).flatMap(edge=>{
     const result=context.resolve(edge.from,edge.to);
-    return result.error?[`${edge.from} → ${edge.to}: ${result.error}`]:[];
+    return result.error?[`${endpointLabel(edge.from)} → ${endpointLabel(edge.to)}: ${result.error}`]:[];
   });
 }

@@ -39,6 +39,7 @@ async function start() {
     'blockclick',
     'groupclick',
     'portclick',
+    'terminalclick',
     'connectionclick',
     'backgroundclick',
     'selectionchange',

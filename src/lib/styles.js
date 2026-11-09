@@ -1,7 +1,7 @@
 // Portable static styles. No CSS strings or renderer-specific properties.
 export const TEXT_STYLE = Object.freeze({
   color: '#000000', fontSize: 12, backgroundColor: '#00000000',
-  padding: 0, opacity: 1, backgroundOpacity: 1,
+  padding: 0, opacity: 1, backgroundOpacity: 1, hidden: false,
 });
 export const BLOCK_STYLE = Object.freeze({
   borderColor: '#000000', borderWidth: 1, borderStyle: 'solid',
@@ -10,6 +10,7 @@ export const BLOCK_STYLE = Object.freeze({
 export const connectionStyle = width => ({
   strokeColor: '#000000', strokeWidth: width > 1 ? 2.5 : 1.5,
   lineStyle: 'solid', opacity: 1,
+  endArrow: 'none',
 });
 
 const TEXT_GROUPS = ['label', 'portLabel', 'inputPortLabel', 'outputPortLabel'];
@@ -30,6 +31,12 @@ export function parseStyle(value, kind, path, fail) {
     if (!KEYS[kind].includes(key)) fail(`Unsupported style property: ${key}`, location);
     if (kind === 'diagram' || ((['module', 'group'].includes(kind) && TEXT_GROUPS.includes(key)) || (['group', 'connection'].includes(kind) && key === 'label'))) {
       result[key] = parseStyle(item, kind === 'diagram' ? key : 'text', location, fail);
+    } else if(key==='hidden') {
+      if(typeof item!=='boolean') fail('Expected a boolean',location);
+      result[key]=item;
+    } else if(key==='endArrow') {
+      if(!['none','triangle'].includes(item)) fail('Expected none or triangle arrow',location);
+      result[key]=item;
     } else if (key.toLowerCase().endsWith('color')) {
       if (item === 'transparent') result[key] = '#00000000';
       else {

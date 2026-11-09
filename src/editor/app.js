@@ -2,6 +2,9 @@ import { validViewRoot, viewScopeOptions } from './state/view-scope.js';
 import { groupType } from '../lib/group-type.js';
 import { migrateLegacyLayout } from './state/legacy-layout.js';
 import { normalizeDisplayText } from '../lib/model.js';
+import { setDirection } from '../lib/direction.js';
+import { endpointKey, endpointFromKey, endpointLabel } from '../lib/endpoints.js';
+import { renderTerminalDialog } from './components/terminal-dialog.js';
 import { ancestors, descendants, itemPath, canPlace } from '../lib/hierarchy.js';
 import example from '../../examples/nested-groups.json';
 import { downloadBlob, svgToPngBlob } from '../lib/export/browser.js';
@@ -9,6 +12,9 @@ import { renderBlockList } from './components/block-list.js';
 import { History } from './state/history.js';
 import {
   emptyDocument,
+  saveTerminal,
+  removeTerminal,
+  nextId,
   portOwner,
   setGroupType,
   setGroupCollapsed,
@@ -38,6 +44,8 @@ import { renderLabelDialog } from './components/label-dialog.js';
 import {
   renderStyleDialog,
   readStyleDialog,
+  readAppearanceDialog,
+  updateAppearanceFields,
   selectStyleTab,
   styleErrorField,
 } from './components/style-dialog.js';
@@ -93,7 +101,13 @@ class Editor {
         try {
           validateDocument(check);
         } catch (error) {
-          if (error.message !== 'Connection width mismatch') throw error;
+          if (
+            ![
+              'Connection width mismatch',
+              'Concat output width must equal the sum of all input widths',
+            ].includes(error.message)
+          )
+            throw error;
         }
         document = stored.document;
         drafts = Array.isArray(stored.formDrafts)
@@ -213,13 +227,13 @@ class Editor {
             <button type="button" id="connections-tab" role="tab" aria-controls="connections-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="connections">Connections</button>
           </div>
           <div id="blocks-settings" class="blocks-settings" style="--block-list-width:${this.blockListWidth}px;--editor-list-width:${this.editorListWidth}px" role="tabpanel" aria-labelledby="blocks-tab">
-          <section class="panel block-panel" aria-labelledby="blocks-heading"><header class="panel-header"><h2 id="blocks-heading">Blocks </h2><span id="block-count" class="count"></span></header><div class="group-list-tools"><label class="group-search"><span class="sr-only">Search blocks and groups</span><input type="search" data-field="group-search" data-focus-key="group-search" aria-label="Search blocks and groups" placeholder="Find block or group"/></label>${button('collapse-all', 'Collapse all', { glyph: 'minus', iconOnly: true })}${button('expand-all', 'Expand all', { glyph: 'plus', iconOnly: true })}</div><div id="block-list" class="panel-scroll block-list" data-scroll="blocks" role="group" aria-label="Block list" tabindex="0"></div><footer class="panel-footer">${button('add-block', 'Add block', { glyph: 'plus', className: 'add-button' })}${button('add-group', 'Add group', { glyph: 'plus', className: 'add-button' })}</footer></section>
+          <section class="panel block-panel" aria-labelledby="blocks-heading"><header class="panel-header"><h2 id="blocks-heading">Blocks </h2><span id="block-count" class="count"></span></header><div class="group-list-tools"><label class="group-search"><span class="sr-only">Search blocks and groups</span><input type="search" data-field="group-search" data-focus-key="group-search" aria-label="Search blocks and groups" placeholder="Find block or group"/></label>${button('collapse-all', 'Collapse all', { glyph: 'minus', iconOnly: true })}${button('expand-all', 'Expand all', { glyph: 'plus', iconOnly: true })}</div><div id="block-list" class="panel-scroll block-list" data-scroll="blocks" role="group" aria-label="Block list" tabindex="0"></div><footer class="panel-footer">${button('add-block', 'Add block', { glyph: 'plus', className: 'add-button' })}${button('add-concat', 'Add Concat', { glyph: 'plus', className: 'add-button' })}${button('add-group', 'Add group', { glyph: 'plus', className: 'add-button' })}</footer></section>
           <div id="block-list-splitter" class="splitter block-list-splitter" role="separator" tabindex="0" aria-label="Resize block list" aria-orientation="vertical" aria-valuemin="200" aria-valuemax="560" aria-valuenow="${this.blockListWidth}"><span></span></div><section class="panel detail-panel" aria-labelledby="detail-heading"><header class="panel-header"><h2 id="detail-heading">Block details </h2><div class="panel-header-tools"><span id="selected-id" class="code-tag"></span>${button('block-help', '[?]', { className: 'help-button', ariaLabel: 'Block editing help' })}</div></header><div id="block-detail" class="panel-scroll" data-scroll="detail"></div></section>
           </div>
-          <div id="connections-settings" class="connections-settings" role="tabpanel" aria-labelledby="connections-tab" hidden><section class="panel connections-panel" aria-labelledby="connections-heading"><header class="panel-header"><h2 id="connections-heading">Connections </h2><span id="connection-count" class="count"></span></header><div id="connection-list" class="panel-scroll connection-list" data-scroll="connections"></div><footer class="panel-footer">${button('add-connection', 'Add connection', { glyph: 'plus', className: 'add-button' })}</footer></section></div>
+          <div id="connections-settings" class="connections-settings" role="tabpanel" aria-labelledby="connections-tab" hidden><section class="panel connections-panel" aria-labelledby="connections-heading"><header class="panel-header"><h2 id="connections-heading">Connections </h2><span id="connection-count" class="count"></span></header><div id="connection-list" class="panel-scroll connection-list" data-scroll="connections"></div><footer class="panel-footer">${button('add-terminal', 'Add terminal', { className: 'add-button' })}${button('add-connection', 'Add connection', { glyph: 'plus', className: 'add-button' })}</footer></section></div>
         </form>
         <div id="splitter" class="splitter" role="separator" tabindex="0" aria-label="Resize editor area" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow="50" aria-valuetext="50% settings"><span></span></div>
-        <section class="preview-panel" aria-labelledby="preview-heading"><header class="preview-header"><div class="preview-title"><span class="preview-glyph">${icon('grid')}</span><h2 id="preview-heading">Preview </h2><label class="preview-view-control"><span>View</span><select id="view-scope" data-field="view-scope" aria-label="View target"><option value="">Top</option></select></label><span id="layout-state" class="layout-status" role="status" aria-live="polite">Preparing layout</span></div><div class="preview-tools">${button('preview-style', 'Style', { className: 'quiet', ariaLabel: 'Preview style', disabled: true })}<details class="command-menu" id="preview-actions-menu"><summary class="button icon-button" aria-label="Preview actions" title="Preview actions">${icon('more')}</summary><div class="command-popover">${previewActions()
+        <section class="preview-panel" aria-labelledby="preview-heading"><header class="preview-header"><div class="preview-title"><span class="preview-glyph">${icon('grid')}</span><h2 id="preview-heading">Preview </h2><label class="preview-view-control"><span>View</span><select id="view-scope" data-field="view-scope" aria-label="View target"><option value="">Top</option></select></label><label class="preview-view-control"><span>Flow</span><select id="flow-direction" data-field="flow-direction" aria-label="Flow direction"><option value="right">Left to right</option><option value="down">Top to bottom</option></select></label><span id="layout-state" class="layout-status" role="status" aria-live="polite">Preparing layout</span></div><div class="preview-tools">${button('preview-style', 'Style', { className: 'quiet', ariaLabel: 'Preview style', disabled: true })}<details class="command-menu" id="preview-actions-menu"><summary class="button icon-button" aria-label="Preview actions" title="Preview actions">${icon('more')}</summary><div class="command-popover">${previewActions()
           .map((item) =>
             button(item.action, item.label, { disabled: true, attrs: item.hidden ? 'hidden' : '' }),
           )
@@ -253,7 +267,10 @@ class Editor {
       [...this.root.querySelectorAll('details[data-keep]')].map((el) => [el.dataset.keep, el.open]),
     );
     const modules = this.document.modules;
-    if (this.selected !== null && !modules.some((m) => m.id === this.selected))
+    if (
+      this.selected !== null &&
+      ![...modules, ...(this.document.terminals ?? [])].some((m) => m.id === this.selected)
+    )
       this.selected = modules[0]?.id ?? null;
     this.root.querySelector('#block-count').textContent = modules.length;
     this.root.querySelector('#connection-count').textContent = (this.document.connections ?? []).length;
@@ -295,6 +312,15 @@ class Editor {
   }
 
   renderBlockDetail() {
+    const terminal = this.document.terminals?.find((item) => item.id === this.selected);
+    if (terminal) {
+      this.root.querySelector('#detail-heading').textContent = 'Terminal details';
+      this.root.querySelector('#selected-id').textContent = terminal.id;
+      this.root.querySelector('[data-action="block-help"]').hidden = true;
+      this.root.querySelector('#block-detail').innerHTML =
+        `<p>${e(terminal.label ?? terminal.id)} · External ${terminal.direction}</p>${button('terminal-details', 'Edit terminal…', { attrs: `data-id="${e(terminal.id)}"` })}`;
+      return;
+    }
     const group = this.document.groups?.find((group) => group.id === this.selectedGroup);
     this.root.querySelector('#detail-heading').textContent = group ? 'Group details' : 'Block details';
     this.root.querySelector('[data-action="block-help"]').hidden = Boolean(group);
@@ -317,7 +343,11 @@ class Editor {
     const selected = this.document.modules.find((module) => module.id === this.selected);
     this.root.querySelector('#selected-id').textContent = selected?.id ?? '—';
     this.root.querySelector('#block-detail').innerHTML = selected
-      ? this.pathMarkup(selected.id) + this.blockDetail(selected)
+      ? this.pathMarkup(selected.id) +
+        (selected.type === 'concat'
+          ? '<p class="field-help">Concat: inputs combine in list order, first at the high end. Widths are optional; the sum is checked only when every port width is specified.</p>'
+          : '') +
+        this.blockDetail(selected)
       : '<div class="detail-empty">Select a block to edit its name and ports.</div>';
   }
 
@@ -340,7 +370,7 @@ class Editor {
               )
               .join('')
           : '<p class="port-empty">No ports yet</p>'
-      }</div><footer>${button('add-port', direction === 'input' ? 'Add input' : 'Add output', { glyph: 'plus', className: 'add-button', attrs: `data-direction="${direction}"` })}</footer></section>`;
+      }</div><footer>${button('add-port', direction === 'input' ? 'Add input' : 'Add output', { glyph: 'plus', className: 'add-button', disabled: module.type === 'concat' && direction === 'output', attrs: `data-direction="${direction}"` })}</footer></section>`;
     };
     return `<div class="port-columns">${ports('input')}${ports('output')}</div>`;
   }
@@ -380,17 +410,24 @@ class Editor {
   }
 
   connectionRow(connection, index, position, count) {
-    const sources = endpoints(this.document, 'output').map((p) => ({ value: p.ref, label: p.ref }));
+    const sources = endpoints(this.document, 'output').map((p) => ({
+      value: p.ref,
+      label: p.ref.startsWith('@terminal:') ? p.label : p.ref,
+    }));
     const targets = endpoints(this.document, 'input').map((p) => {
       const reason = targetReason(this.document, connection.from, p.ref, index);
-      return { value: p.ref, label: `${p.ref}${reason ? `（${reason}）` : ''}`, disabled: !!reason };
+      return {
+        value: p.ref,
+        label: `${p.ref.startsWith('@terminal:') ? p.label : p.ref}${reason ? `（${reason}）` : ''}`,
+        disabled: !!reason,
+      };
     });
-    return `<div class="connection-row" data-drop-kind="connection" data-index="${index}" data-edge-key="${e(connectionKey(connection))}" role="group" aria-label="Connection ${e(connection.from)} to ${e(connection.to)}" tabindex="0">
-      <div class="connection-endpoints"><label><span class="sr-only">Connection ${index + 1} source ${this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'port' : 'Output'}</span>${select(sources, connection.from, `data-field="connection-from" data-index="${index}" data-focus-key="from-${index}"`)}</label><span class="edge-arrow">${icon('arrow')}</span><label><span class="sr-only">Connection ${index + 1} target ${this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'port' : 'Input'}</span>${select(targets, connection.to, `data-field="connection-to" data-index="${index}" data-focus-key="to-${index}"`)}</label></div>
+    return `<div class="connection-row" data-drop-kind="connection" data-index="${index}" data-edge-key="${e(connectionKey(connection))}" role="group" aria-label="Connection ${e(endpointLabel(connection.from))} to ${e(endpointLabel(connection.to))}" tabindex="0">
+      <div class="connection-endpoints"><label><span class="sr-only">Connection ${index + 1} source ${this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'port' : 'Output'}</span>${select(sources, endpointKey(connection.from), `data-field="connection-from" data-index="${index}" data-focus-key="from-${index}"`)}</label><span class="edge-arrow">${icon('arrow')}</span><label><span class="sr-only">Connection ${index + 1} target ${this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'port' : 'Input'}</span>${select(targets, endpointKey(connection.to), `data-field="connection-to" data-index="${index}" data-focus-key="to-${index}"`)}</label></div>
       ${field('Label', textarea(connection.label ?? '', `data-field="connection-label" data-index="${index}" data-focus-key="connection-label-${index}" aria-label="Connection ${index + 1} label" placeholder="Optional"`))}
       <div class="connection-row-bottom">
       ${sortActions('connection', position, count, `data-connection="${index}"`)}${feedbackControl(connection.feedback, `data-field="connection-feedback" data-index="${index}" data-focus-key="feedback-${index}"`)}</div>
-      ${button('edit-style', 'Style', { className: 'text-button connection-style-button', ariaLabel: `Connection style: ${connection.from} to ${connection.to}`, attrs: `data-style-kind="connection" data-connection="${index}"` })}
+      ${button('edit-style', 'Style', { className: 'text-button connection-style-button', ariaLabel: `Connection style: ${endpointLabel(connection.from)} to ${endpointLabel(connection.to)}`, attrs: `data-style-kind="connection" data-connection="${index}"` })}
     </div>`;
   }
 
@@ -580,7 +617,13 @@ class Editor {
     this.valid = true;
     this.currentSvg = data.svg;
     this.currentLayout = data.layout;
-    this.preview.setResult(data.layout, data.svg, this.resetView);
+    const flow = this.document.layout?.direction ?? 'right';
+    this.preview.setResult(
+      data.layout,
+      data.svg,
+      this.resetView || (this.acceptedFlow !== undefined && this.acceptedFlow !== flow),
+    );
+    this.acceptedFlow = flow;
     this.syncConnectionSelection();
     this.resetView = false;
     this.root.querySelector('#layout-state').textContent = 'Updated';
@@ -598,7 +641,8 @@ class Editor {
   selectModule(id) {
     if (this.document.groups?.some((group) => group.id === id)) return this.selectGroup(id);
     if (id === null) return this.clearSelection();
-    if (!this.document.modules.some((module) => module.id === id)) return;
+    if (![...this.document.modules, ...(this.document.terminals ?? [])].some((module) => module.id === id))
+      return;
     const changed = this.selected !== id || this.selectedConnection !== null;
     this.selectedGroup = null;
     for (const parent of ancestors(this.document, id)) this.collapsedGroups.delete(parent);
@@ -929,6 +973,7 @@ class Editor {
       this.dialog.removeAttribute('role');
       this.styleSession = null;
       this.labelSession = null;
+      this.terminalSession = null;
       this.dialog.classList.remove('style-dialog');
       this.dialog.removeAttribute('aria-describedby');
       if (this.dialogPreviewTarget) {
@@ -941,8 +986,22 @@ class Editor {
       else if (this.dialogFocusAction) this.root.querySelector(this.dialogFocusAction)?.focus();
     });
     this.dragEvents();
+    this.dialog.addEventListener('cancel', (event) => {
+      if (this.terminalSession?.connectionDraft) {
+        event.preventDefault();
+        this.cancelTerminal();
+      }
+    });
     this.splitterEvents();
     this.dialog.addEventListener('input', (event) => {
+      if (this.styleSession && event.target.matches('[data-appearance-property]')) {
+        clearFieldError(event.target);
+        this.dialog.querySelector('#style-dialog-error').textContent = '';
+      }
+      if (this.terminalSession && event.target.id?.startsWith('terminal-')) {
+        clearFieldError(event.target);
+        this.dialog.querySelector('#terminal-error').textContent = '';
+      }
       if (this.labelSession && event.target.id === 'preview-label-text') {
         clearFieldError(event.target);
         event.target.setAttribute('aria-describedby', 'label-dialog-help');
@@ -982,9 +1041,26 @@ class Editor {
   }
 
   changeField(el) {
+    if (el.matches('[data-appearance-property]')) {
+      updateAppearanceFields(this.dialog);
+      return;
+    }
     clearFieldError(el);
     if (el.dataset.focusKey) this.formDrafts.delete(el.dataset.focusKey);
     const field = el.dataset.field;
+    if (field === 'default-port-labels' || field === 'default-end-arrow') {
+      this.commit((doc) => {
+        doc.diagram.style ??= {};
+        const kind = field === 'default-port-labels' ? 'module' : 'connection';
+        doc.diagram.style[kind] ??= {};
+        if (kind === 'module') {
+          doc.diagram.style.module.portLabel ??= {};
+          doc.diagram.style.module.portLabel.hidden = el.value === 'true';
+        } else doc.diagram.style.connection.endArrow = el.value;
+        validateDocument(doc);
+      }, 'Diagram defaults updated.');
+      return;
+    }
     if (field === 'module-key') {
       const previous = this.selected;
       let result;
@@ -1056,6 +1132,13 @@ class Editor {
       }
       return;
     }
+    if (field === 'flow-direction' || (field === 'setting' && el.dataset.property === 'direction')) {
+      this.commit((doc) => {
+        setDirection(doc, el.value);
+        validateDocument(doc);
+      }, 'Flow direction updated.');
+      return;
+    }
     if (field === 'view-scope') return this.changeViewScope(el.value || null);
     if (field === 'group-search') return;
     if (field === 'group-label') {
@@ -1123,8 +1206,8 @@ class Editor {
         if (el.value.trim()) connection.label = normalizeDisplayText(el.value);
         else delete connection.label;
       }
-      if (field === 'connection-from') connection.from = el.value;
-      if (field === 'connection-to') connection.to = el.value;
+      if (field === 'connection-from') connection.from = endpointFromKey(el.value);
+      if (field === 'connection-to') connection.to = endpointFromKey(el.value);
       if (field === 'connection-feedback') {
         if (el.checked) connection.feedback = true;
         else delete connection.feedback;
@@ -1133,6 +1216,12 @@ class Editor {
   }
 
   action(action, target) {
+    if (action === 'add-terminal') return this.terminalDialog();
+    if (action === 'connection-terminal')
+      return this.terminalDialog(null, target.dataset.direction, this.readConnectionDraft());
+    if (action === 'terminal-details') return this.terminalDialog(target.dataset.id);
+    if (action === 'confirm-terminal') return this.confirmTerminal();
+    if (action === 'cancel-terminal') return this.cancelTerminal();
     if (action === 'dismiss-notice') return this.hideNotice();
     if (action === 'draft-status')
       return this.announce(this.root.querySelector('#save-state').title, Boolean(this.storageError));
@@ -1224,7 +1313,7 @@ class Editor {
       return;
     }
     if (action === 'editor-tab') return this.setEditorTab(target.dataset.editorTab);
-    if (action === 'add-block') this.setEditorTab('blocks');
+    if (action === 'add-block' || action === 'add-concat') this.setEditorTab('blocks');
     if (action === 'edit-style') return this.openStyleDialog(target);
     if (action === 'view-scope') return this.changeViewScope(target.dataset.id || null);
     if (action === 'view-contents') return this.changeViewScope(target.dataset.id);
@@ -1249,13 +1338,18 @@ class Editor {
       this.applyViewMode();
       return;
     }
-    if (action === 'add-block') {
-      this.commit((doc) => {
-        const parent = this.selectedGroup;
-        this.selected = addModule(doc);
-        if (parent) placeBlock(doc, this.selected, parent);
-        this.selectedGroup = null;
-      }, 'Block added. Add at least one port.');
+    if (action === 'add-block' || action === 'add-concat') {
+      this.commit(
+        (doc) => {
+          const parent = this.selectedGroup;
+          this.selected = addModule(doc, action === 'add-concat' ? 'concat' : 'block');
+          if (parent) placeBlock(doc, this.selected, parent);
+          this.selectedGroup = null;
+        },
+        action === 'add-concat'
+          ? 'Concat added. Inputs are combined in list order.'
+          : 'Block added. Add at least one port.',
+      );
       return this.root.querySelector('[data-field="module-label"]')?.focus();
     }
     if (action === 'add-port') {
@@ -1301,7 +1395,12 @@ class Editor {
               : null;
           this.selectedConnection = edge ? connectionKey(edge) : null;
         }
-        if (this.selected !== null && !this.document.modules.some((module) => module.id === this.selected)) {
+        if (
+          this.selected !== null &&
+          ![...this.document.modules, ...(this.document.terminals ?? [])].some(
+            (module) => module.id === this.selected,
+          )
+        ) {
           const nextModule =
             this.document.modules[Math.max(0, Math.min(selectedIndex, this.document.modules.length - 1))];
           if (
@@ -1411,6 +1510,7 @@ class Editor {
     this.dialog.removeAttribute('role');
     this.styleSession = null;
     this.labelSession = null;
+    this.terminalSession = null;
     this.dialogPreviewTarget = null;
     this.dialog.classList.remove('style-dialog');
     this.dialog.removeAttribute('aria-describedby');
@@ -1423,6 +1523,32 @@ class Editor {
   }
 
   renderScopeControls() {
+    const flow = this.document.layout?.direction ?? 'right';
+    const flowOptions = [
+      { value: 'right', label: 'Left to right' },
+      { value: 'down', label: 'Top to bottom' },
+      ...(flow === 'left' ? [{ value: 'left', label: 'Right to left (legacy)' }] : []),
+    ];
+    const controlFlow = this.root.querySelector('#flow-direction');
+    const flowHtml = new DOMParser()
+      .parseFromString(select(flowOptions, flow), 'text/html')
+      .querySelector('select').innerHTML;
+    if (controlFlow.innerHTML !== flowHtml) controlFlow.innerHTML = flowHtml;
+    controlFlow.value = flow;
+    const settingsFlow = this.dialog?.querySelector('[data-property="direction"]');
+    if (settingsFlow) {
+      if (settingsFlow.innerHTML !== flowHtml) settingsFlow.innerHTML = flowHtml;
+      settingsFlow.value = flow;
+    }
+    const feedback = this.dialog?.querySelector('[data-property="feedbackSide"]');
+    if (feedback) {
+      const sides = ['auto', ...(flow === 'down' ? ['left', 'right'] : ['top', 'bottom'])];
+      feedback.innerHTML = sides
+        .map((v) => `<option value="${v}">${v[0].toUpperCase() + v.slice(1)}</option>`)
+        .join('');
+      feedback.value = this.document.layout?.feedbackSide ?? 'auto';
+    }
+
     const control = this.root.querySelector('#view-scope');
     const markup = select(viewScopeOptions(this.document), this.rootGroupId ?? '');
     const options = new DOMParser().parseFromString(markup, 'text/html').querySelector('select').innerHTML;
@@ -1471,7 +1597,12 @@ class Editor {
   previewSelection() {
     if (this.selectedConnection) return { kind: 'connection', id: this.selectedConnection };
     if (this.selectedGroup) return { kind: 'group', id: this.selectedGroup };
-    return this.selected ? { kind: 'module', id: this.selected } : null;
+    return this.selected
+      ? {
+          kind: this.document.terminals?.some((item) => item.id === this.selected) ? 'terminal' : 'module',
+          id: this.selected,
+        }
+      : null;
   }
 
   previewActionsReady() {
@@ -1482,16 +1613,18 @@ class Editor {
     if (!target) return false;
     return target.kind === 'connection'
       ? this.preview?.layout?.connections.some((edge) => edge.editorKey === target.id)
-      : [...(this.preview?.layout?.modules ?? []), ...(this.preview?.layout?.groups ?? [])].some(
-          (item) => item.id === target.id,
-        );
+      : [
+          ...(this.preview?.layout?.modules ?? []),
+          ...(this.preview?.layout?.groups ?? []),
+          ...(this.preview?.layout?.terminals ?? []),
+        ].some((item) => item.id === target.id);
   }
 
   previewActionItems() {
     const target = this.previewSelection();
     const group =
       target?.kind === 'group' ? this.document.groups?.find((group) => group.id === target.id) : null;
-    return previewActions(group, this.rootGroupId);
+    return previewActions(group, this.rootGroupId, target?.kind);
   }
 
   updatePreviewActions() {
@@ -1530,7 +1663,9 @@ class Editor {
           ? { connectionKey: target.id }
           : target.kind === 'group'
             ? { groupId: target.id }
-            : { moduleId: target.id }),
+            : target.kind === 'terminal'
+              ? { terminalId: target.id }
+              : { moduleId: target.id }),
       },
       target,
     );
@@ -1539,9 +1674,13 @@ class Editor {
   previewLabelTarget(document, target) {
     if (target.kind === 'connection')
       return document.connections?.find((edge) => connectionKey(edge) === target.id);
-    return (target.kind === 'group' ? document.groups : document.modules)?.find(
-      (item) => item.id === target.id,
-    );
+    return (
+      target.kind === 'group'
+        ? document.groups
+        : target.kind === 'terminal'
+          ? document.terminals
+          : document.modules
+    )?.find((item) => item.id === target.id);
   }
 
   openPreviewLabel(target) {
@@ -1627,9 +1766,13 @@ class Editor {
     if (!target) return;
     const module = portOwner(this.document, session.moduleId);
     session.style = structuredClone(target.style ?? {});
+    if (kind === 'module') {
+      session.appearance = structuredClone(target.appearance);
+      session.moduleType = target.type;
+    }
     session.label =
       kind === 'connection'
-        ? `${target.from} → ${target.to}`
+        ? `${endpointLabel(target.from)} → ${endpointLabel(target.to)}`
         : kind === 'port'
           ? `${module.label ?? module.id} · ${target.id}`
           : (target.label ?? target.id);
@@ -1646,6 +1789,8 @@ class Editor {
   }
 
   styleTarget(document, session) {
+    if (session.kind === 'terminal')
+      return document.terminals?.find((item) => item.id === session.terminalId);
     if (session.kind === 'group') return document.groups?.find((group) => group.id === session.groupId);
     if (session.kind === 'connection')
       return session.connectionKey
@@ -1658,14 +1803,21 @@ class Editor {
   confirmStyle() {
     const session = this.styleSession;
     if (!session) return;
-    this.dialog.querySelectorAll('[data-style-property]').forEach((element) => clearFieldError(element));
+    this.dialog
+      .querySelectorAll('[data-style-property],[data-appearance-property]')
+      .forEach((element) => clearFieldError(element));
     try {
       const style = readStyleDialog(this.dialog, session);
+      const appearance = readAppearanceDialog(this.dialog, session);
       this.commit((doc) => {
         const target = this.styleTarget(doc, session);
         if (!target) throw new Error('This item is no longer available. Cancel and select it again.');
         if (Object.keys(style).length) target.style = style;
         else delete target.style;
+        if (session.kind === 'module') {
+          if (appearance) target.appearance = appearance;
+          else delete target.appearance;
+        }
       }, 'Style updated.');
       this.dialog.close();
     } catch (error) {
@@ -1675,34 +1827,120 @@ class Editor {
     }
   }
 
-  connectionDialog() {
-    const sources = endpoints(this.document, 'output');
-    if (!sources.length || !endpoints(this.document, 'input').length) {
-      this.announce('Add at least one output and input port before creating a connection.', true);
-      return;
+  readConnectionDraft() {
+    return {
+      from: this.dialog.querySelector('#dialog-source')?.value,
+      to: this.dialog.querySelector('#dialog-target')?.value,
+      label: this.dialog.querySelector('#dialog-label')?.value,
+      feedback: this.dialog.querySelector('#dialog-feedback')?.checked,
+    };
+  }
+
+  openTerminalDetails(target) {
+    this.terminalDialog(target.id);
+  }
+
+  terminalDialog(id = null, direction = 'input', connectionDraft = null) {
+    if (!connectionDraft && this.dialog.open) return;
+    const item = id ? this.document.terminals?.find((item) => item.id === id) : null;
+    if (id && !item) return;
+    const initial = item ?? {
+      id: nextId(
+        [...this.document.modules, ...(this.document.groups ?? []), ...(this.document.terminals ?? [])],
+        direction === 'input' ? 'input' : 'output',
+      ),
+      direction,
+    };
+    this.showDialog(renderTerminalDialog(initial, Boolean(item)));
+    this.terminalSession = { id, connectionDraft };
+    if (id) this.dialogPreviewTarget = { kind: 'terminal', id };
+  }
+
+  cancelTerminal() {
+    const draft = this.terminalSession?.connectionDraft;
+    if (draft) this.connectionDialog(draft);
+    else this.dialog.close();
+  }
+
+  confirmTerminal() {
+    const session = this.terminalSession;
+    if (!session || this.composing) return;
+    const key = this.dialog.querySelector('#terminal-id'),
+      width = this.dialog.querySelector('#terminal-width');
+    this.dialog.querySelectorAll('input,textarea,select').forEach((el) => clearFieldError(el));
+    try {
+      const old = this.document.terminals?.find((item) => item.id === session.id);
+      const item = {
+        ...(old ?? {}),
+        id: key.value.trim(),
+        direction: this.dialog.querySelector('#terminal-direction').value,
+      };
+      const label = this.dialog.querySelector('#terminal-label').value;
+      if (label.trim()) item.label = normalizeDisplayText(label);
+      else delete item.label;
+      if (width.validity.badInput)
+        throw new Error('Enter a positive safe integer bit width, or leave it unspecified.');
+      if (width.value !== '') item.width = Number(width.value);
+      else delete item.width;
+      this.commit((doc) => saveTerminal(doc, session.id, item), 'Terminal saved.');
+      if (session.connectionDraft) {
+        const draft = {
+          ...session.connectionDraft,
+          [item.direction === 'input' ? 'from' : 'to']: endpointKey({ terminal: item.id }),
+        };
+        this.connectionDialog(draft);
+      } else {
+        this.dialogPreviewTarget = { kind: 'terminal', id: item.id };
+        this.dialog.close();
+        this.selectModule(item.id);
+      }
+    } catch (error) {
+      this.dialog.querySelector('#terminal-error').textContent = error.message;
+      const previous = this.document.terminals?.find((item) => item.id === session.id);
+      const changedDirection =
+        previous && previous.direction !== this.dialog.querySelector('#terminal-direction').value;
+      const field =
+        error.path?.endsWith('.width') || error.message.toLowerCase().includes('width')
+          ? width
+          : error.path?.endsWith('.direction') || changedDirection
+            ? this.dialog.querySelector('#terminal-direction')
+            : error.message.includes('text') || error.message.includes('string')
+              ? this.dialog.querySelector('#terminal-label')
+              : key;
+      setFieldError(field, error.message);
     }
+  }
+
+  deleteTerminal(target) {
+    this.commit((doc) => removeTerminal(doc, target.id), 'Terminal and its connections removed.');
+    this.preview.svg.focus({ preventScroll: true });
+  }
+
+  connectionDialog(draft = {}) {
+    const sources = endpoints(this.document, 'output');
     this
       .showDialog(`<form novalidate><div class="dialog-heading"><h2 id="dialog-title">Add connection</h2><p>Choose compatible ports. Group inputs can feed internal blocks; group outputs can receive internal connections. Unspecified widths do not restrict connections.</p></div>
       ${field(
         this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'Source port' : 'Source Output',
         select(
           sources.map((p) => ({ value: p.ref, label: p.label })),
-          sources[0].ref,
+          draft.from ?? sources[0]?.ref ?? '',
           'id="dialog-source" data-field="dialog-source" autofocus',
         ),
       )}
       ${field(this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'Target port' : 'Target Input', '<select id="dialog-target" data-field="dialog-target"></select>')}
-      ${field('Label', textarea('', 'id="dialog-label" placeholder="Optional"'))}
-      ${feedbackControl(false, 'id="dialog-feedback" data-field="dialog-feedback" aria-describedby="dialog-feedback-help"')}<p class="field-help" id="dialog-feedback-help">Prefer this connection as feedback when a cycle exists. Block positions may still change.</p>
+      ${button('connection-terminal', 'New external input…', { className: 'text-button', attrs: 'data-direction="input"' })}${button('connection-terminal', 'New external output…', { className: 'text-button', attrs: 'data-direction="output"' })}
+      ${field('Label', textarea(draft.label ?? '', 'id="dialog-label" placeholder="Optional"'))}
+      ${feedbackControl(draft.feedback ?? false, 'id="dialog-feedback" data-field="dialog-feedback" aria-describedby="dialog-feedback-help"')}<p class="field-help" id="dialog-feedback-help">Prefer this connection as feedback when a cycle exists. Block positions may still change.</p>
       <p id="dialog-error" class="field-error" role="status"></p><footer class="dialog-actions">${button('cancel-dialog', 'Cancel', { className: 'outline' })}${button('confirm-connection', 'Add connection', { className: 'primary' })}</footer></form>`);
-    this.updateConnectionDialog();
+    this.updateConnectionDialog(draft.to);
   }
 
-  updateConnectionDialog() {
+  updateConnectionDialog(preferred) {
     const source = this.dialog.querySelector('#dialog-source');
     if (!source) return;
     const target = this.dialog.querySelector('#dialog-target');
-    const previous = target.value;
+    const previous = preferred ?? target.value;
     const options = endpoints(this.document, 'input').map((p) => {
       const reason = targetReason(this.document, source.value, p.ref);
       return { value: p.ref, label: `${p.label}${reason ? `（${reason}）` : ''}`, disabled: !!reason };
@@ -1726,8 +1964,8 @@ class Editor {
   }
 
   confirmConnection() {
-    const from = this.dialog.querySelector('#dialog-source').value;
-    const to = this.dialog.querySelector('#dialog-target').value;
+    const from = endpointFromKey(this.dialog.querySelector('#dialog-source').value);
+    const to = endpointFromKey(this.dialog.querySelector('#dialog-target').value);
     const feedback = this.dialog.querySelector('#dialog-feedback').checked;
     const label = this.dialog.querySelector('#dialog-label').value;
     const reason = targetReason(this.document, from, to);
@@ -1802,8 +2040,9 @@ class Editor {
         'Direction',
         select(
           [
-            { value: 'right', label: 'Right' },
-            { value: 'left', label: 'Left' },
+            { value: 'right', label: 'Left to right' },
+            { value: 'down', label: 'Top to bottom' },
+            ...(layout.direction === 'left' ? [{ value: 'left', label: 'Right to left (legacy)' }] : []),
           ],
           layout.direction ?? 'right',
           'data-field="setting" data-property="direction"',
@@ -1835,7 +2074,48 @@ class Editor {
       ${field('Layer spacing', input(layout.layerSpacing ?? 80, 'data-field="setting" data-property="layerSpacing" min="1"', 'number'))}
       ${field('Outer margin', input(layout.feedbackMargin ?? 20, 'data-field="setting" data-property="feedbackMargin" min="1"', 'number'))}
       ${field('Outer lane spacing', input(layout.feedbackLaneSpacing ?? 12, 'data-field="setting" data-property="feedbackLaneSpacing" min="1"', 'number'))}
-      </div><p class="field-help">Outer feedback routing requires Right direction.</p><footer class="dialog-actions">${button('cancel-dialog', 'Done', { className: 'primary' })}</footer></form>`);
+      ${field(
+        'Feedback side',
+        select(
+          [
+            { value: 'auto', label: 'Auto' },
+            ...(layout.direction === 'down'
+              ? [
+                  { value: 'left', label: 'Left' },
+                  { value: 'right', label: 'Right' },
+                ]
+              : [
+                  { value: 'top', label: 'Top' },
+                  { value: 'bottom', label: 'Bottom' },
+                ]),
+          ],
+          layout.feedbackSide ?? 'auto',
+          'data-field="setting" data-property="feedbackSide"',
+        ),
+      )}
+      ${field(
+        'Hide port labels',
+        select(
+          [
+            { value: 'false', label: 'No' },
+            { value: 'true', label: 'Yes' },
+          ],
+          this.document.diagram.style?.module?.portLabel?.hidden ?? false,
+          'data-field="default-port-labels"',
+        ),
+      )}
+      ${field(
+        'Default end arrow',
+        select(
+          [
+            { value: 'none', label: 'None' },
+            { value: 'triangle', label: 'Triangle' },
+          ],
+          this.document.diagram.style?.connection?.endArrow ?? 'none',
+          'data-field="default-end-arrow"',
+        ),
+      )}
+      </div><p class="field-help">Outer feedback routing supports Left to right and Top to bottom. Feedback side applies only to Outer routing; blocked access falls back to ELK. Individual styles can override port-label and arrow defaults.</p><footer class="dialog-actions">${button('cancel-dialog', 'Done', { className: 'primary' })}</footer></form>`);
   }
 
   filename() {

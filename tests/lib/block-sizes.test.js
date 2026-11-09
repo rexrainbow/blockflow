@@ -30,7 +30,7 @@ for(const axis of ['width','height']) test('relative minimum '+axis+' validates 
 test('omission preserves auto geometry; size uses a fixed shared unit rather than scaling content',()=>{
   const raw=fixture();const automatic=createDiagramModel(raw);
   assert.equal(Object.hasOwn(automatic.modules[0],'width'),false);
-  assert.deepEqual(moduleGeometry(automatic.modules[0]),{width:140,height:84,titleY:18,rowCenters:[60],portInset:10});
+  assert.deepEqual(moduleGeometry(automatic.modules[0]),{width:140,height:84,titleX:70,titleY:18,rowCenters:[60],portInset:10,portPoints:{i:{x:0,y:60},o:{x:140,y:60}}});
   raw.modules[0].width=1.1;raw.modules[0].height=3.5;
   const resized=createDiagramModel(raw), size=moduleGeometry(resized.modules[0]);
   near(size.width,154);near(size.height,294);near(size.titleY,18);near(size.rowCenters[0],165);

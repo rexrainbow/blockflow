@@ -1,6 +1,8 @@
 import { groupType } from './group-type.js';
 import { createConnectionContext, boundaryGroups } from './connectivity.js';
 import { parseStyle, resolveModuleStyle, resolvePortStyle, connectionStyle, TEXT_STYLE } from './styles.js';
+import { endpointKey } from './endpoints.js';
+import { parseAppearance } from './appearances.js';
 
 const ID = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const own = (value, key) => Object.hasOwn(value, key);
@@ -57,7 +59,7 @@ function positive(value, path) {
 
 /** Validate parsed JSON and return independently owned, normalized data. */
 export function createDiagramModel(input) {
-  object(input, ['version', 'diagram', 'modules', 'connections', 'groups', 'layout'], '');
+  object(input, ['version', 'diagram', 'modules', 'connections', 'groups', 'terminals', 'layout'], '');
   if (input.version !== 1) fail('Only version 1 is supported', 'version');
   object(input.diagram, ['name', 'style'], 'diagram');
   const diagram = {
@@ -83,7 +85,7 @@ export function createDiagramModel(input) {
       const result = {
         id: portId, direction: port.direction, width,
         displayName: width > 1 ? `${label}[${width - 1}:0]` : label,
-        side: port.direction === 'input' ? 'left' : 'right',
+        side: input.layout?.direction==='down'?(port.direction==='input'?'top':'bottom'):(port.direction === 'input' ? 'left' : 'right'),
         order: counts[port.direction]++,
         style: resolvePortStyle(diagram.style.module, style, { direction: port.direction, style: portStyle }),
       };
@@ -92,7 +94,9 @@ export function createDiagramModel(input) {
   }
   const modules = input.modules.map((module, i) => {
     const path = `modules[${i}]`;
-    object(module, ['id', 'label', 'ports', 'style', 'width', 'height'], path);
+    object(module, ['id', 'label', 'ports', 'style', 'width', 'height','appearance','type'], path);
+    const type = module.type ?? 'block';
+    if (own(module,'type') && !['block','concat'].includes(module.type)) fail('Expected block or concat', `${path}.type`);
     const style = own(module, 'style') ? parseStyle(module.style, 'module', `${path}.style`, fail) : {};
     const moduleId = id(module.id, `${path}.id`);
     if (moduleIds.has(moduleId)) fail('Duplicate module ID', `${path}.id`);
@@ -100,7 +104,17 @@ export function createDiagramModel(input) {
     const label = own(module, 'label') ? text(module.label, `${path}.label`, true) : moduleId;
     array(module.ports, `${path}.ports`, 1);
     const ports = parsePorts(module.ports, `${path}.ports`, style);
+    if (type === 'concat') {
+      const inputs=ports.filter(p=>p.direction==='input'), outputs=ports.filter(p=>p.direction==='output');
+      if (!inputs.length || outputs.length!==1) fail('Concat requires at least one input and exactly one output', `${path}.ports`);
+      if (ports.every(p=>p.width!==null)) {
+        const sum=inputs.reduce((total,p)=>total+BigInt(p.width),0n);
+        if(sum!==BigInt(outputs[0].width)) fail('Concat output width must equal the sum of all input widths', `${path}.ports`);
+      }
+    }
     return { id: moduleId, label, ports,
+      ...(own(module,'type')?{type}:{}),
+      ...(own(module,'appearance')?{appearance:parseAppearance(module.appearance,`${path}.appearance`,fail)}:{}),
       ...(own(module, 'width') ? { width: positive(module.width, `${path}.width`) } : {}),
       ...(own(module, 'height') ? { height: positive(module.height, `${path}.height`) } : {}),
       style: resolveModuleStyle(diagram.style.module, style) };
@@ -156,11 +170,28 @@ export function createDiagramModel(input) {
       seen.add(key);
     }
   }
+  const rawTerminals = own(input, 'terminals') ? input.terminals : [];
+  array(rawTerminals, 'terminals');
+  const terminalIds = new Set();
+  const terminalOrders = {input:0,output:0};
+  const terminals = rawTerminals.map((item,i) => {
+    const path=`terminals[${i}]`;
+    object(item,['id','direction','label','width','style'],path);
+    const key=id(item.id,`${path}.id`);
+    if(moduleIds.has(key)||groupIds.has(key)||terminalIds.has(key)) fail('Terminal ID must be unique across blocks, groups and terminals',`${path}.id`);
+    terminalIds.add(key);
+    if(!['input','output'].includes(item.direction)) fail('Unsupported terminal direction',`${path}.direction`);
+    const width=own(item,'width')?item.width:null;
+    if(own(item,'width')&&(!Number.isSafeInteger(width)||width<=0)) fail('Expected a positive safe integer',`${path}.width`);
+    const label=own(item,'label')?text(item.label,`${path}.label`,true):key;
+    const style=own(item,'style')?parseStyle(item.style,'text',`${path}.style`,fail):{};
+    return {id:key,direction:item.direction,label,displayName:width>1?`${label}[${width-1}:0]`:label,width,order:terminalOrders[item.direction]++,style:{...TEXT_STYLE,...style}};
+  });
   const rawConnections = own(input, 'connections') ? input.connections : [];
   array(rawConnections, 'connections');
   const pairs = new Set();
   const drivers = new Set();
-  const context=createConnectionContext({modules,groups});
+  const context=createConnectionContext({modules,groups,terminals});
   const hasBoundary=boundaryGroups({groups}).length>0;
   const connections = rawConnections.map((connection, i) => {
     const path = `connections[${i}]`;
@@ -171,11 +202,11 @@ export function createDiagramModel(input) {
     const {source,target}=resolved;
     if (source.port.width !== null && target.port.width !== null && source.port.width !== target.port.width) fail('Connection width mismatch', `${path}.to`);
     const width = source.port.width ?? target.port.width;
-    const pair = `${connection.from}->${connection.to}`;
+    const pair = `${endpointKey(connection.from)}->${endpointKey(connection.to)}`;
     if (pairs.has(pair)) fail('Duplicate connection', path);
-    if (drivers.has(connection.to)) fail('Input already has a driver', `${path}.to`);
+    if (drivers.has(endpointKey(connection.to))) fail('Input already has a driver', `${path}.to`);
     pairs.add(pair);
-    drivers.add(connection.to);
+    drivers.add(endpointKey(connection.to));
     const feedback = own(connection, 'feedback') ? connection.feedback : false;
     if (typeof feedback !== 'boolean') fail('Expected a boolean', `${path}.feedback`);
     return {
@@ -189,21 +220,24 @@ export function createDiagramModel(input) {
   });
 
   const rawLayout = own(input, 'layout') ? input.layout : {};
-  object(rawLayout, ['direction', 'routing', 'placement', 'feedbackRouting', 'feedbackMargin', 'feedbackLaneSpacing', 'moduleSpacing', 'layerSpacing'], 'layout');
+  object(rawLayout, ['direction', 'routing', 'placement', 'feedbackRouting', 'feedbackSide', 'feedbackMargin', 'feedbackLaneSpacing', 'moduleSpacing', 'layerSpacing'], 'layout');
   const option = (key, fallback) => own(rawLayout, key) ? rawLayout[key] : fallback;
   const direction = option('direction', 'right');
   const routing = option('routing', 'orthogonal');
   const placement = option('placement', 'default');
   const feedbackRouting = option('feedbackRouting', 'elk');
-  if (!['right', 'left'].includes(direction)) fail('Unsupported layout direction', 'layout.direction');
+  const feedbackSide=option('feedbackSide','auto');
+  if(!['auto','top','bottom','left','right'].includes(feedbackSide)) fail('Expected auto, top, bottom, left or right feedback side','layout.feedbackSide');
+  if (!['right', 'left', 'down'].includes(direction)) fail('Unsupported layout direction', 'layout.direction');
   if (routing !== 'orthogonal') fail('Unsupported routing', 'layout.routing');
   if (!['default', 'relaxed', 'simple'].includes(placement)) fail('Unsupported placement strategy', 'layout.placement');
   if (!['elk', 'outer'].includes(feedbackRouting)) fail('Unsupported feedback routing', 'layout.feedbackRouting');
-  if (feedbackRouting === 'outer' && direction !== 'right') fail('Outer feedback routing requires right direction', 'layout.direction');
+  if (feedbackRouting === 'outer' && !['right','down'].includes(direction)) fail('Outer feedback routing requires right or down direction', 'layout.direction');
+  if(feedbackSide!=='auto' && !(direction==='down'?['left','right']:['top','bottom']).includes(feedbackSide)) fail('Feedback side does not match flow direction','layout.feedbackSide');
   return {
-    version: 1, diagram, modules, connections, groups,
+    version: 1, diagram, modules, connections, groups, ...(terminals.length?{terminals}:{}),
     layout: {
-      direction, routing, placement, feedbackRouting,
+      direction, routing, placement, feedbackRouting, feedbackSide,
       feedbackMargin: positive(option('feedbackMargin', 20), 'layout.feedbackMargin'),
       feedbackLaneSpacing: positive(option('feedbackLaneSpacing', 12), 'layout.feedbackLaneSpacing'),
       moduleSpacing: positive(option('moduleSpacing', 50), 'layout.moduleSpacing'),

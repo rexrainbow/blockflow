@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Trigger signal path",
+    "style": {
+      "module": {
+        "fillColor": "#ffffff",
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "endArrow": "triangle",
+        "label": {
+          "color": "#2563a6"
+        }
+      }
+    }
+  },
+  "layout": {
+    "direction": "right",
+    "feedbackRouting": "outer",
+    "feedbackSide": "top"
+  },
+  "modules": [
+    {
+      "id": "TriggerSwitch",
+      "label": "Trigger switch",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Processor",
+      "label": "Trigger\nprocessor",
+      "appearance": {
+        "type": "stacked",
+        "layers": 3
+      },
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Function",
+      "label": "Function",
+      "appearance": {
+        "type": "stacked",
+        "layers": 2
+      },
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "OutputSwitch",
+      "label": "Trigger-output\nswitch",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "TriggerSwitch.out",
+      "to": "Processor.in"
+    },
+    {
+      "from": "Processor.out",
+      "to": "Function.in",
+      "label": "Trigger input"
+    },
+    {
+      "from": "Function.out",
+      "to": "OutputSwitch.in",
+      "label": "Function trigger\noutput"
+    },
+    {
+      "from": "OutputSwitch.out",
+      "to": "TriggerSwitch.in",
+      "feedback": true
+    }
+  ]
+}

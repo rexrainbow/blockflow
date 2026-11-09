@@ -35,12 +35,403 @@ const previewActionsDocument = () => ({
   ],
 });
 
+test('Flow selector switches axes, maps exterior feedback atomically and stays synchronized with settings', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/signal-schematic.json', import.meta.url), 'utf8'),
+  );
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  await page.locator('.block-hit[data-module="Processor"]').click();
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  const flow = page.getByRole('combobox', { name: 'Flow direction', exact: true });
+  await flow.selectOption('down');
+  await ready(page);
+  const changed = await documentState(page);
+  expect(changed.layout.direction).toBe('down');
+  expect(changed.layout.feedbackSide).toBe('left');
+  expect(changed.modules).toEqual(raw.modules);
+  expect(changed.connections).toEqual(raw.connections);
+  await page.getByRole('button', { name: 'Preview style', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Trigger processor');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await expect(flow).toHaveValue('right');
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  await page.getByRole('button', { name: 'Layout settings', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Direction', exact: true })).toHaveValue('down');
+  await expect(page.getByRole('combobox', { name: 'Feedback side', exact: true })).toHaveValue('left');
+  await page.getByRole('combobox', { name: 'Direction', exact: true }).selectOption('right');
+  await ready(page);
+  await expect(flow).toHaveValue('right');
+  await expect(page.getByRole('combobox', { name: 'Feedback side', exact: true })).toHaveValue('top');
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+});
+
+test('vertical Flow renders horizontal Concat, supports scoped groups and narrow keyboard controls', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/vertical-flow.json', import.meta.url), 'utf8'));
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  await expect(page.getByRole('combobox', { name: 'Flow direction', exact: true })).toHaveValue('down');
+  const bar = page.locator('[data-appearance="bar"] rect').first();
+  expect(Number(await bar.getAttribute('width'))).toBeGreaterThan(Number(await bar.getAttribute('height')));
+  await page.getByRole('combobox', { name: 'View target', exact: true }).selectOption('Stage');
+  await ready(page);
+  await expect(page.locator('.block-hit[data-module="Mux"]')).toBeVisible();
+  await page.getByRole('combobox', { name: 'Flow direction', exact: true }).selectOption('right');
+  await ready(page);
+  expect((await documentState(page)).layout.feedbackSide).toBe('top');
+  await page.getByRole('combobox', { name: 'View target', exact: true }).selectOption('');
+  await ready(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const flow = page.getByRole('combobox', { name: 'Flow direction', exact: true });
+  await flow.focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.keyboard.press('Escape');
+  await flow.selectOption('down');
+  await ready(page);
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('.preview-header')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await mkdir('output/editor', { recursive: true });
+  await page.screenshot({ path: 'output/editor/vertical-flow-narrow.png' });
+  const event = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await event).path(), 'utf8');
+  expect(svg).toContain('data-appearance="bar"');
+  expect(svg).not.toContain('rotate(');
+});
+
+test('Concat creation, abstract input editing, style defaults and JSON exports preserve type and order', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Add Concat', exact: true }).click();
+  await ready(page);
+  const initial = await documentState(page),
+    concat = initial.modules.find((m) => m.type === 'concat');
+  expect(concat.ports.map((p) => p.direction)).toEqual(['input', 'input', 'output']);
+  await expect(page.getByRole('button', { name: 'Add output', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Add input', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).modules.find((m) => m.id === concat.id).ports).toHaveLength(4);
+  await page.getByRole('button', { name: 'Block style', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Appearance', exact: true })).toHaveValue('bar');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).modules.find((m) => m.id === concat.id).appearance).toBeUndefined();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).modules.find((m) => m.id === concat.id).ports).toHaveLength(3);
+  const event = page.waitForEvent('download');
+  await toolbarAction(page, 'file', 'Save JSON');
+  const saved = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(saved.modules.find((m) => m.id === concat.id)).toEqual(concat);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#workspace')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+});
+
+test('Concat width mismatch disables image export, survives reload and recovers when corrected', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/concat.json', import.meta.url), 'utf8'));
+  await importJson(page, raw);
+  await ready(page);
+  await page.locator('.block-select[data-id="Combine"]').click();
+  await page.getByRole('spinbutton', { name: 'out Width', exact: true }).fill('31');
+  await page.getByRole('spinbutton', { name: 'out Width', exact: true }).blur();
+  await expect(page.locator('[data-action="export-svg"]')).toBeDisabled();
+  expect((await documentState(page)).modules.find((m) => m.id === 'Combine').ports.at(-1).width).toBe(31);
+  await page.reload();
+  await page.locator('.block-select[data-id="Combine"]').click();
+  await page.getByRole('spinbutton', { name: 'out Width', exact: true }).fill('32');
+  await page.getByRole('spinbutton', { name: 'out Width', exact: true }).blur();
+  await ready(page);
+  await expect(page.locator('[data-appearance="bar"]')).toHaveCount(2);
+  await page.screenshot({ path: 'output/editor/concat-example.png' });
+});
+
+test('hidden text styles edit without losing terminal, title or connection labels and undo restores visibility', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/hidden-labels.json', import.meta.url), 'utf8'));
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  expect(await page.locator('#preview-host svg text').allTextContents()).not.toContain(
+    'Hidden external input[7:0]',
+  );
+  const terminal = page.locator('.terminal-hit[data-module="ExternalInput"]');
+  await terminal.dblclick();
+  await page.getByRole('combobox', { name: 'Hidden', exact: true }).selectOption('false');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(terminal).toBeFocused();
+  expect(await page.locator('#preview-host svg text').allTextContents()).toContain(
+    'Hidden external input[7:0]',
+  );
+  expect((await documentState(page)).terminals[0].label).toBe(raw.terminals[0].label);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await page.locator('.block-hit[data-module="Processor"]').dblclick();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Hidden', exact: true }).selectOption('false');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  expect(await page.locator('#preview-host svg text').allTextContents()).toContain('Hidden processor name');
+  const point = await visibleEdgePoint(
+    page.locator('.connection-hit[data-edge="@terminal:ExternalInput->Processor.in"]'),
+  );
+  await page.mouse.dblclick(point.x, point.y);
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Hidden', exact: true }).selectOption('false');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  expect(await page.locator('#preview-host svg text').allTextContents()).toContain('Hidden connection name');
+  const download = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await download).path(), 'utf8');
+  expect(svg).not.toContain('Hidden external input');
+  expect(svg).toContain('Hidden processor name');
+  expect(svg).toContain('Hidden connection name');
+});
+
+test('signal appearance editing validates drafts, preserves history and exposes diagram defaults', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/signal-schematic.json', import.meta.url), 'utf8'),
+  );
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(4);
+  await expect(page.locator('[data-appearance="stacked"]')).toHaveCount(2);
+  const block = page.locator('.block-hit[data-module="Processor"]');
+  await block.dblclick();
+  await page.getByRole('combobox', { name: 'Appearance', exact: true }).selectOption('trapezoid');
+  const ratio = page.getByRole('spinbutton', { name: 'Right height ratio', exact: true });
+  await ratio.fill('0.1');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(ratio).toHaveAttribute('aria-invalid', 'true');
+  expect((await documentState(page)).modules[1].appearance.type).toBe('stacked');
+  await ratio.fill('0.6');
+  await page.getByRole('tab', { name: 'All ports', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Hidden', exact: true }).selectOption('false');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(block).toBeFocused();
+  const saved = await documentState(page);
+  expect(saved.modules[1].appearance).toEqual({ type: 'trapezoid', rightHeightRatio: 0.6 });
+  expect(saved.modules[1].style.portLabel.hidden).toBe(false);
+  await expect(page.locator('[data-appearance="trapezoid"]')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).modules[1].appearance).toEqual(raw.modules[1].appearance);
+  await page.getByRole('button', { name: 'Layout settings', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Feedback side', exact: true }).selectOption('bottom');
+  await ready(page);
+  await page.getByRole('combobox', { name: 'Hide port labels', exact: true }).selectOption('false');
+  await ready(page);
+  await page.getByRole('combobox', { name: 'Default end arrow', exact: true }).selectOption('none');
+  await ready(page);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(0);
+  expect((await documentState(page)).layout.feedbackSide).toBe('bottom');
+  expect((await documentState(page)).diagram.style.module.portLabel.hidden).toBe(false);
+  await mkdir('output/editor', { recursive: true });
+  await page.screenshot({ path: 'output/editor/block-appearance-controls.png' });
+});
+
 async function previewOnly(page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     if ((await page.locator('.studio').getAttribute('data-view')) === 'preview') return;
     await page.locator('[data-action="cycle-view"]').click();
   }
 }
+
+test('narrow appearance controls keep native keyboard selection, cancel drafts and per-edge arrows', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/signal-schematic.json', import.meta.url), 'utf8'),
+  );
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.block-hit[data-module="Processor"]').dblclick();
+  const appearance = page.getByRole('combobox', { name: 'Appearance', exact: true });
+  await appearance.focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.keyboard.press('Escape');
+  await appearance.selectOption('trapezoid');
+  await expect(page.getByRole('spinbutton', { name: 'Stack layers', exact: true })).toBeHidden();
+  await expect(page.getByRole('spinbutton', { name: 'Right height ratio', exact: true })).toBeVisible();
+  const dialog = page.getByRole('dialog');
+  const box = await dialog.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(391);
+  expect((await new AxeBuilder({ page }).include('dialog').analyze()).violations).toEqual([]);
+  await page.screenshot({ path: 'output/editor/appearance-narrow.png' });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await documentState(page)).toEqual(raw);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator('.connection-label-hit[data-edge="Processor.out->Function.in"]').dblclick();
+  await page.getByRole('combobox', { name: 'End arrow', exact: true }).selectOption('none');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(3);
+  expect((await documentState(page)).connections[1].style.endArrow).toBe('none');
+});
+
+test('Terminals import, render without frames and edit through Preview with undo and exports', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  await expect(page.locator('.block-hit')).toHaveCount(1);
+  await expect(page.locator('.terminal-hit')).toHaveCount(5);
+  await expect(page.locator('[data-role="terminal"] rect')).toHaveCount(0);
+  const terminal = page.locator('.terminal-hit[data-module="OverlayIn"]');
+  await terminal.dblclick();
+  await expect(page.getByRole('dialog')).toContainText('Terminal text style');
+  await page.getByRole('textbox', { name: 'Text color', exact: true }).fill('#123456');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(terminal).toBeFocused();
+  expect((await documentState(page)).terminals[0].style.color).toBe('#123456');
+  await terminal.click({ button: 'right' });
+  const menu = page.locator('#preview-actions-menu');
+  await expect(menu.locator('[data-action="preview-view-contents"]')).toBeHidden();
+  await menu.getByRole('button', { name: 'Edit label…', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Label', exact: true }).fill('外部\nOverlay');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await ready(page);
+  await terminal.focus();
+  await page.keyboard.press('Shift+F10');
+  await menu.getByRole('button', { name: 'Edit terminal…', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Terminal key', exact: true }).fill('OverlayRequest');
+  await page.getByRole('spinbutton', { name: 'Terminal bit width', exact: true }).fill('8');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await ready(page);
+  const updated = await documentState(page);
+  expect(updated.connections[0].from).toEqual({ terminal: 'OverlayRequest' });
+  expect(updated.terminals[0]).toMatchObject({ id: 'OverlayRequest', label: '外部\nOverlay', width: 8 });
+  const renamed = page.locator('.terminal-hit[data-module="OverlayRequest"]');
+  await expect(renamed).toBeFocused();
+  await renamed.click({ button: 'right' });
+  await menu.getByRole('button', { name: 'Edit terminal…', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Terminal direction', exact: true }).selectOption('output');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('#terminal-error')).not.toBeEmpty();
+  await expect(page.getByRole('combobox', { name: 'Terminal direction', exact: true })).toBeFocused();
+  expect(await documentState(page)).toEqual(updated);
+  await page.keyboard.press('Escape');
+  const download = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await download).path(), 'utf8');
+  expect(svg).toContain('data-role="terminal"');
+  expect(svg).not.toContain('@terminal:');
+  await renamed.click({ button: 'right' });
+  await menu.getByRole('button', { name: 'Delete terminal', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('.terminal-hit')).toHaveCount(4);
+  expect((await documentState(page)).connections).toHaveLength(4);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(updated);
+  await page.screenshot({ path: 'output/editor/terminals-preview.png' });
+});
+
+test('Terminals can be created from connection drafts and selected as external sources and targets', async ({
+  page,
+}) => {
+  const raw = {
+    version: 1,
+    diagram: { name: 'Terminal creation' },
+    modules: [
+      {
+        id: 'A',
+        ports: [
+          { id: 'in', direction: 'input', width: 8 },
+          { id: 'out', direction: 'output', width: 8 },
+        ],
+      },
+    ],
+    connections: [],
+  };
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await page.getByRole('button', { name: 'Add connection', exact: true }).click();
+  await page.locator('#dialog-label').fill('Preserve connection draft');
+  await page.getByRole('button', { name: 'New external input…', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#dialog-label')).toHaveValue('Preserve connection draft');
+  await page.getByRole('button', { name: 'New external input…', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Terminal key', exact: true }).fill('Clock');
+  await page.getByRole('textbox', { name: 'Terminal label', exact: true }).fill('Clock input');
+  await page.getByRole('spinbutton', { name: 'Terminal bit width', exact: true }).fill('8');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('#dialog-source')).toHaveValue('@terminal:Clock');
+  await expect(page.locator('#dialog-label')).toHaveValue('Preserve connection draft');
+  await page.locator('#dialog-target').selectOption('A.in');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).connections[0]).toEqual({
+    from: { terminal: 'Clock' },
+    to: 'A.in',
+    label: 'Preserve connection draft',
+  });
+  await page.getByRole('button', { name: 'Add connection', exact: true }).click();
+  await page.locator('#dialog-source').selectOption('A.out');
+  await page.getByRole('button', { name: 'New external output…', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Terminal key', exact: true }).fill('Ready');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('#dialog-target')).toHaveValue('@terminal:Ready');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).connections[1]).toEqual({ from: 'A.out', to: { terminal: 'Ready' } });
+  await page.getByRole('button', { name: 'Add terminal', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Terminal key', exact: true }).fill('A');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('#terminal-error')).toContainText('unique');
+  await page.getByRole('textbox', { name: 'Terminal key', exact: true }).fill('Unused');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('.terminal-hit')).toHaveCount(3);
+  await page.setViewportSize({ width: 720, height: 900 });
+  await previewOnly(page);
+  await page.getByRole('button', { name: 'Fit to view', exact: true }).click();
+  await page.screenshot({ path: 'output/editor/terminals-narrow.png' });
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
 
 test('Group view opens a hidden boundary subtree and exports its frame, ports and internal connections', async ({
   page,

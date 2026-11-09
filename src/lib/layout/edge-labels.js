@@ -5,6 +5,7 @@ const overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b
 const inflate = (r, n) => ({ x: r.x - n, y: r.y - n, width: r.width + 2 * n, height: r.height + 2 * n });
 
 export function edgeLabelSize(connection) {
+  if (connection.style.label.hidden) return {width:0,height:0};
   const size = textSize(connection.label, connection.style.label);
   const padding = connection.style.label.padding;
   const result = { width: size.width + 2 * padding, height: size.height + 2 * padding };
@@ -13,13 +14,15 @@ export function edgeLabelSize(connection) {
 }
 
 /** Place text beside the FINAL routes, including optional custom feedback routes. */
-export function placeEdgeLabels({ modules, groups, connections }) {
+export function placeEdgeLabels({ modules, groups, terminals = [], connections }) {
   const obstacles = modules.map(node => inflate(node, CLEARANCE));
+  obstacles.push(...terminals.filter(terminal=>!terminal.style.hidden).map(terminal=>inflate(terminal.labelBounds,CLEARANCE)));
+  obstacles.push(...connections.filter(edge=>edge.arrow).map(edge=>inflate(edge.arrow.bounds,CLEARANCE)));
   for (const group of groups) {
     if(group.collapsed) {obstacles.push(inflate(group,CLEARANCE));continue;}
-    for(const port of group.ports??[]) obstacles.push(inflate(port.labelBounds,CLEARANCE));
+    for(const port of group.ports??[]) if(!port.style.hidden) obstacles.push(inflate(port.labelBounds,CLEARANCE));
     // A container's interior can hold labels; its title and border cannot.
-    obstacles.push(inflate(group.labelBounds, CLEARANCE));
+    if(!group.style.label.hidden) obstacles.push(inflate(group.labelBounds, CLEARANCE));
     const half = group.style.borderWidth / 2 + CLEARANCE;
     obstacles.push(
       { x: group.x - half, y: group.y - half, width: group.width + 2 * half, height: 2 * half },
@@ -46,7 +49,12 @@ export function placeEdgeLabels({ modules, groups, connections }) {
     segments.set(edge.id, { parts, length: distance });
   }
   const warnings = [];
-  const labeled = connections.filter(edge => edge.label !== undefined).map(edge => ({ edge, size: edgeLabelSize(edge) }));
+  for (const edge of connections) if (edge.label !== undefined && edge.style.label.hidden) {
+    const point=edge.sections[0].points[0];
+    edge.labelPosition={...point,anchor:'middle'};
+    edge.labelBounds={...point,width:0,height:0};
+  }
+  const labeled = connections.filter(edge => edge.label !== undefined && !edge.style.label.hidden).map(edge => ({ edge, size: edgeLabelSize(edge) }));
   // Larger labels get first choice. Fixed tie breakers keep repeated layout stable.
   labeled.sort((a, b) => b.size.width * b.size.height - a.size.width * a.size.height || a.edge.id.localeCompare(b.edge.id, 'en'));
   for (const { edge, size } of labeled) {

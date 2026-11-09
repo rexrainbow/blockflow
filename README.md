@@ -139,7 +139,7 @@ await exportPng(svg, './diagram.png', { scale: 2 });
 
 The model rejects unknown properties, invalid IDs, incompatible endpoint directions, mismatched explicit bit widths, duplicate connections and multiple drivers. Omitting a port's `width` means unspecified and normalizes to `null`; explicit `null` in input JSON is invalid. When only one endpoint specifies a width, the connection uses it without writing it back to any port. When both widths are unspecified, the connection uses a thin line and port labels have no bus-width suffix. Display labels support Unicode and explicit line breaks; module labels default to the ID. IDs and `diagram.name` remain single-line. `diagram.name` is metadata and is not drawn.
 
-Inputs stay on the left and outputs on the right. Ports retain declaration order on each side. Layout produces geometry and text anchors; the renderer draws them directly and adds a 20 px white margin. Text width is estimated conservatively, and font appearance can vary across platforms.
+Inputs are on the left and outputs on the right for horizontal flow. With `direction: "down"`, inputs move to the top and outputs to the bottom, ordered left to right. Ports retain declaration order on each side. Layout produces geometry and horizontal text anchors; the renderer draws them directly and adds a 20 px white margin. Text width is estimated conservatively, and font appearance can vary across platforms.
 
 Direct feedback and cycles across modules are allowed. Feedback connects the specified ports, remains orthogonal and may pass above/below blocks or include backward segments. `direction: "left"` changes the main module placement direction while keeping port sides fixed, so ordinary connections may also need detours. Crossing or overlapping lines do not imply an electrical junction; v0.1 does not create junctions or shared nets.
 
@@ -238,7 +238,97 @@ npm.cmd run examples:styles
 - After running the command above, open `output/styles/style-gallery.svg` or `output/styles/style-gallery.png` locally.
 - [Style fields and inheritance rules](docs/agent-guide.md#optional-styles), with exact keys in the [JSON Schema](schema/blockflow.schema.json)
 
-`output/styles/` contains SVG, PNG at 2x scale and layout JSON. Custom fonts, bold/italic text, arrows, rounded corners, shadows, gradients and animation are not supported as portable style fields. Unknown style fields fail validation. An interactive DOM exporter is available separately, as described below.
+`output/styles/` contains SVG, PNG at 2x scale and layout JSON. Custom fonts, bold/italic text, rounded corners, shadows, gradients and animation are not supported as portable style fields. Unknown style fields fail validation. An interactive DOM exporter is available separately, as described below.
+
+## Concatenation
+
+A module with `type: "concat"` combines one or more ordered input ports into exactly one
+output port. Ordinary modules can omit `type` (equivalent to `"block"`). Input array order
+defines composition order, first input at the high end when describing bits, independently
+of placement or connection array order. Connections keep the usual `Block.port` references.
+
+Port widths are optional. With all widths omitted, Concat is an abstract composition node.
+Partial widths remain annotations: no sum is checked until **every input and the output**
+has an explicit width. Then the output must equal the input sum. Widths are never inferred,
+propagated or written back. Existing known-width checks on each connection still apply.
+
+Use **Add Concat** to create two unspecified-width inputs and one output. Add/reorder inputs
+through the regular Port controls. The sole output and last input cannot be removed, and a
+Concat cannot be converted to a Boundary group. A width mismatch remains editable and
+survives draft reload; correct or clear a width to restore valid export.
+
+Concat defaults to the compact `bar` appearance; input anchors retain their order and the
+output is centered between the first and last row. Add Concat hides title/port text through
+ordinary text styles to produce a thin bar; the stored name is still editable. Use Style to
+show names or choose another appearance. Relative size minima, groups, SVG/PNG, DOM and
+offline editing use the same model and geometry. Automatic bit-range labels are not included.
+
+Open [the Concat example](examples/concat.json) for both an abstract path and two 16-bit
+sources combined into a 32-bit Mux input.
+
+## Flow direction
+
+Preview's **Flow** select offers **Left to right** and **Top to bottom**, stored as
+`layout.direction: "right"` / `"down"`. Layout settings edits the same field. Direction
+changes are undoable, keep selection and endpoints, and fit the accepted diagram to view.
+Old `"left"` documents remain supported and expose a legacy option while selected.
+
+Down flow places input ports on top and outputs below, each ordered left to right. Text
+stays horizontal and is measured again for the new arrangement. Concat becomes a horizontal
+bar with unchanged input/composition order. Trapezoids have a full-width input side and a
+shorter centered output side; `rightHeightRatio` remains the serialized parameter for the
+output/input size ratio. Stacked bodies, group interfaces, collapsed groups, Collection
+anchors and Terminals follow the same direction. Relative width/height minima remain screen
+width/height. SVG, PNG and DOM export share the geometry.
+
+Outer feedback supports Right and Down. Its side is Auto/Top/Bottom for Right and
+Auto/Left/Right for Down. The editor maps Top ↔ Left and Bottom ↔ Right when switching axes,
+in the same Undo step. Direct JSON must use a compatible side. Blocked access retains ELK.
+See [vertical-flow.json](examples/vertical-flow.json) for Concat, Terminals, groups, appearances
+and exterior feedback together.
+
+## Block appearances and signal schematics
+
+Ordinary blocks accept an optional `appearance` object. Omission preserves the original rectangle.
+
+| Appearance | Parameters | Behavior |
+| --- | --- | --- |
+| `rectangle` | `type` only | Original rectangular block |
+| `bar` | `type` only | Compact rectangular bar with centered output; default for Concat |
+| `stacked` | `layers`: integer 1–3, default 2 | Visual backing plates; no members, expansion or connection projection |
+| `trapezoid` | `rightHeightRatio`: 0.2–1, default 0.6 | Full-height left side and shorter, centered right side |
+
+For example, use `"appearance": { "type": "stacked", "layers": 3 }` on a module.
+Appearance geometry determines the title, port positions and complete occupied bounds. Text
+and relative minimum sizes can enlarge the shape. Routing conservatively avoids its bounding
+rectangle. Groups do not accept `appearance`; choose Rectangle before converting a shaped
+block to a Boundary group. See [block appearances](examples/block-appearances.json).
+
+All text styles accept boolean `hidden` (default `false`). Use `style.hidden` on a Terminal
+or individual Port, `style.label.hidden` on a Block, Group or Connection, and
+`style.portLabel.hidden` for shared Port defaults. Diagram-level
+`diagram.style.module.portLabel.hidden` hides Port names throughout the diagram, including
+group interfaces. `inputPortLabel.hidden` / `outputPortLabel.hidden` restrict this by side;
+an individual Port can explicitly set `hidden: false` to override inherited hiding.
+
+Hidden text, backgrounds and width notation reserve no text space. Names, IDs, geometry
+anchors and connections remain editable and selectable. Omitted `label` still falls back
+to ID where supported; an empty string is invalid. `hidden` hides text only, never the owning
+object. The old `showPortLabels` field is removed and rejected without migration.
+See [hidden label styles](examples/hidden-labels.json).
+
+Set `diagram.style.connection.endArrow` to `"triangle"` for destination arrows. Override
+`style.endArrow` per connection with `"triangle"` or `"none"` (the default). Arrows follow the
+last routed segment and share its color and opacity, including dashed lines. Their geometry
+is included in SVG, PNG and DOM exports, image bounds and label avoidance.
+
+In Preview, open **Edit style…** on a block to select Appearance, or on a
+connection to select End arrow. Each text-style tab offers Hidden (Inherit default / Yes / No).
+Blank parameters use defaults; arrow controls offer Inherit default. Changes apply together on OK and support Undo. **Layout settings**
+contains Hide port labels, Default end arrow and Feedback side.
+
+[Signal schematic](examples/signal-schematic.json) combines hidden port labels, stacked
+blocks, destination arrows and top-side exterior feedback for a signal-flow diagram.
 
 ## Comparing node placement strategies
 
@@ -293,11 +383,17 @@ Add these fields to `layout`:
 {
   "feedbackRouting": "outer",
   "feedbackMargin": 20,
-  "feedbackLaneSpacing": 12
+  "feedbackLaneSpacing": 12,
+  "feedbackSide": "auto"
 }
 ```
 
-`feedbackRouting` defaults to `elk` (disabled). `outer` enables exterior routing and requires `direction: "right"`. This is a layout fragment; retain the full document's `version`, `diagram`, `modules` and other fields.
+`feedbackRouting` defaults to `elk` (disabled). `outer` enables exterior routing with `direction: "right"` or `"down"`. This is a layout fragment; retain the full document's `version`, `diagram`, `modules` and other fields.
+
+`feedbackSide` accepts `auto` (default), `top`/`bottom` for horizontal flow or `left`/`right` for Down, and applies only to Outer routing.
+Auto chooses by bends then length. A blocked requested side keeps the ELK route with
+`routingInfo.reason: "outer-access-blocked"`, without silently switching sides. This setting
+applies to eligible exterior feedback routes across the diagram.
 
 After once layout fixes all visible blocks, optional exterior feedback routing chooses an expanded AABB path by bends then length.
 
@@ -324,6 +420,43 @@ New blocks display their ID by default. The implicit display name follows ID cha
 custom display name is entered. Existing explicit display names remain unchanged.
 
 - Selecting a preview connection highlights its route with a dashed trace, switches to Connections and scrolls to its row. Clicking or keyboard-activating a connection row highlights the same route. Block and connection selections are mutually exclusive. Empty clicks and Escape clear selection; dragging still pans. Selection does not affect JSON, SVG or PNG exports.
+
+## External terminals
+
+Terminals represent named external inputs and outputs without a block frame. Open
+[terminals.json](examples/terminals.json) for a TGEN example with two external inputs and
+three outputs, including a multiline output name.
+
+Add optional root-level `terminals` entries with `id`, `direction` (`input` or `output`),
+optional `label`, optional positive safe-integer bit `width`, and optional text `style`.
+IDs share the block/group namespace. Omit Label to display the ID and Width for unknown
+bit width. Text styles use the same portable properties as port labels; width notation
+is appended to the final display line.
+
+Connections keep existing `"Block.port"` references and can use `{ "terminal": "ID" }`
+at one end. For example, `{ "from": { "terminal": "OverlayIn" }, "to": "TGEN.overlay_in" }`
+receives an external input, while `{ "from": "TGEN.interrupts", "to": { "terminal": "Interrupts" } }`
+sends a block output outside. Direction is relative to the diagram: external inputs are
+sources and may fan out; external outputs are targets and accept at most one driver.
+Terminal-to-terminal connections are not supported. The other end must be a real block
+or Boundary group port, with matching widths when both are explicit.
+
+Inputs appear on the left and outputs on the right for horizontal flow, even with leftward block placement. With Down flow they appear above and below the diagram, ordered left to right.
+Array order controls the top-to-bottom order on each side. Layout reserves label space
+and routes to internal anchors; helper nodes never enter saved JSON or appear as blocks.
+Terminal names and connection labels remain separate. Unused terminals are allowed.
+
+In **Connections**, use **Add terminal**, or **New external input… / New external output…**
+inside Add connection. Returning from terminal creation preserves the connection draft.
+Click a terminal in Preview to select it; double-click opens its text Style. Its shared
+right-click/keyboard actions offer **Edit label…**, **Edit style…**, **Edit terminal…** and
+**Delete terminal**. Renaming a key updates references; incompatible direction/width edits
+are rejected. Deleting a terminal removes its dependent connections in one Undo step.
+
+Terminals belong to the diagram root, not group members. Boundary crossing rules still
+apply. Collection collapse preserves terminal identities while projecting internal targets;
+group views omit root terminals and their external edges. SVG, PNG, the offline editor
+and the DOM viewer share the same geometry. DOM targets emit `terminalclick`.
 
 ## Connection labels
 
