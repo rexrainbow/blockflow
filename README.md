@@ -266,6 +266,24 @@ offline editing use the same model and geometry. Automatic bit-range labels are 
 Open [the Concat example](examples/concat.json) for both an abstract path and two 16-bit
 sources combined into a 32-bit Mux input.
 
+## Standalone Agent Kit
+
+The [agent-kit](agent-kit/README.md) directory contains exactly three distributable files:
+the JSON Schema, an English authoring guide and `blockflow-convert.mjs`. With Node.js 22.12+
+they work offline without this source checkout, `node_modules`, a browser or the editor.
+Agents can author/validate raw JSON and export editable JSON or SVG. PNG is not included.
+
+```powershell
+node agent-kit/blockflow-convert.mjs diagram.json --check
+node agent-kit/blockflow-convert.mjs diagram.json --output diagram.svg
+node agent-kit/blockflow-convert.mjs diagram.json --output formatted.json
+npm.cmd run build:agent-kit
+```
+
+The last command regenerates the three matched artifacts from the current implementation.
+The CLI also supports stdin/stdout, scoped group SVG and structured stderr diagnostics;
+see the kit README. JSON export retains the full original authoring document and omissions.
+
 ## Flow direction
 
 Preview's **Flow** select offers **Left to right** and **Top to bottom**, stored as
