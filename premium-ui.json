@@ -1,6 +1,12 @@
 {
   "profile": "product-admin",
-  "sourceRoots": ["src/editor", "src/lib/export", "src/lib/view", "examples"],
+  "sourceRoots": [
+    "src/editor",
+    "src/lib/blockchart/export",
+    "src/lib/blockchart/view",
+    "src/lib/shared/export",
+    "examples"
+  ],
   "locale": "en-US",
   "canonicalMap": "UX-CONTRACT.md",
   "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast", "CRUD"],

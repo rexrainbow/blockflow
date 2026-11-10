@@ -1,6 +1,6 @@
 # Authoring blockflow JSON
 
-Use [the JSON Schema](../schema/blockflow.schema.json) for accepted fields and types. The
+Use [the JSON Schema](../schema/blockchart.schema.json) for accepted fields and types. The
 library validator is authoritative for references and cross-object rules. Produce raw input
 JSON, not the normalized model, layout result, browser localStorage wrapper or SVG.
 The schema uses JSON Schema Draft 2020-12 and describes version 1 input.
@@ -103,6 +103,13 @@ ports. They may remain unconnected, but the document still needs a real block or
 Inputs stay left and outputs right for Right/Left, and use top/bottom for Down; array order is preserved per side. Label text and padding reserve layout space. Save only real terminal definitions
 and original endpoint objects, never the helper nodes used internally for layout.
 
+Same-side Terminal anchors align by default: a common X for each input/output side in
+horizontal flow, or a common Y for each side in Down flow. Terminal text and associated
+virtual signal labels move together. Their complete envelopes stay outside the internal
+Block/Group layout; overlapping same-side envelopes are separated along the side before
+affected connections are rerouted. Reduce bends then moves Terminals only along that side,
+preserving alignment. No authoring setting or coordinates are required.
+
 Terminal style is a direct text style with built-in text defaults, not module border/fill
 style. Normalized terminal width is bit width; layout terminal `width`/`height` are geometric
 dimensions and `bitWidth` carries signal width. Layout also provides `anchor`, `labelPosition`
@@ -111,7 +118,7 @@ terminals and external edges. Existing block-only input remains valid without th
 
 ## Layout
 
-All visible connections are laid out together (once). There is no layout mode, edge order
+Each layout pass considers all visible connections together; Auto receiver labels can request one additional pass. There is no layout mode, edge order
 or main-path alignment setting. Use direction right or down. Label conflicts do not trigger global spacing retries.
 Use feedback:true to express feedback preference and feedbackRouting:outer for the optional
 AABB exterior route; these do not create layout batches.
@@ -446,7 +453,7 @@ Terminals are rejected. Terminal adjustment also rejects changes that increase
 connection-label clearance warnings. Source signal nodes may slide with their source within the existing wrapper.
 All affected Net branches participate in the comparison; crossing/obstacle counts cannot
 increase. A deterministic search (four passes, 128 trials maximum) accepts improvements in
-bends, length, then displacement. Final Callouts/arrows follow adjustment. This applies to
+bends, length, then displacement. Reserved Inline names follow their Ports; final arrows follow adjustment. This applies to
 Auto, Grid and group views; saved JSON contains settings, never adjusted coordinates.
 Set `layout.portAdjustment: "fixed"` to disable sliding. An obstacle or disjoint ranges can require bends even with adjustment.
 Use examples/port-adjustment.json for a six-interface reference.
@@ -470,11 +477,17 @@ Nets, not a multi-source Net.
 A labeled Net compiles to a small virtual signal node in an invisible local source group,
 with text-sized geometry and an 8-unit gap. Enclosing Auto/Grid layout includes its footprint.
 The virtual structures are removed from exported hardware/layout membership and saved JSON.
-One shared Inline name remains near the source; common trunks are drawn once. After final
-routing, `style.label.repeatAtEnd` (`auto`/`always`/`never`, default `auto`) controls receiver
-Callouts. Auto compares routed length against positive `longThreshold` (default 600).
-These end labels never trigger another block layout. Hidden omits the virtual node and labels.
-Source text is Inline. Old label placement/position fields are rejected.
+One shared Inline name remains near the source; common trunks are drawn once.
+`style.label.repeatAtEnd` (`auto`/`always`/`never`, default `auto`) controls receiver Inline
+nodes placed beside the receiving Port. Always reserves them before the first layout; Never
+omits them. Auto compares first-pass routed branch length against positive `longThreshold`
+(default 600), freezes the selected branches and runs one additional layout. No third pass
+or removal/reselection occurs when routes change. Receiver footprints follow Port sides and
+order, may enlarge multi-Port targets (including Concat) across the flow, and can change
+Block placement. Arrows still terminate at physical Ports. Output Terminal names are packed
+with their receiver nodes. Saved JSON and public hardware membership contain no virtual
+objects. Hidden omits every source/receiver footprint and label. Old label placement/position
+fields are rejected.
 Compiled branches expose `netId`, `connectionIndex`, `branchIndex` and ordinary endpoint IDs.
 See net-fanout.json and net-bidirectional.json in examples, plus processor-components.json.
 
@@ -484,7 +497,7 @@ Net `style.label` and `diagram.style.connection.label` additionally support
 `borderColor` (default transparent), `borderWidth` (default 1; zero disables the frame),
 `borderOpacity` (default 1) and `borderRadius` (default 0). Width and radius must be finite
 and non-negative; opacity is in [0, 1]. Frames use a solid stroke and apply to both the
-shared source name and destination Callouts. They are independent of the Net line color.
+shared source name and destination Inline labels. They are independent of the Net line color.
 Strokes stay inside the reserved text-and-padding bounds; width and radius are clamped to
 fit. Use `padding` for breathing room around text. `hidden` hides text, fill and frame.
 These frame fields belong only to connection labels, not Terminal or Port text styles.
@@ -502,3 +515,11 @@ The editor exposes them in Connection style > Label; blank values inherit defaul
 
 The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
+
+## Runtime ownership
+
+Hardware diagram implementation lives in `src/lib/blockchart`. Existing public entries
+`src/lib/index.js`, `node.js`, `browser.js` and `export/dom.js` retain their exports.
+Flowchart uses a separate schema and runtime under `src/lib/flowchart`; see
+[Flowchart documentation](flowchart.md). Do not feed Flowchart JSON to the Blockchart CLI
+or Agent Kit. Both domains use the tools in `src/lib/shared`.

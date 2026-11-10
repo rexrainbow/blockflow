@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rexrainbow.github.io/blockflow/schema/flowchart.schema.json",
+  "title": "Flowchart authoring document",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "diagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "caption": {
+          "$ref": "#/$defs/text"
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "node": {
+              "$ref": "#/$defs/nodeStyle"
+            },
+            "edge": {
+              "$ref": "#/$defs/edgeStyle"
+            },
+            "group": {
+              "$ref": "#/$defs/nodeStyle"
+            },
+            "note": {
+              "$ref": "#/$defs/nodeStyle"
+            }
+          }
+        }
+      },
+      "required": ["name"]
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": ["down", "right", "left", "up"],
+          "default": "down"
+        },
+        "nodeSpacing": {
+          "$ref": "#/$defs/positive"
+        },
+        "layerSpacing": {
+          "$ref": "#/$defs/positive"
+        },
+        "noteGap": {
+          "$ref": "#/$defs/positive"
+        },
+        "loopSide": {
+          "enum": ["auto", "left", "right", "top", "bottom"]
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    }
+  },
+  "required": ["version", "diagram", "nodes", "edges"],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "positive": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^(transparent|#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))$"
+    },
+    "nodeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fillColor": {
+          "$ref": "#/$defs/color",
+          "default": "#eaf2ff"
+        },
+        "borderColor": {
+          "$ref": "#/$defs/color",
+          "default": "#52606d"
+        },
+        "borderWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.1
+        },
+        "borderStyle": {
+          "enum": ["solid", "dashed", "dotted"],
+          "default": "solid"
+        },
+        "borderRadius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "color": {
+          "$ref": "#/$defs/color",
+          "default": "#243b53"
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 12
+        },
+        "padding": {
+          "type": "number",
+          "minimum": 0,
+          "default": 12
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        }
+      }
+    },
+    "edgeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strokeColor": {
+          "$ref": "#/$defs/color",
+          "default": "#34495e"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.2
+        },
+        "lineStyle": {
+          "enum": ["solid", "dashed", "dotted"],
+          "default": "solid"
+        },
+        "color": {
+          "$ref": "#/$defs/color",
+          "default": "#34495e"
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 11
+        },
+        "labelBackgroundColor": {
+          "$ref": "#/$defs/color",
+          "default": "#ffffff"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "type": {
+          "enum": ["process", "decision", "terminator", "start", "end", "note"]
+        },
+        "width": {
+          "$ref": "#/$defs/positive"
+        },
+        "height": {
+          "$ref": "#/$defs/positive"
+        },
+        "style": {
+          "$ref": "#/$defs/nodeStyle"
+        },
+        "attachTo": {
+          "$ref": "#/$defs/id"
+        },
+        "side": {
+          "enum": ["left", "right", "top", "bottom"]
+        }
+      },
+      "required": ["id"]
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from": {
+          "$ref": "#/$defs/id"
+        },
+        "to": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "kind": {
+          "enum": ["flow", "loop", "association"]
+        },
+        "fromSide": {
+          "enum": ["left", "right", "top", "bottom"]
+        },
+        "toSide": {
+          "enum": ["left", "right", "top", "bottom"]
+        },
+        "arrow": {
+          "type": "boolean"
+        },
+        "style": {
+          "$ref": "#/$defs/edgeStyle"
+        }
+      },
+      "required": ["from", "to"]
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "style": {
+          "$ref": "#/$defs/nodeStyle"
+        }
+      },
+      "required": ["id", "members"]
+    }
+  }
+}

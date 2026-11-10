@@ -7,17 +7,17 @@ import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { createDiagramModel } from '../../src/lib/model.js';
+import { createDiagramModel } from '../../src/lib/blockchart/model.js';
 import {
   TEXT_STYLE,
   CONNECTION_LABEL_STYLE,
   BLOCK_STYLE,
   GROUP_STYLE,
   connectionStyle,
-} from '../../src/lib/styles.js';
+} from '../../src/lib/blockchart/styles.js';
 
 const root = new URL('../../', import.meta.url);
-const schema = JSON.parse(await readFile(new URL('schema/blockflow.schema.json', root), 'utf8'));
+const schema = JSON.parse(await readFile(new URL('schema/blockchart.schema.json', root), 'utf8'));
 const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 const minimal = JSON.parse(await readFile(new URL('examples/agent-minimal.json', root), 'utf8'));
 const run = promisify(execFile);

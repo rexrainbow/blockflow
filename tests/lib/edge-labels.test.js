@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { placeEdgeLabels } from '../../src/lib/layout/edge-labels.js';
-import { TEXT_STYLE, CONNECTION_LABEL_STYLE, connectionStyle } from '../../src/lib/styles.js';
+import { placeEdgeLabels } from '../../src/lib/blockchart/layout/edge-labels.js';
+import { TEXT_STYLE, CONNECTION_LABEL_STYLE, connectionStyle } from '../../src/lib/blockchart/styles.js';
 import { fixture, freeze, checkLayout } from './helpers.js';
 
 const intersects = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;

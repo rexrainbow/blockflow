@@ -1,6 +1,6 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { createDiagramModel } from '../src/lib/model.js';
+import { createDiagramModel } from '../src/lib/blockchart/model.js';
 
 const usage = 'Usage: npm run validate:diagram -- <input.json> [more.json ...] [--svg output.svg]';
 

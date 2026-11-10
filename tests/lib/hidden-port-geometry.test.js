@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDiagramModel, layoutDiagram } from '../../src/lib/index.js';
-import { moduleGeometry } from '../../src/lib/geometry.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-5, `${a} != ${b}`);
 function model(direction, appearance, ports, dimensions = {}) {

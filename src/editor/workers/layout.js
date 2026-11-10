@@ -1,6 +1,6 @@
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../lib/index.js';
 import { connectionKey } from '../state/commands.js';
-import { endpointLabel } from '../../lib/endpoints.js';
+import { endpointLabel } from '../../lib/blockchart/endpoints.js';
 
 self.addEventListener('message', async ({ data }) => {
   // ELK's bundled worker can assign self.onmessage internally. Keep our document

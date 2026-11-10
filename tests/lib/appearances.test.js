@@ -4,15 +4,15 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { moduleGeometry } from '../../src/lib/geometry.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
-import { connectionArrow } from '../../src/lib/layout/arrows.js';
+import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
+import { connectionArrow } from '../../src/lib/blockchart/layout/arrows.js';
 import { fixture, checkLayout, freeze } from './helpers.js';
 import { convertToBoundaryGroup } from '../../src/editor/state/commands.js';
-import { routeOuterFeedback } from '../../src/lib/layout/outer-feedback.js';
+import { routeOuterFeedback } from '../../src/lib/blockchart/layout/outer-feedback.js';
 
 const load = async name => JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
-const schema = JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8'));
+const schema = JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({ strict: true, allErrors: true }).compile(schema);
 
 test('appearance parameters, visibility, arrow and feedback side reject malformed JSON consistently', () => {

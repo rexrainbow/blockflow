@@ -1,5 +1,5 @@
 import { singleLine, escape as e, button, icon, sortActions } from './ui.js';
-import { ancestors, descendants, itemPath } from '../../lib/hierarchy.js';
+import { ancestors, descendants, itemPath } from '../../lib/blockchart/hierarchy.js';
 import { groupOf } from '../state/commands.js';
 
 export function renderBlockList(document, selected, selectedGroup, collapsed, search = '') {

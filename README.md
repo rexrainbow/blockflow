@@ -109,7 +109,7 @@ Interface contracts are documented in [DESIGN.md](DESIGN.md) and [UX-CONTRACT.md
 ## Agents and JSON Schema
 
 Agents can generate or edit JSON directly without operating the web app. Start with the [agent guide](docs/agent-guide.md),
-[JSON Schema](schema/blockflow.schema.json) and [minimal example](examples/agent-minimal.json).
+[JSON Schema](schema/blockchart.schema.json) and [minimal example](examples/agent-minimal.json).
 The schema uses Draft 2020-12 and validates fields and types. The library validates cross-object semantics such as endpoint existence, unique IDs, bit widths, drivers, group membership and boundary crossings.
 Configure schema association externally in your editor; do not add `$schema` to diagram JSON, where it is rejected as an unknown property.
 
@@ -145,7 +145,7 @@ Direct feedback and cycles across modules are allowed. Feedback connects the spe
 
 The Node export functions allow overwriting files but do not create parent directories. PNG dimensions are `max(1, Math.round(baseDimension * scale))`, using the base dimensions read by Sharp at 72 DPI. Limits are 32,768 px per side and 40,000,000 total pixels.
 
-See the [agent guide](docs/agent-guide.md) and [JSON Schema](schema/blockflow.schema.json) for the input format and validation rules.
+See the [agent guide](docs/agent-guide.md) and [JSON Schema](schema/blockchart.schema.json) for the input format and validation rules.
 
 ## Library entry points and file structure
 
@@ -162,26 +162,19 @@ Within the project, use relative imports as shown above, or import from `rtl-dia
 
 ```text
 src/lib/
-├─ index.js                 # Shared public entry; no fs/Sharp exporter dependency
-├─ node.js                  # Node public entry
-├─ browser.js               # Browser public entry
-├─ model.js
-├─ styles.js
-├─ geometry.js
-├─ layout/
-│  ├─ index.js
-│  ├─ groups.js
-│  ├─ visibility.js
-│  ├─ edge-labels.js
-│  └─ outer-feedback.js
-├─ render/
-│  └─ svg.js
-└─ export/
-   ├─ node.js               # File writing and Sharp PNG
-   └─ browser.js            # Downloads and SVG-to-Canvas PNG
+|-- index.js, node.js, browser.js   # Existing Blockchart public facades
+|-- export/dom.js                 # Existing DOM entry facade
+|-- blockchart/                   # Hardware model, layout, SVG and DOM viewer
+|-- flowchart/                    # Mermaid parser, Flowchart model, layout and SVG
+|   |-- parser/mermaid.js
+|   |-- model.js, geometry.js
+|   |-- layout/index.js
+|   |-- render/svg.js
+|   `-- index.js, node.js, browser.js
+`-- shared/                       # Text, paints, SVG tools, orthogonal routing, image export
 ```
 
-Examples use the public Node entry point. General tests exercise public APIs; tests of internal layout algorithms may import internal files. Former top-level `src/` files have moved without compatibility shims; update older imports accordingly.
+Examples use the public Node entry point. General tests exercise public APIs; tests of internal layout algorithms may import internal files. Internal implementation files now live under `blockchart`; update deep imports accordingly. The four existing public entry files retain their exports.
 
 The shared entry's own module dependencies do not include the Node exporter. The editor uses model validation, browser exports and the shared layout API inside a Worker. Vite builds do not include Sharp or `fs`. No server is required.
 
@@ -264,7 +257,7 @@ npm.cmd run examples:styles
 
 - [Complete JSON example](examples/style-gallery.json)
 - After running the command above, open `output/styles/style-gallery.svg` or `output/styles/style-gallery.png` locally.
-- [Style fields and inheritance rules](docs/agent-guide.md#optional-styles), with exact keys in the [JSON Schema](schema/blockflow.schema.json)
+- [Style fields and inheritance rules](docs/agent-guide.md#optional-styles), with exact keys in the [JSON Schema](schema/blockchart.schema.json)
 
 `output/styles/` contains SVG, PNG at 2x scale and layout JSON. Custom fonts, bold/italic text, rounded corners, shadows, gradients and animation are not supported as portable style fields. Unknown style fields fail validation. An interactive DOM exporter is available separately, as described below.
 
@@ -296,21 +289,25 @@ sources combined into a 32-bit Mux input.
 
 ## Standalone Agent Kit
 
-The [agent-kit](agent-kit/README.md) directory contains exactly three distributable files:
-the JSON Schema, an English authoring guide and `blockflow-convert.mjs`. With Node.js 22.12+
+The [agent-kit](agent-kit/README.md) directory ships two independent converters and Schemas:
+`blockchart-convert.mjs`, `blockchart.schema.json`, `flowchart-convert.mjs`,
+`flowchart.schema.json`, and a shared English README. With Node.js 22.12+
 they work offline without this source checkout, `node_modules`, a browser or the editor.
-Agents can author/validate raw JSON and export editable JSON or SVG. PNG is not included.
+Agents can author/validate Blockchart JSON or Mermaid/Flowchart JSON and export authoring
+JSON or SVG. Standalone PNG is not included; the project CLI and Node APIs provide it.
 
 ```powershell
-node agent-kit/blockflow-convert.mjs diagram.json --check
-node agent-kit/blockflow-convert.mjs diagram.json --output diagram.svg
-node agent-kit/blockflow-convert.mjs diagram.json --output formatted.json
+node agent-kit/blockchart-convert.mjs diagram.json --check
+node agent-kit/blockchart-convert.mjs diagram.json --output diagram.svg
+node agent-kit/blockchart-convert.mjs diagram.json --output formatted.json
+node agent-kit/flowchart-convert.mjs process.mmd --output process.json
+node agent-kit/flowchart-convert.mjs process.json --output process.svg
 npm.cmd run build:agent-kit
 ```
 
-The last command regenerates the three matched artifacts from the current implementation.
-The CLI also supports stdin/stdout, scoped group SVG and structured stderr diagnostics;
-see the kit README. JSON export retains the full original authoring document and omissions.
+The last command regenerates all five matched artifacts from the current implementation.
+Both CLIs support stdin/stdout and structured stderr diagnostics. Blockchart additionally
+supports scoped group SVG; see the kit README. JSON export retains the full original authoring document and omissions.
 
 ## Flow direction
 
@@ -492,6 +489,13 @@ Array order controls the top-to-bottom order on each side. Layout reserves label
 and routes to internal anchors; helper nodes never enter saved JSON or appear as blocks.
 Terminal names and connection labels remain separate. Unused terminals are allowed.
 
+Same-side Terminal anchors align by default: a common X for each input/output side in
+horizontal flow, or a common Y for each side in Down flow. Terminal text and associated
+virtual signal labels move together. Their complete envelopes stay outside the internal
+Block/Group layout; overlapping same-side envelopes are separated along the side before
+affected connections are rerouted. Reduce bends then moves Terminals only along that side,
+preserving alignment. No authoring setting or coordinates are required.
+
 In **Connections**, use **Add terminal**, or **New external input… / New external output…**
 inside Add connection. Returning from terminal creation preserves the connection draft.
 Click a terminal in Preview to select it; double-click opens its text Style. Its shared
@@ -576,8 +580,7 @@ Source signal label nodes move with their source Port only inside their reserved
 All branches of an affected Net are evaluated together. Accepted results do not increase
 obstacle-hit or foreign-Net crossing counts, and improve bends, length, then displacement.
 The search has at most four passes and 128 trials; it does not promise a global optimum or
-remove bends required by obstacles, port order or disjoint movement ranges. Callouts and
-arrows are placed afterwards. Explicit Fixed preserves the original fixed-port output exactly.
+remove bends required by obstacles, port order or disjoint movement ranges. Reserved source and receiver names follow their Ports; arrows are placed afterwards. Explicit Fixed preserves the original fixed-port output exactly.
 
 See [the six-interface example](examples/port-adjustment.json): with adequate Processor
 height, six two-bend connections become six straight connections while all Blocks stay put.
@@ -591,18 +594,28 @@ hierarchical Auto/Grid layout. Routes attach to this reserved rectangle. The ren
 synthetic Blocks/groups, opens an Inline gap for the source name and draws the common trunk
 once. Saved JSON contains no virtual nodes, coordinates or fake hardware.
 
-After routing, each branch's actual source-to-target length controls destination Callouts:
+Receiver repetition is controlled per Net:
 
 | Label property | Values | Default |
 | --- | --- | --- |
 | `repeatAtEnd` | `auto`, `always`, `never` | `auto` |
 | `longThreshold` | Positive logical SVG length | `600` |
 
-Auto adds a same-name Callout near a target only when its routed length exceeds the threshold.
-These supplementary labels do not trigger another block layout. Names stay horizontal;
-transparent backgrounds retain group fills. Common label styles inherit per property from
-`diagram.style.connection.label`. Hidden removes all Net labels and their virtual node.
-Source names are Inline; receiver names use Callout. The old label `placement` and `position` fields are rejected.
+Both source and receiver names use Inline virtual nodes. `always` reserves receiver space
+in the initial layout; `never` omits it. `auto` compares each branch's first routed
+source-to-target length with `longThreshold`, then runs a second layout with the selected
+receiver nodes. That selection stays fixed for the second pass, even if lengths change.
+There are at most two layout passes.
+
+Receiver nodes stay in the target's local wrapper or on the inside face of a boundary Group.
+They follow the receiving Port side and order, with a short routed tail to the physical Port;
+the arrow still ends at that Port. Same-side multi-Port targets, including Concat, may grow
+across the flow to leave room for the names. Explicit Block dimensions remain minima.
+Terminal receiver names also participate in placement. These reserved footprints may change
+Block placement and graph dimensions. Names stay horizontal; transparent backgrounds retain
+Group fills. Styles inherit per property from `diagram.style.connection.label`.
+Hidden omits all source/receiver labels and their footprints. The old label `placement` and
+`position` fields are rejected.
 
 Normalized/layout Connections are compiled branches with `netId`, `connectionIndex` and
 `branchIndex`; endpoints retain their authored identity. `labelInstances` contains the shared
@@ -610,11 +623,10 @@ source and optional destination label. `labelPosition`/`labelBounds` alias the f
 DOM connection events retain branch endpoint keys and expose `netId`/`branchIndex`.
 Virtual modules/groups are absent from public layout modules/groups and static SVG hardware.
 
-Labels avoid hardware, group titles/frames and foreign routes; Callout leaders may cross a
-group frame or attach to a coincident same-source, same-name fan-out segment. Unavoidable
-conflicts remain visible as `EDGE_LABEL_OVERLAP` warnings. User spacing/minimum sizes still
-apply, and virtual nodes are not guaranteed to make every graph smaller. SVG/PNG, Preview,
-offline and Agent Kit share the same pipeline. See [Net fan-out](examples/net-fanout.json),
+Receiver labels reserve space before routing, rather than using post-routing Callout leaders.
+Remaining conflicts are reported as `EDGE_LABEL_OVERLAP` warnings. User spacing/minimum sizes
+still apply; virtual nodes do not guarantee a smaller graph. SVG/PNG, Preview, offline and
+Agent Kit share the same pipeline. See [Net fan-out](examples/net-fanout.json),
 [bidirectional Net](examples/net-bidirectional.json) and
 [processor components](examples/processor-components.json).
 
@@ -912,7 +924,7 @@ Net `style.label` and `diagram.style.connection.label` additionally support
 `borderColor` (default transparent), `borderWidth` (default 1; zero disables the frame),
 `borderOpacity` (default 1) and `borderRadius` (default 0). Width and radius must be finite
 and non-negative; opacity is in [0, 1]. Frames use a solid stroke and apply to both the
-shared source name and destination Callouts. They are independent of the Net line color.
+shared source name and destination Inline labels. They are independent of the Net line color.
 Strokes stay inside the reserved text-and-padding bounds; width and radius are clamped to
 fit. Use `padding` for breathing room around text. `hidden` hides text, fill and frame.
 These frame fields belong only to connection labels, not Terminal or Port text styles.
@@ -930,3 +942,33 @@ The editor exposes them in Connection style > Label; blank values inherit defaul
 
 The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
+
+
+## Flowchart text runtime
+
+Flowcharts have their own model and layout pipeline, without an editor. A documented
+Mermaid Flowchart subset compiles to portable JSON, then standalone SVG or PNG:
+
+```powershell
+npm run flowchart -- examples/flowchart/batch-update.mmd --output output/batch.json
+npm run flowchart -- output/batch.json --output output/batch.svg
+npm run flowchart -- output/batch.json --output output/batch.png --scale 2
+```
+
+See [Flowchart usage, supported syntax and JSON fields](docs/flowchart.md),
+[the Flowchart schema](schema/flowchart.schema.json), and
+[the batch-update example](examples/flowchart/batch-update.mmd).
+Use `rtl-diagram/flowchart` for pure APIs, `/flowchart/node` for filesystem/PNG export, or
+`/flowchart/browser` for downloads and Canvas PNG. The existing root package entries keep
+serving Blockchart; explicit `/blockchart`, `/blockchart/node` and `/blockchart/browser`
+entries expose the same APIs. Blockchart and Flowchart share low-level tools, with no
+cross-domain model or layout dependencies.
+
+
+## Project and artifact names
+
+**blockflow** remains the project/editor name: Blockchart + Flowchart. Hardware diagram
+artifacts are named `blockchart-convert.mjs` and `blockchart.schema.json`; the source Schema
+is `schema/blockchart.schema.json`. Standalone Flowchart artifacts
+are `flowchart-convert.mjs` and `flowchart.schema.json` in the same `agent-kit` directory.
+The existing Flowchart CLI remains available through `npm run flowchart`.

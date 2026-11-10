@@ -1,5 +1,5 @@
-import { parseStyle } from '../../lib/styles.js';
-import { APPEARANCES, parseAppearance } from '../../lib/appearances.js';
+import { parseStyle } from '../../lib/blockchart/styles.js';
+import { APPEARANCES, parseAppearance } from '../../lib/blockchart/appearances.js';
 import { button, escape as e, field, input, select } from './ui.js';
 
 const textFields = [

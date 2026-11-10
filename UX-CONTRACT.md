@@ -536,6 +536,13 @@ after modal close and asynchronous layout without resetting mode/zoom. No block 
 drawn; helper nodes exist only inside layout. Group views omit root terminals; Collection
 projection preserves original terminal endpoints. Exports and offline mode share geometry.
 
+Same-side Terminal anchors align by default: a common X for each input/output side in
+horizontal flow, or a common Y for each side in Down flow. Terminal text and associated
+virtual signal labels move together. Their complete envelopes stay outside the internal
+Block/Group layout; overlapping same-side envelopes are separated along the side before
+affected connections are rerouted. Reduce bends then moves Terminals only along that side,
+preserving alignment. No authoring setting or coordinates are required.
+
 The shared action definitions in components/preview-actions.js own the Preview toolbar
 disclosure and right-click/Shift+F10 context menu. Select the clicked target before opening.
 All block/group/edge targets offer Edit style… and Edit label…; show group-only operations
@@ -602,23 +609,20 @@ uses the same scope, gesture, validation, navigation and export implementations.
 
 ## Connection label positions and long traces
 
-Source: the user's approved Inline/Beside/Callout and endpoint-repetition discussion.
-Connection Style ? Label reuses the native select/field adapter for Label placement
-(Inline, Beside, Callout) and Label position (Middle, Start, End, Both ends). Blank means
-inherit; defaults are Inline/Middle. Cancel/Escape discard; OK commits both in one Undo
-operation. The same enum validation applies to JSON, DOM layouts and offline imports.
+Source: the user's approved Net labels and virtual receiver-node discussion.
+Connection Style > Label uses the native select/field adapter for Destination labels
+(Long branches, Always, Never) and Long branch threshold. Blank inherits; defaults are Auto
+and 600. Cancel/Escape discard; OK commits in one Undo operation. Saved JSON accepts
+`repeatAtEnd` and `longThreshold`; retired `placement` and `position` fields are rejected.
 Other text styles reject these connection-only fields. Hidden removes all instances.
 
-Positions follow source-to-target route order, independently of arrows. Both ends becomes
-one middle label on short routes. Matching starts on a shared source segment may draw once;
-its label selects the representative connection, while each target and route stays selectable.
-All unshared instances select/edit their own connection, including the end instance.
-Inline opens a gap only in its own route. A failed Inline placement uses a Callout with an
-attachment dot and leader. Labels avoid foreign routes, blocks, arrows and group frames/titles;
-leaders may cross group frames. Unavoidable conflicts stay visible through existing warnings.
-Do not grow global diagram spacing because of label conflicts. Geometry, exported bounds,
-SVG/PNG, Preview and DOM hit areas include every instance and leader; DOM mask IDs are scoped
-per view. `labelPosition`/`labelBounds` remain aliases for the first instance.
+Names follow source-to-target identity independently of arrows. One shared source label
+selects its Net; every branch and receiving name remains selectable. Collapsed Collection
+branches sharing a visible receiving Port also share one receiving footprint, while retaining
+semantic endpoint IDs. Names use reserved Inline nodes and mask only their own wire.
+Layouts retain honest conflict warnings. Geometry, exported bounds, SVG/PNG, Preview and
+DOM hit areas include both instances; DOM mask IDs are scoped per view.
+`labelPosition`/`labelBounds` remain aliases for the first instance.
 
 ## Net and Concat connection creation
 
@@ -639,9 +643,14 @@ No separate dialog, menu, notification, token palette or persistence system is i
 
 Net label geometry is text-sized, with an 8-unit gap in a routing-only source wrapper before
 outer Auto/Grid placement. Synthetic structures never appear in JSON, hardware hits or public
-membership. A source name is common to all branches. Destination labels are Callouts controlled
+membership. A source name is common to all branches. Destination labels are reserved Inline nodes controlled
 by Style/Label Destination labels (Auto/Always/Never) and Long branch threshold (positive, 600).
-They are added after routing. Hidden removes the source virtual node and every end label.
+Always reserves receiving nodes before the first layout. Never omits them. Auto selects
+branches exceeding the first-pass routed threshold and freezes that selection for a second
+layout, with no further iteration. Receiver names follow Port sides/order beside hardware,
+including Concat and Terminal targets; they may enlarge multi-Port targets and affect placement.
+The short tail and arrow end at the physical Port. Hidden removes every virtual footprint
+and label. No new authoring fields or controls are introduced.
 A source label selects the whole Net; a branch selects that Net and reveals its target row.
 Branch routing identities remain available to DOM hosts via netId/branchIndex. Layout warnings
 remain honest when full clearance is impossible. Narrow viewport, native popup, Cancel, atomic

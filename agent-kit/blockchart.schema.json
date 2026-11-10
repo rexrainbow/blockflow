@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:blockflow:diagram:1",
-  "title": "blockflow diagram input, version 1",
+  "$id": "urn:blockchart:diagram:1",
+  "title": "Blockchart diagram input, version 1",
   "description": "Raw input JSON, not a normalized model or layout result. Validate cross-object semantics with createDiagramModel; render to check layout. Defaults are annotations, not inserted values.",
   "type": "object",
   "additionalProperties": false,
@@ -68,7 +68,7 @@
       "items": {
         "$ref": "#/$defs/terminal"
       },
-      "description": "Root external inputs and outputs. IDs share the block/group namespace. Each connected terminal must connect to a real block or boundary-group port."
+      "description": "Root external inputs and outputs. Same-side anchors align by default outside the internal layout, with their text and signal label footprints. Reduce bends preserves the side alignment. IDs share the block/group namespace. Each connected terminal must connect to a real block or boundary-group port."
     }
   },
   "$defs": {
@@ -879,13 +879,13 @@
         "repeatAtEnd": {
           "enum": ["auto", "always", "never"],
           "default": "auto",
-          "description": "Net destination Callouts. Auto repeats the common source name when routed branch length exceeds longThreshold."
+          "description": "Net destination Inline nodes. Always reserves receiver space in the first layout; Auto selects first-pass branches longer than longThreshold and runs one additional layout with that selection frozen; Never omits receiver labels."
         },
         "longThreshold": {
           "type": "number",
           "exclusiveMinimum": 0,
           "default": 600,
-          "description": "Routed source-to-target length in logical SVG units above which a Net adds an end Callout."
+          "description": "First-pass routed source-to-target length in logical SVG units above which Auto reserves a receiver Inline node in the second layout."
         },
         "borderColor": {
           "$ref": "#/$defs/color",

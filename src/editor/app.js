@@ -1,7 +1,7 @@
 import { renderNetRow, renderNetDialog } from './components/net-controls.js';
-import { targetEntries, targetEndpoint, targetEndpoints } from '../lib/nets.js';
+import { targetEntries, targetEndpoint, targetEndpoints } from '../lib/blockchart/nets.js';
 import { validViewRoot, viewScopeOptions } from './state/view-scope.js';
-import { groupType } from '../lib/group-type.js';
+import { groupType } from '../lib/blockchart/group-type.js';
 import {
   renderLayoutPanel,
   newGridDraft,
@@ -9,14 +9,14 @@ import {
   layoutMembers,
   portAdjustmentFields,
 } from './components/layout-panel.js';
-import { reconcileGrids } from '../lib/grid.js';
-import { normalizeDisplayText } from '../lib/model.js';
-import { setDirection } from '../lib/direction.js';
-import { endpointKey, endpointFromKey, endpointLabel } from '../lib/endpoints.js';
+import { reconcileGrids } from '../lib/blockchart/grid.js';
+import { normalizeDisplayText } from '../lib/blockchart/model.js';
+import { setDirection } from '../lib/blockchart/direction.js';
+import { endpointKey, endpointFromKey, endpointLabel } from '../lib/blockchart/endpoints.js';
 import { renderTerminalDialog } from './components/terminal-dialog.js';
-import { ancestors, descendants, itemPath, canPlace } from '../lib/hierarchy.js';
+import { ancestors, descendants, itemPath, canPlace } from '../lib/blockchart/hierarchy.js';
 import example from '../../examples/nested-groups.json';
-import { downloadBlob, svgToPngBlob } from '../lib/export/browser.js';
+import { downloadBlob, svgToPngBlob } from '../lib/shared/export/browser.js';
 import { renderBlockList } from './components/block-list.js';
 import { History } from './state/history.js';
 import {

@@ -1,3 +1,4 @@
+import { routeOrthogonal as route } from '../../shared/orthogonal.js';
 import { groupGeometry } from './groups.js';
 import { ancestors } from '../hierarchy.js';
 import { sideVector, defaultSide } from '../port-sides.js';
@@ -22,9 +23,11 @@ export async function arrangeGrids(result, model, elk) {
   const all = [...result.modules, ...result.groups],
     nodes = new Map(all.map((n) => [n.id, n])),
     refs = new Map([...model.modules, ...model.groups].map((n) => [n.id, n]));
+  for(const t of result.terminals??[])nodes.set('@terminal:'+t.id,t);
   function shift(node, dx, dy, descendants = true) {
     node.x += dx;
     node.y += dy;
+    if(node.anchor){node.anchor.x+=dx;node.anchor.y+=dy;}
     for (const key of ['labelPosition', 'labelBounds']) {
       node[key].x += dx;
       node[key].y += dy;
@@ -272,7 +275,7 @@ export async function arrangeGrids(result, model, elk) {
     }
   }
   const contained = new Set(result.groups.flatMap((g) => g.members ?? [])),
-    roots = all.filter((n) => !contained.has(n.id)),
+    roots = all.filter((n) => !contained.has(n.id) && !n._signalTerminal),
     externallyArranged = new Set();
   function prepare(children, config) {
     const expanded = config?.type === 'grid' ? (config.expandGroups ?? []) : [];
@@ -301,11 +304,13 @@ export async function arrangeGrids(result, model, elk) {
     for (const direction of ['input', 'output']) {
       let cursor = model.layout.direction === 'down' ? left : top;
       for (const t of result.terminals.filter((t) => t.direction === direction)) {
+        const wrapper=result.groups.find(g=>g._signalTerminal===t.id),packed=wrapper??t;
         const down = model.layout.direction === 'down',
-          x = down ? cursor : direction === 'input' ? left - 60 - t.width : right + 60,
-          y = down ? (direction === 'input' ? top - 60 - t.height : bottom + 60) : cursor,
-          dx = x - t.x,
-          dy = y - t.y;
+          x = down ? cursor : direction === 'input' ? left - 60 - packed.width : right + 60,
+          y = down ? (direction === 'input' ? top - 60 - packed.height : bottom + 60) : cursor,
+          dx = x - packed.x,
+          dy = y - packed.y;
+        if(wrapper){shift(wrapper,dx,dy);cursor+=(down?packed.width:packed.height)+24;continue;}
         t.x = x;
         t.y = y;
         for (const k of ['anchor', 'labelPosition', 'labelBounds']) {
@@ -320,124 +325,8 @@ export async function arrangeGrids(result, model, elk) {
 
 // Sparse rectilinear visibility graph. Only adjacent coordinates are connected;
 // heap search includes a bend penalty and never crosses an obstacle interior.
-function route(start, end, obstacles, bounds, clearance, avoid = []) {
-  const xs = new Set([start.x, end.x]),
-    ys = new Set([start.y, end.y]);
-  for (const r of obstacles) {
-    xs.add(r.x);
-    xs.add(r.x + r.width);
-    ys.add(r.y);
-    ys.add(r.y + r.height);
-  }
-  for(const [a,b] of avoid) {
-    if(a.x===b.x) {xs.add(a.x-16);xs.add(a.x+16);}
-    if(a.y===b.y) {ys.add(a.y-16);ys.add(a.y+16);}
-  }
-  const all = [start, end, ...obstacles.flatMap((r) => [r, { x: r.x + r.width, y: r.y + r.height }])];
-  xs.add(Math.min(...all.map((p) => p.x)) - clearance);
-  xs.add(Math.max(...all.map((p) => p.x)) + clearance);
-  ys.add(Math.min(...all.map((p) => p.y)) - clearance);
-  ys.add(Math.max(...all.map((p) => p.y)) + clearance);
-  const X = [...xs]
-      .filter((x) => !bounds || (x >= bounds.x - eps && x <= bounds.x + bounds.width + eps))
-      .sort((a, b) => a - b),
-    Y = [...ys]
-      .filter((y) => !bounds || (y >= bounds.y - eps && y <= bounds.y + bounds.height + eps))
-      .sort((a, b) => a - b);
-  if (X.length * Y.length > 250000)
-    throw new Error('Fixed routing graph is too large; split the diagram into smaller groups.');
-  const width = X.length,
-    from = Y.indexOf(start.y) * width + X.indexOf(start.x),
-    to = Y.indexOf(end.y) * width + X.indexOf(end.x),
-    valid = new Map();
-  const point = (id) => ({ x: X[id % width], y: Y[Math.floor(id / width)] });
-  const allowed = (id) => {
-    if (!valid.has(id)) valid.set(id, !obstacles.some((r) => inside(point(id), r)));
-    return valid.get(id);
-  };
-  if (from < 0 || to < 0 || !allowed(from) || !allowed(to))
-    throw new Error('Port access is obstructed in fixed layout. Increase Grid gaps or change port sides.');
-  const heap = [],
-    dist = new Map(),
-    previous = new Map();
-  const push = (key, cost) => {
-    let i = heap.length;
-    heap.push({ key, cost });
-    while (i) {
-      const p = (i - 1) >> 1;
-      if (heap[p].cost <= cost) break;
-      heap[i] = heap[p];
-      i = p;
-    }
-    heap[i] = { key, cost };
-  };
-  const pop = () => {
-    const first = heap[0],
-      last = heap.pop();
-    if (heap.length) {
-      let i = 0;
-      while (true) {
-        let c = i * 2 + 1;
-        if (c >= heap.length) break;
-        if (c + 1 < heap.length && heap[c + 1].cost < heap[c].cost) c++;
-        if (heap[c].cost >= last.cost) break;
-        heap[i] = heap[c];
-        i = c;
-      }
-      heap[i] = last;
-    }
-    return first;
-  };
-  const initial = from * 3;
-  dist.set(initial, 0);
-  push(initial, 0);
-  let finish;
-  while (heap.length) {
-    const current = pop();
-    if (current.cost !== dist.get(current.key)) continue;
-    const id = Math.floor(current.key / 3),
-      dir = current.key % 3;
-    if (id === to) {
-      finish = current.key;
-      break;
-    }
-    const x = id % width,
-      y = Math.floor(id / width),
-      a = point(id);
-    for (const [nx, ny, nextDir] of [
-      [x - 1, y, 1],
-      [x + 1, y, 1],
-      [x, y - 1, 2],
-      [x, y + 1, 2],
-    ]) {
-      if (nx < 0 || ny < 0 || nx >= X.length || ny >= Y.length) continue;
-      const next = ny * width + nx;
-      if (!allowed(next)) continue;
-      const b = point(next);
-      if (obstacles.some((r) => crosses(a, b, r))) continue;
-      let parallelCost=0;
-      for(const [u,v] of avoid) {
-        if(a.x===b.x&&u.x===v.x&&Math.abs(a.x-u.x)<12) parallelCost+=10*Math.max(0,Math.min(Math.max(a.y,b.y),Math.max(u.y,v.y))-Math.max(Math.min(a.y,b.y),Math.min(u.y,v.y)));
-        if(a.y===b.y&&u.y===v.y&&Math.abs(a.y-u.y)<12) parallelCost+=10*Math.max(0,Math.min(Math.max(a.x,b.x),Math.max(u.x,v.x))-Math.max(Math.min(a.x,b.x),Math.min(u.x,v.x)));
-      }
-      const cost =
-          current.cost + Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + parallelCost + (dir && dir !== nextDir ? 20 : 0),
-        key = next * 3 + nextDir;
-      if (cost < (dist.get(key) ?? Infinity)) {
-        dist.set(key, cost);
-        previous.set(key, current.key);
-        push(key, cost);
-      }
-    }
-  }
-  if (finish === undefined)
-    throw new Error('No clear orthogonal route in fixed layout. Increase Grid gaps or change port sides.');
-  const points = [];
-  for (let k = finish; k !== undefined; k = previous.get(k)) points.push(point(Math.floor(k / 3)));
-  return points.reverse();
-}
 
-export function routeFixed(result, model, onlyExcluded = false, selected = null) {
+export function routeFixed(result, model, onlyExcluded = false, selected = null, reason = null) {
   const nodes = [...result.modules, ...result.groups],
     owners = new Map(nodes.map((n) => [n.id, n])),
     refs = new Map(model.connections.map((e) => [e.id, e]));
@@ -474,7 +363,7 @@ export function routeFixed(result, model, onlyExcluded = false, selected = null)
     if (onlyExcluded && ref.constraint !== false) continue;
     const a = end(ref.source, ref.target, ref),
       b = end(ref.target, ref.source, ref),
-      distance = ref._signalTrunk?3:Math.max(14, edge.style.strokeWidth * 2 + 6),
+      distance = (ref._signalTrunk||ref._signalTail)?3:Math.max(14, edge.style.strokeWidth * 2 + 6),
       av = a.vector ?? sideVector(a.side),
       bv = b.vector ?? sideVector(b.side);
     const start = { x: a.p.x + av.x * distance, y: a.p.y + av.y * distance },
@@ -487,7 +376,7 @@ export function routeFixed(result, model, onlyExcluded = false, selected = null)
     if (scope) exempt.add(scope.id);
     const obstacles = nodes
       .filter((n) => !exempt.has(n.id))
-      .map((n) => inflate(n, ref._signalTrunk?1:Math.max(5, edge.style.strokeWidth / 2 + 2)));
+      .map((n) => inflate(n, (ref._signalTrunk||ref._signalTail)?1:Math.max(5, edge.style.strokeWidth / 2 + 2)));
     for (const g of result.groups)
       if (exempt.has(g.id) && !g.style.label.hidden) obstacles.push(inflate(g.labelBounds, 3));
     for (const t of result.terminals ?? [])
@@ -497,14 +386,15 @@ export function routeFixed(result, model, onlyExcluded = false, selected = null)
     const avoid=ref.label!==undefined&&!ref.style.label.hidden&&nearby
       ? result.connections.filter(other=>other!==edge).flatMap(other=>other.sections.flatMap(section=>section.points.slice(1).map((p,i)=>[section.points[i],p])))
         .filter(([a,b])=>Math.max(a.x,b.x)>=nearby.x&&Math.min(a.x,b.x)<=nearby.x+nearby.width&&Math.max(a.y,b.y)>=nearby.y&&Math.min(a.y,b.y)<=nearby.y+nearby.height) : [];
-    const middle = route(
+    let middle;
+    try { middle = route(
       start,
       finish,
       obstacles,
       scope ? { x: scope.x, y: scope.y, width: scope.width, height: scope.height } : undefined,
       model.layout.layerSpacing,
       avoid,
-    );
+    ); } catch(cause) { throw new Error(`Cannot route ${edge.id}: ${cause.message}`,{cause}); }
     const full = [{ x: a.p.x, y: a.p.y }, ...middle, { x: b.p.x, y: b.p.y }],
       points = [];
     for (const p of full) {
@@ -524,7 +414,7 @@ export function routeFixed(result, model, onlyExcluded = false, selected = null)
     edge.sections = [{ points }];
     edge.routingInfo = {
       method: 'fixed-orthogonal',
-      reason: selected ? 'port-adjustment' : ref.constraint === false ? 'non-constraining' : 'grid',
+      reason: reason ?? (selected ? 'port-adjustment' : ref.constraint === false ? 'non-constraining' : 'grid'),
     };
   }
 }

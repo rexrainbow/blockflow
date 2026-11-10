@@ -1,7 +1,7 @@
 import { button, field, input, select, textarea, escape as e, feedbackControl, sortActions } from './ui.js';
 import { endpoints, targetReason, connectionKey } from '../state/commands.js';
-import { endpointKey, endpointLabel } from '../../lib/endpoints.js';
-import { targetEntries, targetEndpoint, targetEndpoints } from '../../lib/nets.js';
+import { endpointKey, endpointLabel } from '../../lib/blockchart/endpoints.js';
+import { targetEntries, targetEndpoint, targetEndpoints } from '../../lib/blockchart/nets.js';
 
 export function renderNetRow(document, net, index, position, count) {
   const sources = endpoints(document, 'output').map((p) => ({ value: p.ref, label: p.label }));

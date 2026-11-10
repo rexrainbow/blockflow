@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { groupCornerRadius } from '../../src/lib/styles.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { groupCornerRadius } from '../../src/lib/blockchart/styles.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 
 const sample = (type = 'container', collapsed = false, radius = 12) => ({
   version: 1,

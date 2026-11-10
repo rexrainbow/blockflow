@@ -2,10 +2,10 @@ import { readFile, mkdir, writeFile, rename, unlink, realpath, stat } from 'node
 import { resolve, dirname, extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { createDiagramModel, layoutDiagram, renderSvg } from '../lib/index.js';
+import { createDiagramModel, layoutDiagram, renderSvg } from '../lib/blockchart/index.js';
 
 export const KIT_VERSION =
-  typeof __BLOCKFLOW_KIT_VERSION__ === 'string' ? __BLOCKFLOW_KIT_VERSION__ : 'development';
+  typeof __BLOCKCHART_KIT_VERSION__ === 'string' ? __BLOCKCHART_KIT_VERSION__ : 'development';
 
 function staged(stage, operation) {
   try {
@@ -54,12 +54,12 @@ export async function convertDiagram(document, options = {}) {
   return { format, text: staged('SVG', () => renderSvg(layout)) + '\n', warnings: layout.warnings ?? [] };
 }
 
-const usage = `blockflow-convert (Node.js 22.12+; no npm install or network required)
+const usage = `blockchart-convert (Node.js 22.12+; no npm install or network required)
 Usage:
-  node blockflow-convert.mjs input.json --check [--diagnostics json]
-  node blockflow-convert.mjs input.json --output output.svg [--view GroupID]
-  node blockflow-convert.mjs input.json --output output.json
-  node blockflow-convert.mjs - --output - --format svg
+  node blockchart-convert.mjs input.json --check [--diagnostics json]
+  node blockchart-convert.mjs input.json --output output.svg [--view GroupID]
+  node blockchart-convert.mjs input.json --output output.json
+  node blockchart-convert.mjs - --output - --format svg
 Options:
   --output PATH       Export .json or .svg; '-' writes data to stdout.
   --format json|svg   Optional for files; required for stdout. PNG is not supported.

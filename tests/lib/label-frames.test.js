@@ -8,7 +8,7 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { fixture, freeze } from './helpers.js';
 
 const validate = new Ajv({ strict: true, allErrors: true }).compile(
-  JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8')),
+  JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8')),
 );
 function sample() {
   const raw = fixture();
@@ -35,7 +35,7 @@ const rects = (svg) =>
     (r) => r.getAttribute('data-role') === 'label-background',
   );
 
-test('Net frames inherit per property, render once at the shared source and at each callout, and export PNG', async () => {
+test('Net frames inherit per property, render once at the shared source and at each receiver, and export PNG', async () => {
   const raw = sample(),
     before = structuredClone(raw);
   raw.connections[0].style = { label: { borderOpacity: 0.5 } };

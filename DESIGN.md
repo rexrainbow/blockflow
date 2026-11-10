@@ -400,13 +400,13 @@ triangles through shared SVG geometry, with no editor-only controls in image exp
 
 ## Connection label placement and repetition
 
-Extend the canonical Style dialog's Connection Label tab with native Label placement and
-Label position selects, sharing field typography, inheritance, validation and modal history.
-Inline/Middle are defaults; Both ends supports long signal traces. Inline opens a gap only
-in its own stroke, preserving transparent backgrounds and group fills. Callout leaders mark
-the route attachment when no clear Inline segment fits. All instances select the same owning
-connection; common-source shared labels select their representative route. Preserve individual
-route selection, responsive dialog scrolling and SVG/PNG parity. No new UI tokens or panels.
+The canonical Connection Style dialog's Label tab owns Destination labels (Long branches,
+Always, Never) and Long branch threshold, with blank values inheriting defaults. Reuse native
+selects, field typography, validation and modal history. Source and receiver names use Inline
+virtual nodes, preserving transparent backgrounds and Group fills. All instances retain Net
+identity and individual routes remain selectable. Keep responsive dialog scrolling,
+SVG/PNG parity and per-view DOM mask IDs. Retired placement/position fields are rejected.
+No new UI tokens or panels.
 
 ## Net editing and source signal labels
 
@@ -416,5 +416,15 @@ and Concat, with Bidirectional as a Net checkbox. A Net row has a quiet vertical
 the selected receiver uses the existing primary border/background tokens. Avoid separate
 hardware-looking cards for virtual signal names. Source labels participate in local layout
 with text-only dimensions and a small gap; only the name and routed wire are exported.
-Destination Callouts retain clear attachment. Shared Net selection highlights all branches.
+Destination names use reserved Inline nodes beside receiving Ports, with short tails and
+arrows ending at hardware. Always reserves space immediately; Auto selects long branches
+from the first routed layout and freezes that set for one additional layout. Receiving
+slots follow Port side/order, including Concat and Terminals; footprints may change placement.
+Hidden omits all virtual structures and labels. Shared Net selection highlights all branches.
 No new tokens or application navigation are required. Owners and behaviors are in UX-CONTRACT.
+
+## Runtime domains
+
+The existing editor remains a Blockchart editor. Its domain implementation lives under
+`src/lib/blockchart`; shared drawing/export utilities live under `src/lib/shared`.
+Flowchart is a text/JSON conversion runtime with no new workspace, toolbar or editor UI.

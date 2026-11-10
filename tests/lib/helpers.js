@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { moduleGeometry } from '../../src/lib/geometry.js';
+import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
 
 export function fixture() {
   return {

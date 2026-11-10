@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { fixture } from './helpers.js';
 import sharp from 'sharp';
 
@@ -31,7 +31,7 @@ for (const direction of ['right', 'down'])
     );
   });
 
-test('Receiver repetition changes labels without redoing block placement or routing', async () => {
+test('Receiver repetition reserves layout space and attaches inline beside the target Port', async () => {
   const raw = fixture();
   raw.connections[0].label = 'Data';
   raw.connections[0].style = { label: { repeatAtEnd: 'never' } };
@@ -42,11 +42,11 @@ test('Receiver repetition changes labels without redoing block placement or rout
     const origin = l.modules[0];
     return l.modules.map((n) => [n.id, n.x - origin.x, n.y - origin.y, n.width, n.height]);
   };
-  assert.deepEqual(relative(always), relative(never));
+  assert.notDeepEqual(relative(always), relative(never));
   assert.equal(never.connections[0].labelInstances.length, 1);
   assert.equal(always.connections[0].labelInstances.length, 2);
-  assert.equal(always.connections[0].labelInstances[1].placement, 'callout');
-  assert.ok(always.connections[0].labelInstances[1].leader);
+  assert.equal(always.connections[0].labelInstances[1].placement, 'inline');
+  assert.equal(always.connections[0].labelInstances[1].leader, undefined);
   copyLayout(always);
   const png = await sharp(Buffer.from(renderSvg(always)))
     .png()

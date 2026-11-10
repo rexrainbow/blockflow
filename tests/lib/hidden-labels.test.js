@@ -4,11 +4,11 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { fixture } from './helpers.js';
 
 const raw = JSON.parse(await readFile(new URL('../../examples/hidden-labels.json', import.meta.url), 'utf8'));
-const schema = JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8'));
+const schema = JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({strict:true}).compile(schema);
 
 test('hidden is strictly boolean and belongs only to text styles; removed field is rejected', () => {

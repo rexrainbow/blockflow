@@ -9,16 +9,22 @@ import { buildAgentKit } from '../scripts/build-agent-kit.js';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../src/lib/index.js';
 
 let directory, kit, cli, raw, built;
-const names = ['README.md', 'blockflow-convert.mjs', 'blockflow.schema.json'];
+const names = [
+  'README.md',
+  'blockchart-convert.mjs',
+  'blockchart.schema.json',
+  'flowchart-convert.mjs',
+  'flowchart.schema.json',
+];
 const permissionFlag = process.allowedNodeEnvironmentFlags.has('--permission')
   ? '--permission'
   : '--experimental-permission';
 const lf = (text) => text.replace(/\r\n/g, '\n');
 before(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'blockflow-agent-kit 空間 '));
+  directory = await mkdtemp(join(tmpdir(), 'blockchart-agent-kit 空間 '));
   kit = join(directory, 'kit');
   built = await buildAgentKit(kit);
-  cli = join(kit, 'blockflow-convert.mjs');
+  cli = join(kit, 'blockchart-convert.mjs');
   raw = JSON.parse(await readFile(new URL('../examples/vertical-flow.json', import.meta.url), 'utf8'));
   await writeFile(join(directory, 'diagram.json'), JSON.stringify(raw), 'utf8');
 });
@@ -27,7 +33,7 @@ after(async () => {
   if (
     directory &&
     dirname(resolve(directory)) === resolve(tmpdir()) &&
-    basename(directory).startsWith('blockflow-agent-kit ')
+    basename(directory).startsWith('blockchart-agent-kit ')
   )
     await rm(directory, { recursive: true, force: true });
 });
@@ -96,8 +102,13 @@ test('isolated kit uses the same Port adjustment and preserves authoring JSON wi
   assert.deepEqual(JSON.parse(json.stdout), document);
 });
 
-test('three matched artifacts are reproducible, current and contain no extra runtime files', async () => {
+test('five matched artifacts are reproducible, current and contain no extra runtime files', async () => {
   assert.deepEqual((await readdir(kit)).sort(), names);
+  assert.match(built.version, /^blockchart-agent-kit-/);
+  assert.match(built.flowchartVersion, /^flowchart-agent-kit-/);
+  const help = run(['--help']);
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /node blockchart-convert\.mjs/);
   for (const name of names)
     assert.equal(
       lf(await readFile(join(kit, name), 'utf8')),
@@ -105,8 +116,12 @@ test('three matched artifacts are reproducible, current and contain no extra run
       name + ' is stale; run npm run build:agent-kit',
     );
   assert.equal(
-    lf(await readFile(join(kit, 'blockflow.schema.json'), 'utf8')),
-    lf(await readFile(new URL('../schema/blockflow.schema.json', import.meta.url), 'utf8')),
+    lf(await readFile(join(kit, 'blockchart.schema.json'), 'utf8')),
+    lf(await readFile(new URL('../schema/blockchart.schema.json', import.meta.url), 'utf8')),
+  );
+  assert.equal(
+    JSON.parse(await readFile(join(kit, 'blockchart.schema.json'), 'utf8')).$id,
+    'urn:blockchart:diagram:1',
   );
   const result = run(['--version']);
   assert.equal(result.status, 0, result.stderr);
@@ -224,7 +239,8 @@ test('isolated kit renders rounded components and preserves signal/concat author
     'Each labeled Net has one source name',
   );
   assert.ok((result.stdout.match(/data-label-position="end"/g) ?? []).length >= 2);
-  assert.match(result.stdout, /data-role="label-leader"/);
+  assert.doesNotMatch(result.stdout, /data-role="label-leader"/);
+  assert.match(result.stdout, /data-label-position="end"/);
   assert.match(result.stdout, /<mask /);
   const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
   assert.equal(json.status, 0, json.stderr);
@@ -285,9 +301,10 @@ test('importable API has no CLI side effects and preserves the supplied object',
   assert.equal(result.stderr, '');
 });
 
-test('all standalone README JSON examples validate and render without upstream examples', async () => {
+test('standalone Blockchart guide JSON examples validate and render without upstream examples', async () => {
   const readme = await readFile(join(kit, 'README.md'), 'utf8'),
-    examples = [...readme.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)];
+    guide = readme.split('## Blockchart Agent Kit')[1].split('## Flowchart Agent Kit')[0],
+    examples = [...guide.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)];
   assert.equal(examples.length, 3);
   for (const match of examples) {
     const model = createDiagramModel(JSON.parse(match[1]));

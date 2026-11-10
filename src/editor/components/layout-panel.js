@@ -1,7 +1,7 @@
 import { field, input, select, button, textarea, escape as e, singleLine } from './ui.js';
 import { viewScopeOptions } from '../state/view-scope.js';
-import { directGridMembers, expandedGridMembers } from '../../lib/grid.js';
-import { groupType } from '../../lib/group-type.js';
+import { directGridMembers, expandedGridMembers } from '../../lib/blockchart/grid.js';
+import { groupType } from '../../lib/blockchart/group-type.js';
 
 export function resizeGridDraft(draft, rows, columns) {
   if (

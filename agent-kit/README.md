@@ -1,23 +1,74 @@
 # Blockflow Agent Kit
 
-Build: `blockflow-agent-kit-4c2fe4f88690126d2ff2`
+Blockflow combines **Blockchart** (hardware block diagrams) and **Flowchart** (process
+diagrams). This offline kit contains five files. Choose the converter and Schema for the
+diagram domain; their JSON formats are separate.
 
-Use this kit to turn a screenshot or a text description into editable Blockflow JSON and
+| Domain                     | Converter                | Schema                   | Input                                      | Output    |
+| -------------------------- | ------------------------ | ------------------------ | ------------------------------------------ | --------- |
+| Hardware / signal diagrams | `blockchart-convert.mjs` | `blockchart.schema.json` | Blockchart JSON                            | JSON, SVG |
+| Process / control flow     | `flowchart-convert.mjs`  | `flowchart.schema.json`  | Mermaid Flowchart subset or Flowchart JSON | JSON, SVG |
+
+Both converters contain their own validator, ELK layout and SVG renderer. Requires
+**Node.js 22.12+**; no npm install, project source, browser, server or network is needed.
+Move this folder to any location. Either converter can run independently; its Schema and
+this guide help agents author input. The converters interpret neither screenshots nor
+natural language: an agent translates those sources into Mermaid or domain-specific JSON.
+
+- Blockchart build: `blockchart-agent-kit-cba1186b795d6ce649d2`
+- Flowchart build: `flowchart-agent-kit-8564411ef430ee2d4b6c`
+
+## Quick start
+
+```sh
+node blockchart-convert.mjs hardware.json --check
+node blockchart-convert.mjs hardware.json --output hardware.svg
+
+node flowchart-convert.mjs process.mmd --check
+node flowchart-convert.mjs process.mmd --output process.json
+node flowchart-convert.mjs process.json --output process.svg
+node flowchart-convert.mjs process.mmd --output - --format svg
+```
+
+Run `node <converter>.mjs --help` for flags and `--version` for its build ID. The Flowchart
+text syntax is a documented subset, not the complete Mermaid language. Both standalone
+tools export JSON and SVG. For PNG, the full project offers SVG-to-PNG exports and the
+Flowchart project CLI (`npm run flowchart -- process.json --output process.png --scale 2`).
+Native Sharp dependencies are intentionally kept outside these single-file converters.
+
+## Maintainers
+
+In the source checkout, `npm run build:agent-kit` regenerates both converters, both Schemas
+and this README together. `build:agent-kit:blockchart` remains an alias for this complete
+build, so it cannot overwrite the shared guide with an incomplete version. The two
+domain guides below are generated from maintained templates. Each bundle embeds the ELK
+license attribution; its full license appears at the end of this README.
+
+
+## Blockchart Agent Kit
+
+Build: `blockchart-agent-kit-cba1186b795d6ce649d2`
+
+Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
 converter validates and renders that JSON. It does not recognize images or call an AI.
 
-The complete kit contains exactly three files:
+Blockflow is the project name, covering Blockchart and Flowchart. This section describes
+the Blockchart (hardware diagram) converter. The independent Flowchart converter is
+documented in its own section below.
 
-- `blockflow.schema.json`: JSON Schema Draft 2020-12 for authoring documents.
+To use Blockchart alone, copy these three files:
+
+- `blockchart.schema.json`: JSON Schema Draft 2020-12 for authoring documents.
 - `README.md`: field semantics, authoring workflow and executable examples.
-- `blockflow-convert.mjs`: standalone Node.js CLI and importable API, including the
+- `blockchart-convert.mjs`: standalone Node.js CLI and importable API, including the
   authoritative model validator, ELK layout and SVG renderer.
 
 Requires **Node.js 22.12 or later**. No package installation, project source, browser,
 network, server or editor is needed. Move these three files together to any directory.
 Only JSON and SVG output are supported. PNG is not included.
 
-## Recommended agent workflow
+### Recommended agent workflow
 
 1. Identify real blocks, external interfaces, ports and connections. Assign stable IDs.
 2. Choose horizontal or vertical flow. Reproduce connectivity and intent first; ELK owns
@@ -34,16 +85,16 @@ Schema validation alone cannot check references, driver conflicts, hierarchy, bo
 crossings or Concat sums. The converter's model validator is authoritative. It does not
 silently migrate obsolete fields, repair broken links or insert defaults into saved JSON.
 
-## CLI
+### CLI
 
 ```powershell
-node blockflow-convert.mjs diagram.json --check
-node blockflow-convert.mjs diagram.json --output diagram.svg
-node blockflow-convert.mjs diagram.json --output formatted.json
-node blockflow-convert.mjs diagram.json --output group.svg --view Processing
-node blockflow-convert.mjs diagram.json --output diagram.svg --diagnostics json
-node blockflow-convert.mjs --version
-node blockflow-convert.mjs --help
+node blockchart-convert.mjs diagram.json --check
+node blockchart-convert.mjs diagram.json --output diagram.svg
+node blockchart-convert.mjs diagram.json --output formatted.json
+node blockchart-convert.mjs diagram.json --output group.svg --view Processing
+node blockchart-convert.mjs diagram.json --output diagram.svg --diagnostics json
+node blockchart-convert.mjs --version
+node blockchart-convert.mjs --help
 ```
 
 Quote paths containing spaces. Any working directory is supported; input/output paths
@@ -72,7 +123,7 @@ Label-placement warnings such as `EDGE_LABEL_OVERLAP` keep a usable SVG and exit
 the image and shorten labels or increase spacing. A check-only success does not guarantee
 that a later layout has no warnings.
 
-## Minimal complete document
+### Minimal complete document
 
 Save this as `diagram.json`, then run the first two commands above:
 
@@ -115,7 +166,7 @@ Save this as `diagram.json`, then run the first two commands above:
 }
 ```
 
-## Identity, names and connectivity
+### Identity, names and connectivity
 
 - Required root fields: `version: 1`, `diagram` with non-blank `name`, and `modules`.
   Optional: `connections`, `groups`, `terminals`, `layout`. Unknown properties are rejected;
@@ -141,7 +192,7 @@ Save this as `diagram.json`, then run the first two commands above:
   in fixed 140-by-84 units. They are unrelated to port bit width. Omit for Auto; content may
   enlarge the shape. Text and strokes are not scaled. Extra size does not force straight wires.
 
-## Flow, appearance and labels
+### Flow, appearance and labels
 
 Use `layout.direction: "right"` for Left to right or `"down"` for Top to bottom.
 Only `right` and `down` flow are accepted.
@@ -164,7 +215,7 @@ Appearance controls title, port placement and the full occupied bounds. Routing 
 conservative rectangular footprint. Groups do not accept module `appearance`; their
 collapsed behavior is controlled by group type. Appearance never changes Concat semantics.
 
-## Concat: optional widths and ordered composition
+### Concat: optional widths and ordered composition
 
 Use module `type: "concat"` for multiple ordered input ports and exactly one output.
 Ordinary modules omit `type` or use `"block"`. First input is the high part for bit-level
@@ -220,7 +271,7 @@ There are no automatic bit-range labels. This standalone example is abstract; ad
 }
 ```
 
-## External terminals
+### External terminals
 
 Root `terminals` are named external interfaces without real blocks. Each requires `id`
 and `direction` (`input` supplies the graph, `output` receives from it); optional fields are
@@ -230,6 +281,13 @@ ID or an `@terminal:` string. The other end must be a real block/Boundary port. 
 input may fan out; an external output has one incoming driver. Terminals are root items,
 cannot be group members or bypass boundaries, and do not replace the required block/group.
 They appear left/right or top/bottom for the selected flow.
+
+Same-side Terminal anchors align by default: a common X for each input/output side in
+horizontal flow, or a common Y for each side in Down flow. Terminal text and associated
+virtual signal labels move together. Their complete envelopes stay outside the internal
+Block/Group layout; overlapping same-side envelopes are separated along the side before
+affected connections are rerouted. Reduce bends then moves Terminals only along that side,
+preserving alignment. No authoring setting or coordinates are required.
 
 ```json
 {
@@ -283,7 +341,7 @@ They appear left/right or top/bottom for the selected flow.
 }
 ```
 
-## Groups and real boundaries
+### Groups and real boundaries
 
 Keep modules and connections flat. Root `groups` entries require `id` and `members`
 (module or group IDs); optional fields include `label`, `type`, `style`, `width`, `height`,
@@ -310,7 +368,7 @@ in layout; never author them in JSON or rewrite original endpoints. Crossing edg
 separate identities and styles, even when visually coincident. Grouping does not impose
 same-rank alignment or fixed positions. The old `portMode` field is rejected.
 
-## Portable styles and hiding text
+### Portable styles and hiding text
 
 Defaults are `diagram.style.module` and `diagram.style.connection`. Local module, group,
 port, terminal and connection `style` objects override supported fields per property.
@@ -338,12 +396,12 @@ inherited true. Hidden text, backgrounds and bus notation reserve no text space;
 the original name and owning object, anchors and connections. Omission still uses ID fallback
 where supported. Empty labels remain invalid. `showPortLabels` is not supported.
 
-Source labels reserve a virtual node near their source. Receiver Callouts are placed after routing, controlled by `repeatAtEnd` and `longThreshold`.
+Source and receiver Inline labels reserve virtual nodes beside their Ports, controlled by `repeatAtEnd` and `longThreshold`.
 Never author `xlabel`, manual label coordinates or rotations.
 SVG uses monospace text with conservative width estimates; actual font appearance depends
 on the viewer. Inspect the rendered result when long or non-Latin names are important.
 
-## Nets and virtual signal labels
+### Nets and virtual signal labels
 
 For new authoring, prefer array-target Connections such as
 `{"id":"data","from":"ALU.result","to":["Register.data","Comparator.data"],"label":"Result"}`.
@@ -361,13 +419,19 @@ Concat remains a real element joining separate input Nets into its output Net.
 A labeled Net reserves one small source-adjacent virtual signal node, with measured text and
 an 8-unit local gap. Its source footprint participates in hierarchical Auto/Grid placement.
 Virtual nodes/groups never enter saved JSON or exported hardware. A common Inline name stays
-near the source. Final branch routing is followed by optional same-name destination Callouts:
+near the source. Receiver names are also Inline nodes, adjacent to their receiving Ports:
 `style.label.repeatAtEnd` is `auto` (default), `always` or `never`; positive `longThreshold`
-defaults to 600 logical units. Auto tests actual routed source-to-target length. End labels do
-not trigger global relayout. Hidden removes all labels and the virtual node. Label conflicts
-still produce warnings. Scalar targets and retired fields are rejected without automatic migration.
+defaults to 600 logical units. Always includes receiver footprints in the first layout; Never
+omits them. Auto tests first-pass routed source-to-target length, freezes the selected
+branches and runs one more layout with their receiver nodes. At most two passes are used;
+second-pass lengths do not alter the selection. Receiver nodes follow Port sides and order.
+Multi-Port targets, including Concat, may grow across the flow to fit names. Terminal receiver
+names are packed locally too. Placement may change; explicit dimensions remain minima.
+The short tail still ends at the physical Port. Hidden removes every virtual footprint and
+label. Conflicts still produce warnings. Scalar targets and retired fields are rejected
+without automatic migration.
 
-## Layout and exterior feedback
+### Layout and exterior feedback
 
 All connections participate together in one layout, not staged batches. The accepted
 layout options are:
@@ -397,7 +461,7 @@ not itself enable Outer, force backward routing, align blocks or remove ranking 
 Omit it or use false for normal priority. Unused ports, cycles, long labels and groups can
 change the arrangement; reproduce intent instead of promising exact screenshot geometry.
 
-## Port adjustment
+### Port adjustment
 
 By default, `layout.portAdjustment: "reduce-bends"` enables a bounded post-placement pass that may slide
 rectangular/stacked Block Ports along their existing side. It preserves Block positions and
@@ -410,15 +474,15 @@ connection-label clearance warnings. `maxPortShift` limits movement
 from the initial anchor (default 40); zero or `portAdjustment: "fixed"` disables it. All affected Net branches are checked together.
 Obstacle-hit and foreign-Net crossing counts cannot increase; accepted changes improve
 bends, length, then displacement. Search is deterministic and bounded to four passes/128
-trials, with no global optimum guarantee. Final Callouts/arrows follow this pass. Auto/Grid,
+trials, with no global optimum guarantee. Reserved Inline names follow their Ports; final arrows follow this pass. Auto/Grid,
 group views and the editor share this pipeline. JSON export preserves configuration only.
 
-## Importable JavaScript API
+### Importable JavaScript API
 
 Importing the converter performs no CLI work:
 
 ```javascript
-import { validateDiagram, convertDiagram, KIT_VERSION } from './blockflow-convert.mjs';
+import { validateDiagram, convertDiagram, KIT_VERSION } from './blockchart-convert.mjs';
 validateDiagram(document); // { ok: true }, or throws with stage/path
 const svg = await convertDiagram(document, { format: 'svg' });
 // svg.text is SVG; svg.warnings contains layout warnings.
@@ -430,7 +494,7 @@ The default format is SVG. Input objects are not mutated. JSON always saves the 
 document; `rootGroupId` is SVG-only. These functions return strings and do not write files.
 Use `KIT_VERSION` or CLI `--version` to identify this matched build of schema, guide and code.
 
-## Bundle provenance
+### Bundle provenance
 
 The converter bundles the project's model/layout/SVG code and elkjs 0.12.1.
 ELK source and notices: https://github.com/kieler/elkjs . Its license is reproduced below.
@@ -440,7 +504,7 @@ conversion uses the bundled authoritative validator and does not fetch external 
 Project maintainers regenerate all three artifacts with `npm run build:agent-kit` in the
 source checkout. Kit consumers never need that checkout or the build toolchain.
 
-## Grid and overview diagrams
+### Grid and overview diagrams
 
 Use `layout.type: "grid"` and rectangular `layout.cells` at the root, or put the same
 configuration in a group's `layout`. Omission or `type: "auto"` keeps automatic placement.
@@ -508,13 +572,13 @@ Use `diagram.caption` for a non-blank multiline footer. Its direct text style is
 are included in SVG/PNG/DOM and scoped SVG exports. Ordinary blocks can now have zero ports
 (including omitted ports); Concat retains its at-least-one-input/exactly-one-output rule.
 
-### Net label frames
+#### Net label frames
 
 Net `style.label` and `diagram.style.connection.label` additionally support
 `borderColor` (default transparent), `borderWidth` (default 1; zero disables the frame),
 `borderOpacity` (default 1) and `borderRadius` (default 0). Width and radius must be finite
 and non-negative; opacity is in [0, 1]. Frames use a solid stroke and apply to both the
-shared source name and destination Callouts. They are independent of the Net line color.
+shared source name and destination Inline labels. They are independent of the Net line color.
 Strokes stay inside the reserved text-and-padding bounds; width and radius are clamped to
 fit. Use `padding` for breathing room around text. `hidden` hides text, fill and frame.
 These frame fields belong only to connection labels, not Terminal or Port text styles.
@@ -532,6 +596,161 @@ The editor exposes them in Connection style > Label; blank values inherit defaul
 
 The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
+
+### Diagram domain
+
+This converter accepts Blockchart (hardware diagram) JSON. Use `flowchart-convert.mjs`
+with `flowchart.schema.json` for process diagrams. The two formats are independent.
+Source relocation into `src/lib/blockchart` preserves the Blockchart API and formats.
+
+
+## Flowchart Agent Kit
+
+Build: `flowchart-agent-kit-8564411ef430ee2d4b6c`
+
+Use `flowchart-convert.mjs` for process diagrams. `flowchart.schema.json` is the standalone
+JSON Schema Draft 2020-12; it has no dependency on the Blockchart Schema. The validator
+also checks references, groups, notes and styles. JSON export preserves authoring data,
+not coordinates or layout records. Mermaid input is compiled to the same Flowchart JSON.
+
+### Agent workflow
+
+1. Identify process steps, decisions, start/end points, condition labels and notes.
+2. Write supported Mermaid text, or write Flowchart JSON against its Schema.
+3. Run `--check`; fix syntax and semantic errors before rendering.
+4. Export SVG and inspect the result and any label-clearance warnings.
+5. Deliver Mermaid and/or JSON with SVG. The source project can additionally export PNG.
+
+```sh
+node flowchart-convert.mjs process.mmd --check --diagnostics json
+node flowchart-convert.mjs process.mmd --output process.json
+node flowchart-convert.mjs process.json --output process.svg
+node flowchart-convert.mjs - --input-format mermaid --output - --format svg
+node flowchart-convert.mjs - --input-format json --output - --format json
+```
+
+`.json` input is parsed as JSON; other extensions default to Mermaid. Override with
+`--input-format json|mermaid`; stdin defaults to Mermaid. Output format is inferred from
+`.json` or `.svg`, or specified with `--format`. Stdout requires `--format`. `--check` does
+not lay out or write files. Output is staged and replaced only after conversion succeeds;
+input cannot be overwritten. Text checks print an OK message; JSON diagnostics go to
+stderr. Errors include a stage and, where applicable, path or source line/column.
+Exit codes: 0 success, 1 parse/validation/layout/I/O failure, 2 invalid arguments.
+Warnings do not fail conversion. No PNG, group-scoped export or image recognition is
+included in the standalone Flowchart converter.
+
+### Supported Mermaid subset
+
+```mermaid
+flowchart TD
+  Start(["Begin"])
+  Work["Stage a command"]
+  More{"More commands?"}
+  Done(["Commit all changes"])
+  Help@{ shape: doc, label: "Examples\n- Start / stop\n- GPIO settings" }
+  Start --> Work --> More
+  More -->|No| Done
+  More -->|Yes| Work
+  Work -.- Help
+  classDef decision fill:#FFF4D6,stroke:#D48A00
+  class More decision
+  linkStyle 3 stroke:#D48A00,color:#996000
+```
+
+Supported syntax:
+
+- `flowchart` / `graph`, with TD/TB, LR, RL or BT.
+- ASCII IDs: letter/underscore first, followed by letters, digits or underscore.
+- `A["Process"]`, `A{"Decision"}`, `A(["Terminator"])`, `A("Terminator")`, and bare IDs.
+- Expanded shapes: `rect`/`rectangle`, `diam`/`diamond`/`decision`, `stadium`/`rounded`,
+  and `doc`/`document`. Document nodes render as folded notes attached to a process node.
+- Quoted plain-text labels, JSON escapes (`\n`, `\\`), and `<br/>` line breaks.
+  Other HTML is escaped as text; Markdown labels are unsupported.
+- `-->`, `---`, `-.->`, `-.-`, `==>`, chains, `-->|condition|`, and `-- condition -->`.
+- Nested `subgraph ID["Title"]` ... `end`; edges attach to nodes, not groups.
+- `classDef`, `class A,B name`, `:::name`, `style ID ...`, and zero-based
+  `linkStyle 0,1 ...` / `linkStyle default ...` (indices include associations).
+- Styles: `fill`, `stroke`, `color`, `stroke-width`, `font-size`, `opacity`.
+  Colors are hex or `transparent`; font/width numbers accept optional `px`.
+- Semicolons, CRLF and standalone `%%` comments.
+
+Unsupported constructs are errors: init/frontmatter configuration, callbacks, images,
+arbitrary CSS, circle shapes, `&` fan-out shorthand, custom edge IDs, and subgraph-specific
+direction. Do not assume full Mermaid compatibility.
+
+### Flowchart JSON
+
+```json
+{
+  "version": 1,
+  "diagram": { "name": "Batch update" },
+  "layout": { "direction": "down", "loopSide": "right" },
+  "nodes": [
+    { "id": "Start", "type": "terminator", "label": "Begin" },
+    { "id": "Work", "label": "Stage a command" },
+    { "id": "More", "type": "decision", "label": "More commands?" },
+    { "id": "Done", "type": "terminator", "label": "Commit" },
+    { "id": "Help", "type": "note", "label": "Staged writes", "attachTo": "Work", "side": "right" }
+  ],
+  "edges": [
+    { "from": "Start", "to": "Work" },
+    { "from": "Work", "to": "More" },
+    { "from": "More", "to": "Done", "label": "No" },
+    { "from": "More", "to": "Work", "kind": "loop", "label": "Yes" },
+    { "from": "Work", "to": "Help", "kind": "association" }
+  ]
+}
+```
+
+Required: `version:1`, `diagram.name`, nonempty `nodes`, and `edges`. Optional `groups`
+are flat objects with `id`, optional `label` and `style`, and nonempty unique `members`.
+Nodes/groups share unique IDs and a member can have only one parent; cycles are rejected.
+JSON IDs allow letters/underscore first, then letters, digits, underscore or hyphen.
+Do not put `$schema`, coordinates, normalized models, or layout results in input JSON.
+
+Node fields: `id`, `label` (default ID), `type` (process/decision/terminator/start/end/note),
+positive logical `width`/`height` minima, and `style`. Notes additionally have `attachTo`
+and left/right/top/bottom `side`. A note can infer its attachment from an association to
+a non-note node. One note per owner is supported; note and owner must belong to the same
+group. Notes reserve space beside their owner without introducing a flow level.
+
+Edge fields: optional unique `id`, `from`, `to`, optional `label`, `kind` (flow/loop/association),
+boolean `arrow`, `fromSide`/`toSide`, and `style`. IDs default deterministically. Back edges
+are inferred as loops in the normalized model; explicit `kind:"loop"` clarifies intent.
+Associations default to dotted and arrowless. Separate outgoing edges have separate
+condition labels. Flowchart has no hardware Ports, bit widths, Nets or Concat nodes.
+
+Layout: `direction` down/right/up/left, positive `nodeSpacing` (40), `layerSpacing` (60),
+`noteGap` (40), and `loopSide` auto/left/right/top/bottom. Loop side must be perpendicular
+to flow; auto uses right for vertical flow or bottom for horizontal flow. Notes default to
+right for vertical flow or bottom for horizontal flow. Use larger spacing, shorter labels
+or explicit sides if rendering reports `FLOW_LABEL_OVERLAP`.
+
+Node/group styles: `fillColor`, `borderColor`, positive `borderWidth`, `borderStyle`,
+non-negative `borderRadius`, `color`, positive `fontSize`, non-negative `padding`, `opacity`.
+Edge styles: `strokeColor`, positive `strokeWidth`, `lineStyle`, `color`, positive `fontSize`,
+`labelBackgroundColor`, `opacity`. Colors accept hex or `transparent`; patterns are
+solid/dashed/dotted; opacity is in [0,1]. Global defaults are under
+`diagram.style.node`, `.edge`, `.group`, `.note`; per-object styles override properties.
+`diagram.caption` adds text below the chart. Text uses portable monospace measurements.
+
+### Importable API
+
+```javascript
+import { parseMermaid, validateFlowchart, convertFlowchart, KIT_VERSION } from './flowchart-convert.mjs';
+
+const text = 'flowchart TD\nA["Start"] --> B["Finish"]';
+const document = parseMermaid(text);
+validateFlowchart(document); // { ok: true }
+const json = await convertFlowchart(text, { format: 'json' });
+const svg = await convertFlowchart(document, { format: 'svg' });
+console.log(svg.text);
+```
+
+Strings default to Mermaid; objects default to JSON. For a JSON string, pass
+`{inputFormat:"json"}`. `convertFlowchart` returns `{format,text,warnings}` and supports
+only JSON/SVG. Input objects remain unchanged. Errors include `stage`, and syntax errors
+include `line` / `column`. Importing the module does not run the CLI or write files.
 
 
 ## Bundled elkjs license

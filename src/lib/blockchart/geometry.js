@@ -6,33 +6,14 @@ import {needsSides,sidedGeometry} from './port-sides.js';
 // Shared logical unit: the original plain single-row block, independent of content/style.
 export const BLOCK_SIZE_UNIT = Object.freeze({ width: 140, height: 84 });
 
-export const textLines = value => value.replace(/\r\n/g, '\n').split('\n');
-
-// Conservative monospace estimate, preserving single-line measurements.
-export function textSize(value, style = TEXT_STYLE) {
-  if (style.hidden) return {width:0,height:0};
-  const lines = textLines(value);
-  return {
-    width: Math.max(...lines.map(line => Array.from(line).reduce((sum, char) => sum + (char.codePointAt(0) <= 127 ? 8 : 16), 0))) * style.fontSize / 12,
-    height: lines.length * style.fontSize * 1.5,
-  };
-}
-
-export function textBounds(value, position, style) {
-  if (style.hidden) return {x:position.x,y:position.y,width:0,height:0};
-  const size = textSize(value, style);
-  const offset = position.anchor === 'middle' ? size.width / 2 : position.anchor === 'end' ? size.width : 0;
-  return {
-    x: position.x - offset - style.padding, y: position.y - size.height / 2 - style.padding,
-    width: size.width + 2 * style.padding, height: size.height + 2 * style.padding,
-  };
-}
+import { textLines, textSize, textBounds } from '../shared/text.js';
+export { textLines, textSize, textBounds } from '../shared/text.js';
 
 /** Size all ports before once layout. Bounds include the inward border. */
 export function moduleGeometry(module, direction = 'right', standard = false) {
   if(module._signalSize) {
-    const {width,height}=module._signalSize,down=direction==='down',left=direction==='left';
-    return {width,height,titleX:width/2,titleY:height/2,portInset:0,portPoints:Object.fromEntries(module.ports.map((port,i)=>[port.id,{x:down?width/2:left?(i?0:width):(i?width:0),y:down?(i?height:0):height/2}]))};
+    const {width,height}=module._signalSize;
+    return {width,height,titleX:width/2,titleY:height/2,portInset:0,portPoints:Object.fromEntries(module.ports.map(port=>[port.id,{x:port.side==='left'?0:port.side==='right'?width:width/2,y:port.side==='top'?0:port.side==='bottom'?height:height/2}]))};
   }
   if(!standard&&(needsSides(module,direction)||(module.ports.length>0&&module.ports.every(p=>p.style.hidden))))return sidedGeometry(module,direction,proxy=>moduleGeometry(proxy,direction,true),textSize,BLOCK_SIZE_UNIT);
   if(direction==='down') return verticalModuleGeometry(module,textSize,BLOCK_SIZE_UNIT);

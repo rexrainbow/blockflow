@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { ancestors, descendants } from '../../src/lib/hierarchy.js';
+import { ancestors, descendants } from '../../src/lib/blockchart/hierarchy.js';
 import { checkLayout, freeze } from './helpers.js';
 const fixture = JSON.parse(await readFile(new URL('../../examples/nested-groups.json', import.meta.url), 'utf8'));
 test('styled startup example fits all labels after compact routing without global spacing retries',async()=>{

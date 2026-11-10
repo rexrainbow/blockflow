@@ -1,9 +1,9 @@
 import { textLines } from '../geometry.js';
-import { TEXT_STYLE, BLOCK_STYLE, connectionStyle, paint, linePattern, groupCornerRadius } from '../styles.js';
+import { TEXT_STYLE, BLOCK_STYLE, connectionStyle, paint, groupCornerRadius } from '../styles.js';
 import { connectionLabels } from '../layout/edge-labels.js';
 
 const MARGIN = 20;
-const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
+import { escapeXml as escape, fillAttributes, strokeAttributes } from '../../shared/svg.js';
 
 /** Draw existing geometry and text anchors without calculating layout. */
 export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
@@ -112,18 +112,8 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
   return lines.join('\n');
 }
 
-function fillAttributes(color, opacity) {
-  const fill = paint(color, opacity);
-  return `fill="${fill.color}" fill-opacity="${fill.opacity}"`;
-}
-
 function roundingAttributes(group, width, height) {
   const radius = groupCornerRadius(group, width, height);
   return radius > 0 ? `rx="${radius}" ry="${radius}" ` : '';
 }
 
-function strokeAttributes(color, opacity, width, lineStyle) {
-  const stroke = paint(color, opacity);
-  const pattern = linePattern(lineStyle, width);
-  return `stroke="${stroke.color}" stroke-opacity="${stroke.opacity}" stroke-width="${width}" stroke-linecap="${pattern.cap}"${pattern.dash ? ` stroke-dasharray="${pattern.dash}"` : ''}`;
-}

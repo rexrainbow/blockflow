@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { freeze } from './helpers.js';
 const fixture = JSON.parse(await readFile(new URL('../fixtures/boundary-minimal.json', import.meta.url), 'utf8'));
 const example = JSON.parse(await readFile(new URL('../../examples/boundary-groups.json', import.meta.url), 'utf8'));

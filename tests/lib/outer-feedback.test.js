@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel, DiagramValidationError, layoutDiagram } from '../../src/lib/index.js';
-import { routeOuterFeedback } from '../../src/lib/layout/outer-feedback.js';
+import { routeOuterFeedback } from '../../src/lib/blockchart/layout/outer-feedback.js';
 import { measureLayout } from '../../examples/metrics.js';
 import { checkLayout, freeze, fixture } from './helpers.js';
 

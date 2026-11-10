@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout, connectionKey } from '../../src/lib/view/layout.js';
+import { copyLayout, connectionKey } from '../../src/lib/blockchart/view/layout.js';
 import {
   endpoints,
   targetReason,
@@ -13,11 +13,11 @@ import {
   renameModule,
   removeModule,
 } from '../../src/editor/state/commands.js';
-import { endpointKey } from '../../src/lib/endpoints.js';
+import { endpointKey } from '../../src/lib/blockchart/endpoints.js';
 
 const example = JSON.parse(await readFile(new URL('../../examples/terminals.json', import.meta.url), 'utf8'));
 const schema = JSON.parse(
-  await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),
 );
 const validate = new Ajv2020({ strict: true, allErrors: true }).compile(schema);
 

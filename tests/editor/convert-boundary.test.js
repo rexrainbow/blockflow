@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { convertToBoundaryGroup, addModule, addPort, placeBlock } from '../../src/editor/state/commands.js';
 import { History } from '../../src/editor/state/history.js';
 import { createDiagramModel, layoutDiagram } from '../../src/lib/index.js';
-import { moduleGeometry } from '../../src/lib/geometry.js';
+import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
 import { fixture } from '../lib/helpers.js';
 
 test('conversion preserves keys, ports, labels, dimensions, connections and effective inherited appearance', () => {

@@ -58,7 +58,7 @@ export function applyGroups(graph, model) {
     const { top,left,right,bottom,width,height } = groupGeometry(group, model.layout.direction);
     nodes.set(group.id, { id: group.id, width, height,
       layoutOptions: {
-        'elk.algorithm': 'layered', 'elk.direction': model.layout.direction.toUpperCase(),
+        'elk.algorithm': 'layered', 'elk.direction': (group._signalDirection??model.layout.direction).toUpperCase(),
         'elk.padding': `[top=${top},left=${left},bottom=${bottom},right=${right}]`,
         'elk.nodeSize.constraints': '[MINIMUM_SIZE]', 'elk.nodeSize.minimum': `(${width},${height})`,
         'elk.spacing.nodeNode': group._signalWrapper?'8':graph.layoutOptions['elk.spacing.nodeNode'],

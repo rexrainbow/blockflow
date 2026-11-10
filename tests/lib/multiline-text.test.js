@@ -5,11 +5,11 @@ import { DOMParser } from '@xmldom/xmldom';
 import sharp from 'sharp';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { textSize } from '../../src/lib/geometry.js';
-import { TEXT_STYLE } from '../../src/lib/styles.js';
+import { textSize } from '../../src/lib/blockchart/geometry.js';
+import { TEXT_STYLE } from '../../src/lib/blockchart/styles.js';
 import { fixture, freeze } from './helpers.js';
 
-const schema = JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8'));
+const schema = JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({ strict: true }).compile(schema);
 const inside = (a,b) => a.x >= b.x - 1e-6 && a.y >= b.y - 1e-6 && a.x+a.width <= b.x+b.width+1e-6 && a.y+a.height <= b.y+b.height+1e-6;
 

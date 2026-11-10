@@ -10,8 +10,10 @@ import { applyConnectionArrows } from './arrows.js';
 import {portSide} from '../direction.js';
 import {arrangeGrids,routeFixed} from './fixed.js';
 import {TEXT_STYLE} from '../styles.js';
-import {signalModel,finishSignals} from './signals.js';
+import {signalModel,finishSignals,receiverLabels} from './signals.js';
 import { adjustPorts } from './port-adjustment.js';
+import { alignReceivers } from './receiver-layout.js';
+import { alignTerminals } from './terminal-alignment.js';
 
 export class DiagramLayoutError extends Error {
   constructor(message, options) {
@@ -101,7 +103,7 @@ async function toLayoutResult(laidOut, model, elk) {
     const grid=(!model.rootGroupId&&model.layout.type==='grid')||model.groups.some(g=>!g.collapsed&&g.layout?.type==='grid');
     if(grid){await arrangeGrids({modules,groups,terminals,connections},model,elk);routeFixed({modules,groups,terminals,connections},model);}
     else if(model.connections.some(e=>e.constraint===false))routeFixed({modules,groups,terminals,connections},model,true);
-    const adjusted={modules,groups,terminals,connections};adjustPorts(adjusted,model);
+    const adjusted={modules,groups,terminals,connections};alignTerminals(adjusted,model);alignReceivers(adjusted,model);adjustPorts(adjusted,model);
     ({modules,groups,terminals,connections}=adjusted);
     if (model.layout?.feedbackRouting === 'outer') routeOuterFeedback({ modules, groups, connections }, model);
     const routed={modules,groups,connections};finishSignals(routed,model);
@@ -156,11 +158,9 @@ async function toLayoutResult(laidOut, model, elk) {
 }
 
 /** ELK produces placement/routes; an optional AABB pass replaces feedback routes. */
-export async function layoutDiagram(model, options = {}) {
+async function layoutPass(model, receivers) {
   try {
-    model = scopeModel(model, options.rootGroupId);
-    model = visibleModel(model);
-    model = signalModel(model);
+    model = signalModel(model, receivers);
     const geometry = new Map(model.modules.map(module => [module.id, moduleGeometry(module, model.layout.direction)]));
     const styleWidth=s=>(s.endArrow==='triangle'||s.startArrow==='triangle')?Math.max(8,s.strokeWidth*3):s.strokeWidth;
     const visualWidth=c=>Math.max(styleWidth(c.style),c.netStyle?styleWidth(c.netStyle):0);
@@ -220,11 +220,22 @@ export async function layoutDiagram(model, options = {}) {
     }
     applyGroups(graph, model);
     const elk = new ELK();
-    // Net names already occupy local source nodes. Destination Callouts are fitted
-    // after routing without reserving extra graph layers.
     const result = await toLayoutResult(await elk.layout(graph), model, elk);
     return model.rootGroupId ? {...result,rootGroupId:model.rootGroupId} : result;
   } catch (cause) {
     throw new DiagramLayoutError(`Layout failed: ${cause.message}`, { cause });
+  }
+}
+
+export async function layoutDiagram(model, options = {}) {
+  try {
+    model = visibleModel(scopeModel(model, options.rootGroupId));
+    const selected = receiverLabels(model);
+    const first = await layoutPass(model, selected);
+    const final = receiverLabels(model, first);
+    return await ([...final].some(id => !selected.has(id)) ? layoutPass(model, final) : first);
+  } catch(cause) {
+    if(cause instanceof DiagramLayoutError)throw cause;
+    throw new DiagramLayoutError(`Layout failed: ${cause.message}`,{cause});
   }
 }

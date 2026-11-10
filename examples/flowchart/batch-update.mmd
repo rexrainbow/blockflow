@@ -1,0 +1,21 @@
+flowchart TD
+  Start(["Begin batch update"])
+  EnterHold["Enter hold mode\nbeginBatch()\nController.HOLD = 1"]
+  StageWrite["Write one staged command or setting"]
+  MoreWrites{"More commands\nto stage?"}
+  Commit["Release hold and commit\ncommitBatch()\nController.HOLD = 0"]
+  Complete(["All staged changes take effect together\nHOLD reads back as 0"])
+  Settings@{ shape: doc, label: "Examples of staged writes\n- Processor start / stop\n- Trigger start / stop\n- GPIO source / direction / output\n- Idle direction / output" }
+  Start --> EnterHold --> StageWrite --> MoreWrites
+  MoreWrites -->|No| Commit --> Complete
+  MoreWrites -->|Yes| StageWrite
+  StageWrite -.- Settings
+  classDef terminator fill:#EAF7EE,stroke:#3B7A57
+  classDef hold fill:#DCEBFA,stroke:#385A7C
+  classDef decision fill:#FFF4D6,stroke:#D48A00
+  classDef release fill:#E8D9F5,stroke:#7B1FA2
+  class Start,Complete terminator
+  class EnterHold hold
+  class MoreWrites decision
+  class Commit release
+  linkStyle 5 stroke:#D48A00,color:#996000

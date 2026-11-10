@@ -5,20 +5,20 @@ import {
   targetEndpoint,
   mapConnectionEndpoints,
   pruneConnections,
-} from '../../lib/nets.js';
-import { renameGridMember, parseGrid } from '../../lib/grid.js';
-import { groupType } from '../../lib/group-type.js';
+} from '../../lib/blockchart/nets.js';
+import { renameGridMember, parseGrid } from '../../lib/blockchart/grid.js';
+import { groupType } from '../../lib/blockchart/group-type.js';
 import {
   portOwner,
   boundaryGroups,
   boundaryConnectionProblems,
   createConnectionContext,
   receivingFaceKey,
-} from '../../lib/connectivity.js';
-export { portOwner } from '../../lib/connectivity.js';
-import { parentOf, canPlace } from '../../lib/hierarchy.js';
-import { createDiagramModel } from '../../lib/model.js';
-import { endpointKey, endpointFromKey } from '../../lib/endpoints.js';
+} from '../../lib/blockchart/connectivity.js';
+export { portOwner } from '../../lib/blockchart/connectivity.js';
+import { parentOf, canPlace } from '../../lib/blockchart/hierarchy.js';
+import { createDiagramModel } from '../../lib/blockchart/model.js';
+import { endpointKey, endpointFromKey } from '../../lib/blockchart/endpoints.js';
 
 export function emptyDocument() {
   return {

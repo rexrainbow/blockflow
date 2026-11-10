@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import Ajv from 'ajv/dist/2020.js';
 import {createDiagramModel,layoutDiagram} from '../../src/lib/index.js';
 import {fixture,checkLayout,freeze} from './helpers.js';
-const schema=JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json',import.meta.url),'utf8'));
+const schema=JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json',import.meta.url),'utf8'));
 const validate=new Ajv({strict:true}).compile(schema);
 for(const [name,mutate,path] of [
   ['all mode',d=>d.layout={orderMode:'all'},'layout.orderMode'],

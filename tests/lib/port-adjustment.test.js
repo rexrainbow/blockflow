@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import Ajv from 'ajv/dist/2020.js';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { freeze } from './helpers.js';
 const sample = JSON.parse(
   await readFile(new URL('../../examples/port-adjustment.json', import.meta.url), 'utf8'),
 );
 const validate = new Ajv({ strict: true, allErrors: true }).compile(
-  JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8')),
+  JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8')),
 );
 const bends = (l) =>
   l.connections.reduce((sum, e) => {

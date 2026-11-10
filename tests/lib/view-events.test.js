@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ViewEvents } from '../../src/lib/view/events.js';
+import { ViewEvents } from '../../src/lib/blockchart/view/events.js';
 import { createDiagramModel, layoutDiagram } from '../../src/lib/index.js';
 import { exportDom, mountDiagram } from '../../src/lib/browser.js';
 import * as domEntry from 'rtl-diagram/dom';

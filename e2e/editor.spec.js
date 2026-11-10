@@ -450,7 +450,7 @@ test('Net destination labels commit atomically, export and support either label'
   await page.screenshot({ path: 'output/editor/label-position-narrow.png' });
   await page.getByRole('button', { name: 'OK', exact: true }).click();
   await ready(page);
-  await expect(page.locator('[data-role="label-leader"]')).toHaveCount(1);
+  await expect(page.locator('[data-role="label-leader"]')).toHaveCount(0);
 });
 
 const previewActionsDocument = () => ({

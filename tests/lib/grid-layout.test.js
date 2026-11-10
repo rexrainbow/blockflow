@@ -4,15 +4,15 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { fixture } from './helpers.js';
 import { renameModule, removeModule, validateDocument } from '../../src/editor/state/commands.js';
-import { reconcileGrids } from '../../src/lib/grid.js';
+import { reconcileGrids } from '../../src/lib/blockchart/grid.js';
 const example = JSON.parse(
   await readFile(new URL('../../examples/processor-overview.json', import.meta.url), 'utf8'),
 );
 const schema = JSON.parse(
-  await readFile(new URL('../../schema/blockflow.schema.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),
 );
 const validate = new Ajv2020({ strict: true }).compile(schema);
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-5, `${a} != ${b}`);

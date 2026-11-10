@@ -114,7 +114,7 @@ const better = (a, b) =>
     (a.bends === b.bends &&
       (a.length < b.length - EPS || (Math.abs(a.length - b.length) < EPS && a.shift < b.shift - EPS))));
 
-// Terminal names can consume the space reserved for destination callouts. Check on
+// Terminal moves can affect reserved receiver nodes. Check on
 // a disposable finalized layout; routing-only signal nodes must not reach label placement.
 function labelWarnings(result, model) {
   const trial = structuredClone(result);
@@ -141,8 +141,7 @@ export function adjustPorts(result, model) {
   const warnings = labelWarnings(result, model);
   if (!warnings) return;
   // Compare the complete Terminal adjustment with the ordinary Block-only pass.
-  // Finalize labels only here, rather than repeating expensive callout placement
-  // for every routing candidate. Keep the Block-only result if clearance worsens.
+  // Check finalized labels here; keep the Block-only result if clearance worsens.
   search(original, model, false);
   if (warnings > labelWarnings(original, model)) Object.assign(result, original);
 }
@@ -193,6 +192,10 @@ function search(result, model, includeTerminals) {
       for (const signal of model._signals ?? []) {
         const trunk = model.connections.find((e) => e.id === signal.trunkId);
         if (key(trunk.source) === node.id + '.' + p.id) record.helpers.push(signal.signalId);
+        for (const receiver of signal.receivers ?? []) {
+          const tail = model.connections.find((e) => e.id === receiver.tailId);
+          if (key(tail.target) === record.key) record.helpers.push(receiver.signalId);
+        }
       }
       records.push(record);
       aliases.set(node.id + '.' + p.id, record);
@@ -210,9 +213,17 @@ function search(result, model, includeTerminals) {
       axis,
       base: terminal.anchor[axis],
       helpers: [],
+      wrapper: model.groups.find((g) => g._signalTerminal === terminal.id)?.id,
     };
+    for (const signal of model._signals ?? [])
+      for (const receiver of signal.receivers ?? []) {
+        const tail = model.connections.find((e) => e.id === receiver.tailId);
+        if (tail.target.terminal === terminal.id) record.helpers.push(receiver.signalId);
+      }
     records.push(record);
     aliases.set(record.key, record);
+    for (const id of record.helpers)
+      for (const p of result.modules.find((n) => n.id === id).ports) aliases.set(id + '.' + p.id, record);
     if (!terminalOrder.has(terminal.direction)) terminalOrder.set(terminal.direction, []);
     terminalOrder.get(terminal.direction).push(record);
   }
@@ -283,6 +294,10 @@ function search(result, model, includeTerminals) {
       const terminal = r.terminals.find((t) => t.id === g.terminal);
       for (const item of [terminal, terminal.anchor, terminal.labelPosition, terminal.labelBounds])
         item[g.axis] += delta;
+      if (g.wrapper) {
+        const wrapper = r.groups.find((n) => n.id === g.wrapper);
+        for (const item of [wrapper, wrapper.labelPosition, wrapper.labelBounds]) item[g.axis] += delta;
+      }
     } else for (const item of [p, p.labelPosition, p.labelBounds]) item[g.axis] += delta;
     for (const id of g.helpers) {
       const n = r.modules.find((n) => n.id === id);
@@ -301,8 +316,23 @@ function search(result, model, includeTerminals) {
         const terminal = r.terminals.find((t) => t.id === g.terminal),
           [low, high] = interval(r, g);
         if (terminal.anchor[g.axis] < low - EPS || terminal.anchor[g.axis] > high + EPS) return false;
+        const ownAncestors = new Set(ancestors(model, '@terminal:' + terminal.id));
         for (const other of [...r.modules, ...r.groups, ...r.terminals])
-          if (other !== terminal && overlap(terminal, other, 3)) return false;
+          if (
+            other !== terminal &&
+            !ownAncestors.has(other.id) &&
+            !g.helpers.includes(other.id) &&
+            overlap(terminal, other, 3)
+          )
+            return false;
+        for (const id of g.helpers) {
+          const helper = r.modules.find((n) => n.id === id),
+            parent = r.groups.find((n) => n.id === parentOf(model, id)),
+            exempt = new Set(ancestors(model, id));
+          if (parent && !contains(parent, helper)) return false;
+          for (const other of [...r.modules, ...r.groups, ...r.terminals])
+            if (other !== helper && !exempt.has(other.id) && overlap(helper, other, 3)) return false;
+        }
         continue;
       }
       const node = r.modules.find((n) => n.id === g.owner),

@@ -4,11 +4,11 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { emptyDocument,addModule,addPort,removePort,movePort,convertToBoundaryGroup } from '../../src/editor/state/commands.js';
 import { checkLayout } from './helpers.js';
 const example=JSON.parse(await readFile(new URL('../../examples/concat.json',import.meta.url),'utf8'));
-const schema=JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json',import.meta.url),'utf8'));
+const schema=JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json',import.meta.url),'utf8'));
 const validate=new Ajv2020({strict:true}).compile(schema);
 const single=()=>({version:1,diagram:{name:'Concat'},modules:[{id:'C',type:'concat',ports:[{id:'a',direction:'input'},{id:'b',direction:'input'},{id:'out',direction:'output'}]}]});
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renamePort } from '../../src/editor/state/commands.js';
 import { History } from '../../src/editor/state/history.js';
-import { createDiagramModel } from '../../src/lib/model.js';
+import { createDiagramModel } from '../../src/lib/blockchart/model.js';
 
 test('port key suffixing updates references and preserves explicit display labels in one undo', () => {
   const raw = {

@@ -1,4 +1,4 @@
-import { groupType } from '../../lib/group-type.js';
+import { groupType } from '../../lib/blockchart/group-type.js';
 
 // The toolbar disclosure and pointer/keyboard context menu share these definitions.
 export function previewActions(group, rootGroupId = null, kind = null) {

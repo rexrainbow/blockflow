@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Flowchart"
+  },
+  "layout": {
+    "direction": "down"
+  },
+  "nodes": [
+    {
+      "id": "Start",
+      "type": "terminator",
+      "label": "Begin batch update",
+      "style": {
+        "fillColor": "#EAF7EE",
+        "borderColor": "#3B7A57"
+      }
+    },
+    {
+      "id": "EnterHold",
+      "type": "process",
+      "label": "Enter hold mode\nbeginBatch()\nController.HOLD = 1",
+      "style": {
+        "fillColor": "#DCEBFA",
+        "borderColor": "#385A7C"
+      }
+    },
+    {
+      "id": "StageWrite",
+      "type": "process",
+      "label": "Write one staged command or setting"
+    },
+    {
+      "id": "MoreWrites",
+      "type": "decision",
+      "label": "More commands\nto stage?",
+      "style": {
+        "fillColor": "#FFF4D6",
+        "borderColor": "#D48A00"
+      }
+    },
+    {
+      "id": "Commit",
+      "type": "process",
+      "label": "Release hold and commit\ncommitBatch()\nController.HOLD = 0",
+      "style": {
+        "fillColor": "#E8D9F5",
+        "borderColor": "#7B1FA2"
+      }
+    },
+    {
+      "id": "Complete",
+      "type": "terminator",
+      "label": "All staged changes take effect together\nHOLD reads back as 0",
+      "style": {
+        "fillColor": "#EAF7EE",
+        "borderColor": "#3B7A57"
+      }
+    },
+    {
+      "id": "Settings",
+      "type": "note",
+      "label": "Examples of staged writes\n- Processor start / stop\n- Trigger start / stop\n- GPIO source / direction / output\n- Idle direction / output"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1",
+      "from": "Start",
+      "to": "EnterHold",
+      "arrow": true
+    },
+    {
+      "id": "edge_2",
+      "from": "EnterHold",
+      "to": "StageWrite",
+      "arrow": true
+    },
+    {
+      "id": "edge_3",
+      "from": "StageWrite",
+      "to": "MoreWrites",
+      "arrow": true
+    },
+    {
+      "id": "edge_4",
+      "from": "MoreWrites",
+      "to": "Commit",
+      "arrow": true,
+      "label": "No"
+    },
+    {
+      "id": "edge_5",
+      "from": "Commit",
+      "to": "Complete",
+      "arrow": true
+    },
+    {
+      "id": "edge_6",
+      "from": "MoreWrites",
+      "to": "StageWrite",
+      "arrow": true,
+      "label": "Yes",
+      "style": {
+        "strokeColor": "#D48A00",
+        "color": "#996000"
+      }
+    },
+    {
+      "id": "edge_7",
+      "from": "StageWrite",
+      "to": "Settings",
+      "arrow": false,
+      "style": {
+        "lineStyle": "dotted"
+      },
+      "kind": "association"
+    }
+  ]
+}

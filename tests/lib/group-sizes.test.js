@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import Ajv from 'ajv/dist/2020.js';
 import {createDiagramModel,layoutDiagram} from '../../src/lib/index.js';
-const schema=JSON.parse(await readFile(new URL('../../schema/blockflow.schema.json',import.meta.url),'utf8'));
+const schema=JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json',import.meta.url),'utf8'));
 const validate=new Ajv({strict:true}).compile(schema);
 const fixture=()=>({version:1,diagram:{name:'Sized groups'},modules:[],groups:[{id:'G',members:[],type:"boundary",ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]}]});
 for(const axis of ['width','height']) test('group '+axis+' accepts relative positive minima and rejects invalid values',()=>{

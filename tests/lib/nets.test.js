@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { copyLayout } from '../../src/lib/view/layout.js';
+import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import {
   renameModule,
   renamePort,
@@ -147,12 +147,14 @@ for (const direction of ['right', 'down'])
       assert.ok((await sharp(Buffer.from(svg)).png().toBuffer()).length > 100);
     });
 
-test('Long Net branches add end Callouts after routing, with Auto/Always/Never controls', async () => {
+test('Long Net branches reserve end labels through Auto/Always/Never controls', async () => {
   const raw = sample();
   raw.layout = { layerSpacing: 800 };
   const auto = await layoutDiagram(createDiagramModel(raw));
   assert.ok(
-    auto.connections.every((e) => e.labelInstances.some((label) => label.role === 'end' && label.leader)),
+    auto.connections.every((e) =>
+      e.labelInstances.some((label) => label.role === 'end' && label.placement === 'inline' && !label.leader),
+    ),
   );
   raw.connections[0].style = { label: { repeatAtEnd: 'never' } };
   const never = await layoutDiagram(createDiagramModel(raw));

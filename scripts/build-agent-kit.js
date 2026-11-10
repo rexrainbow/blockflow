@@ -16,31 +16,40 @@ async function sources(dir) {
   return files;
 }
 
-export async function buildAgentKit(target = join(root, 'agent-kit')) {
-  const schema = lf(await readFile(join(root, 'schema/blockflow.schema.json'), 'utf8'));
-  const template = lf(await readFile(join(root, 'docs/agent-kit-readme.md'), 'utf8'));
-  const entry = join(root, 'src/agent-kit/converter.js');
+async function buildDomain(domain, overview) {
+  const schema = lf(await readFile(join(root, `schema/${domain}.schema.json`), 'utf8'));
+  const template = lf(await readFile(join(root, `docs/${domain}-agent-kit-readme.md`), 'utf8'));
+  const entry = join(root, `src/agent-kit/${domain}-converter.js`);
   const elk = JSON.parse(await readFile(join(root, 'node_modules/elkjs/package.json'), 'utf8'));
   const license = lf(await readFile(join(root, 'node_modules/elkjs/LICENSE.md'), 'utf8'));
-  const hash = createHash('sha256').update(schema).update(template).update(elk.version).update(license);
+  const hash = createHash('sha256')
+    .update(schema)
+    .update(template)
+    .update(overview)
+    .update(elk.version)
+    .update(license);
   hash.update(lf(await readFile(join(root, 'package-lock.json'), 'utf8')));
   for (const path of [
     entry,
     fileURLToPath(import.meta.url),
-    ...(await sources(join(root, 'src/lib'))),
+    ...(await sources(join(root, `src/lib/${domain}`))),
+    ...(await sources(join(root, 'src/lib/shared'))),
   ].sort())
     hash.update(path.slice(root.length).replaceAll('\\', '/')).update(lf(await readFile(path, 'utf8')));
-  const version = 'blockflow-agent-kit-' + hash.digest('hex').slice(0, 20);
+  const version = domain + '-agent-kit-' + hash.digest('hex').slice(0, 20);
   const result = await build({
     configFile: false,
     root,
     logLevel: 'error',
-    define: { __BLOCKFLOW_KIT_VERSION__: JSON.stringify(version) },
+    define: {
+      [domain === 'blockchart' ? '__BLOCKCHART_KIT_VERSION__' : '__FLOWCHART_KIT_VERSION__']:
+        JSON.stringify(version),
+    },
     build: {
       write: false,
       target: 'node22',
       minify: true,
-      lib: { entry, formats: ['es'], fileName: () => 'blockflow-convert.mjs' },
+      lib: { entry, formats: ['es'], fileName: () => `${domain}-convert.mjs` },
       rolldownOptions: {
         platform: 'node',
         external: (id) => id.startsWith('node:'),
@@ -54,19 +63,46 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
   const bundle =
     `/* ${version}\nIncludes elkjs ${elk.version}, Copyright Kiel University and contributors.\nDistributed under EPL-2.0; source: https://github.com/kieler/elkjs\nFull third-party license is in the accompanying README.md. */\n` +
     outputs[0].code;
+  const guide = template.replaceAll('{{KIT_VERSION}}', version).replaceAll('{{ELK_VERSION}}', elk.version);
+  return { domain, schema, bundle, guide, version, license, bytes: Buffer.byteLength(bundle) };
+}
+
+/** Generate both domains together so the shared guide and their build IDs stay matched. */
+export async function buildAgentKit(target = join(root, 'agent-kit')) {
+  const overview = lf(await readFile(join(root, 'docs/agent-kit-readme.md'), 'utf8'));
+  const block = await buildDomain('blockchart', overview);
+  const flow = await buildDomain('flowchart', overview);
+  const versions = overview
+    .replaceAll('{{BLOCKCHART_KIT_VERSION}}', block.version)
+    .replaceAll('{{FLOWCHART_KIT_VERSION}}', flow.version);
+  const section = (guide) => guide.replace(/^(#{1,5}) /gm, '#$1 ');
   const readme =
-    template.replaceAll('{{KIT_VERSION}}', version).replaceAll('{{ELK_VERSION}}', elk.version) +
+    versions +
+    '\n\n' +
+    section(block.guide) +
+    '\n\n' +
+    section(flow.guide) +
     '\n\n## Bundled elkjs license\n\n' +
-    license +
+    block.license +
     '\n';
   await mkdir(target, { recursive: true });
-  await writeFile(join(target, 'blockflow.schema.json'), schema, 'utf8');
-  await writeFile(join(target, 'blockflow-convert.mjs'), bundle, 'utf8');
+  for (const item of [block, flow]) {
+    await writeFile(join(target, `${item.domain}.schema.json`), item.schema, 'utf8');
+    await writeFile(join(target, `${item.domain}-convert.mjs`), item.bundle, 'utf8');
+  }
   await writeFile(join(target, 'README.md'), readme, 'utf8');
-  return { version, directory: target, bytes: Buffer.byteLength(bundle) };
+  return {
+    version: block.version,
+    flowchartVersion: flow.version,
+    directory: target,
+    bytes: block.bytes,
+    flowchartBytes: flow.bytes,
+  };
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const result = await buildAgentKit();
-  console.log(`${result.version}: generated three files in ${result.directory} (${result.bytes} JS bytes).`);
+  console.log(
+    `${result.version}\n${result.flowchartVersion}\nGenerated five files in ${result.directory} (${result.bytes} / ${result.flowchartBytes} JS bytes).`,
+  );
 }

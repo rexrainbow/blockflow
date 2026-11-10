@@ -1,5 +1,5 @@
 import { button, escape as e, field, textarea } from './ui.js';
-import { endpointLabel } from '../../lib/endpoints.js';
+import { endpointLabel } from '../../lib/blockchart/endpoints.js';
 
 export function renderLabelDialog(item, kind) {
   const connection = kind === 'connection';
