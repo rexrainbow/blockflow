@@ -52,7 +52,7 @@ export function finalizeLayout({ modules, groups, terminals, connections }, mode
     ...(groups.length ? { groups } : {}),
   };
   if (model.diagram.caption !== undefined) {
-    const style = { ...TEXT_STYLE, ...model.diagram.style.caption },
+    const style = { ...TEXT_STYLE, ...model.diagram.style.text, ...model.diagram.style.caption },
       size = textSize(model.diagram.caption, style),
       pad = style.hidden ? 0 : style.padding;
     const labelPosition = {

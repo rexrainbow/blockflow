@@ -11,6 +11,37 @@ const portable = new URL('../output/editor/offline copy \u6e2c\u8a66/', import.m
 const fileUrl = new URL('index.html', portable).href;
 const feedbackFile = fileURLToPath(new URL('../examples/feedback-priority.json', import.meta.url));
 
+test('offline Defaults apply shared text and Group defaults atomically with Undo and JSON export', async ({
+  page,
+}) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/default-styles.json', import.meta.url)));
+  await ready(page);
+  await page.getByRole('tab', { name: 'Defaults', exact: true }).click();
+  const panel = page.locator('#defaults-settings');
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('17');
+  await panel.getByRole('combobox', { name: 'Default style category' }).selectOption('group');
+  await panel.getByRole('tab', { name: 'Label', exact: true }).click();
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('21');
+  await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+  await ready(page);
+  const saved = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await saved).path(), 'utf8'));
+  expect(raw.diagram.style.text.fontSize).toBe(17);
+  expect(raw.diagram.style.group.label.fontSize).toBe(21);
+  const exported = page.waitForEvent('download');
+  await command(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await exported).path(), 'utf8');
+  expect(svg).toContain('font-size="21"');
+  expect(svg).toContain('font-size="17"');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  await panel.getByRole('combobox', { name: 'Default style category' }).selectOption('text');
+  await expect(panel.getByRole('spinbutton', { name: 'Font size', exact: true })).toHaveValue('14');
+});
+
 test('offline Net label frames inherit, export and retain style-dialog Undo', async ({ page }) => {
   await page
     .locator('#file-input')

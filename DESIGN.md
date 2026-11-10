@@ -393,8 +393,8 @@ output on the right. Hidden text can make it a thin bar without removing accessi
 Reuse the shared transactional Style modal and its existing Block/Group/Line tabs. Native
 Appearance selects Rectangle, Stacked or Trapezoid; reveal only its relevant numeric field
 with units/range/default help. Use the existing style-grid, field errors and focus handling.
-Hidden text and End arrow use explicit inheritance selects; Layout settings owns diagram
-visibility/arrow defaults and Auto/Top/Bottom exterior feedback side. Preserve existing
+Hidden text and End arrow use explicit inheritance selects; Defaults owns diagram
+visibility/arrow defaults and Layout settings owns exterior feedback side. Preserve existing
 spacing, tokens and responsive dialog scrolling. Draw trusted shape primitives and arrow
 triangles through shared SVG geometry, with no editor-only controls in image exports.
 
@@ -428,3 +428,15 @@ No new tokens or application navigation are required. Owners and behaviors are i
 The existing editor remains a Blockchart editor. Its domain implementation lives under
 `src/lib/blockchart`; shared drawing/export utilities live under `src/lib/shared`.
 Flowchart is a text/JSON conversion runtime with no new workspace, toolbar or editor UI.
+
+## Diagram defaults workspace
+
+The user-approved Defaults page is a fourth workspace tab. Keep the cool workbench tokens,
+shared native select/field/button owners, Style tabs and one panel scroller with reachable
+Apply/Discard actions. Category selection is a native select so six categories stay usable
+at phone widths. Text fields use the existing two-column Style grid on desktop and a single
+column on narrow screens. Inherited-value/source hints are quiet field help with wrapping;
+inputs retain blank values rather than materializing defaults. Reuse existing validation,
+focus, history, persistence and notification owners. Diagram font settings affect diagram
+text only. This is an intentional move of global visibility/arrow controls out of Layout,
+with an Edit defaults shortcut there; no new palette or duplicate settings owner.

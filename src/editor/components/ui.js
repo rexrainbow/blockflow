@@ -108,13 +108,18 @@ export function setFieldError(element, message, focus = true) {
   }
   help.textContent = message;
   element.setAttribute('aria-invalid', 'true');
-  element.setAttribute('aria-describedby', help.id);
+  const inherited = container.querySelector('[data-style-inheritance]');
+  element.setAttribute('aria-describedby', [inherited?.id, help.id].filter(Boolean).join(' '));
   if (focus) element.focus();
 }
 
 export function clearFieldError(element) {
   element.removeAttribute('aria-invalid');
-  element.removeAttribute('aria-describedby');
+  const inherited = (element.closest('.field') ?? element.parentElement)?.querySelector(
+    '[data-style-inheritance]',
+  );
+  if (inherited) element.setAttribute('aria-describedby', inherited.id);
+  else element.removeAttribute('aria-describedby');
   (element.closest('.field') ?? element.parentElement)?.querySelector('.field-error')?.remove();
 }
 

@@ -76,6 +76,19 @@ test('isolated kit renders Net label frames with the shared SVG renderer', async
   assert.deepEqual(JSON.parse(json.stdout), input);
 });
 
+test('isolated kit resolves shared Text, Group and Terminal defaults without authoring normalized values', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/default-styles.json', import.meta.url), 'utf8'),
+  );
+  const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  for (const size of [12, 13, 14, 15, 16, 18]) assert.ok(svg.stdout.includes(`font-size="${size}"`));
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+});
+
 test('isolated kit exports adjusted Terminal names and matching endpoints', async () => {
   const input = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
   input.layout = { ...input.layout, maxPortShift: 120 };

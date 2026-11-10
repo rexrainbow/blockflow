@@ -4,6 +4,26 @@ import { readFile } from 'node:fs/promises';
 import { convertToBoundaryGroup } from '../src/editor/state/commands.js';
 const file = new URL('../dist-dom/dom-viewer.html', import.meta.url).href;
 
+test('DOM resolves diagram Text, Group and Terminal defaults with the shared renderer', async ({ page }) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/default-styles.json', import.meta.url), 'utf8'));
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    const layout = await layoutDiagram(createDiagramModel(raw));
+    view.setLayout(layout, { fit: true });
+    return {
+      group: layout.groups[0].style.label.fontSize,
+      terminal: layout.terminals[0].style.fontSize,
+      caption: layout.caption.style.fontSize,
+      port: layout.modules[0].ports[0].style.fontSize,
+    };
+  }, raw);
+  expect(result).toEqual({ group: 16, terminal: 15, caption: 14, port: 12 });
+  await expect(page.locator('svg text').filter({ hasText: 'Compute pipeline' }).first()).toHaveAttribute(
+    'font-size',
+    '16',
+  );
+});
+
 test('DOM adjusted Port anchors retain activation and straight route endpoints', async ({ page }) => {
   const raw = JSON.parse(
     await readFile(new URL('../examples/port-adjustment.json', import.meta.url), 'utf8'),

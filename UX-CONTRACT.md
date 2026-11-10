@@ -2,7 +2,7 @@
 
 ## Grid and overview authoring
 
-Blocks / Connections / Layout are three keyboard tabs using the same retained workspace.
+Blocks / Connections / Layout / Defaults are four keyboard tabs using the same retained workspace.
 Layout chooses Top or a group; Auto remains default. Grid edits are local drafts until Apply
 layout, with Reset draft and inline validation; any subset of direct members may appear,
 each at most once. Rows/Columns resize the matrix (positive integers, at most 10,000 cells
@@ -52,7 +52,7 @@ Schema, scoped/collapsed layouts, SVG/PNG, DOM, offline and Agent Kit share thes
 ## Rounded group styles
 
 Group Style adds Corner radius as the shared non-negative numeric field. Blank inherits
-0; zero draws square corners. Cancel/Escape discard, OK validates and commits one Undo
+the diagram Group default (built-in 0); zero draws square corners. Cancel/Escape discard, OK validates and commits one Undo
 step, and invalid values retain the dialog and focus the field. Expanded group frames,
 collapsed faces/cards, Preview, SVG/PNG and DOM share the same clamped radius. This group
 style does not alter geometry, routing, Port anchors or signal semantics. Blocks do not
@@ -104,9 +104,9 @@ Boundary requires Rectangle; explain this without silently dropping a shape.
 Every text-style section exposes Hidden with Inherit default, Yes and No. Hidden affects
 only text, background and width notation, preserves names/identity and reserves no text
 space. Per-property inheritance allows explicit false to restore a hidden label. Connection Style's
-Line tab adds End arrow with Inherit default, None and Triangle. Layout settings adds shared
-Hide port labels and Default end arrow, plus Auto/Top/Bottom Feedback side. Those settings
-commit immediately with Undo, as existing layout settings do. Explain that Feedback side
+Line tab adds End arrow with Inherit default, None and Triangle. Defaults owns shared
+Port visibility and Connection arrows, committed through Apply with Undo. Layout settings
+owns Auto/Top/Bottom Feedback side, committed immediately with Undo. Explain that Feedback side
 applies only to Outer routing and blocked access keeps ELK. Hidden port text reserves no
 space, while port targets, endpoint identities and accessible names remain usable. Terminal names can be hidden through their own text style. Shapes, arrows and visibility use the same layout/SVG path for Preview,
 offline, SVG/PNG export and DOM viewer. No new dependencies or separate interaction system.
@@ -666,3 +666,26 @@ Frames are shared-source/receiver label presentation, never branch line styles. 
 PNG, Preview, DOM and Agent Kit output their ink stays inside the same label/hit bounds.
 Hidden labels suppress fill, border and text together. Default transparent border preserves
 existing unframed diagrams. No new screen, menu, palette preset or interaction overlay.
+
+## Diagram style defaults
+
+Source: the user's approved Defaults page and property-wise inheritance discussion.
+Defaults is document-scoped data in diagram.style: shared text plus module, group,
+connection, terminal and caption. Native category selection and shared Style sections own
+all controls. style-dialog.js owns field definitions/rendering/hints; styles.js owns ordered
+resolution and provenance; state/defaults.js owns raw draft parsing and validation;
+components/defaults-panel.js owns the transactional page; app.js owns navigation/history.
+Apply validates all categories, reveals/focuses the first invalid field and commits one Undo
+step. Discard changes only the draft. Draft inputs and category/section survive navigation
+and local reload. Global style history changes synchronize the draft base before persistence;
+Undo first discards an unapplied Defaults draft, then traverses history. Replacement uses the
+existing unsaved-document guard. Save JSON and exports are disabled until Apply/Discard.
+Preview uses committed data; draft controls never trigger layout. IME never applies a partial
+composition. Successful Apply/Discard focuses category selection. Keyboard tabs, native
+popup operation, narrow scroll ownership, offline and accessibility use existing contracts.
+Per-object Style fields show inherited values and sources, keeping blank values and field
+validation help correctly associated. Clear removes an override, never writes a fallback.
+Default visibility/arrows move out of Layout settings into Defaults, with one navigation
+shortcut in Layout settings. Edit defaults reveals the workspace in Split mode when invoked
+from Preview-only mode and focuses the Defaults tab. The document schema and agent kit
+share the same hierarchy.

@@ -555,3 +555,27 @@ complete diagram (Agent Kit users can author the same style directly).
 This converter accepts Blockchart (hardware diagram) JSON. Use `flowchart-convert.mjs`
 with `flowchart.schema.json` for process diagrams. The two formats are independent.
 Source relocation into `src/lib/blockchart` preserves the Blockchart API and formats.
+
+## Diagram style defaults
+
+The editor's **Defaults** workspace page edits the current document, using Text, Blocks,
+Groups, Connections, Terminals and Caption categories. Apply validates every category and
+commits one Undo step; Discard removes only unapplied edits. Category/page changes preserve
+raw drafts; local recovery also restores them. Save JSON and image export require applying
+or discarding the draft. Preview reflects committed styles.
+
+`diagram.style.text` is a common portable text base. `module`, `group`, `connection`,
+`terminal` and `caption` provide type-specific defaults. Module/Group names and Net names use
+`label` subobjects; Terminal, Caption and Text styles are direct text objects. Local fields
+win independently. Omitted fields inherit; explicit false and zero remain overrides where
+allowed. Do not copy computed defaults into each object.
+
+Port precedence is built-in text, shared Text, diagram module All ports/direction, diagram
+Group All ports/direction for Group interfaces, owner All ports/direction, then Port style.
+This keeps diagram module Port defaults shared with Group interfaces, while Group defaults
+can specialize them. Collapsed Collection virtual Ports use the same resolution.
+
+Individual Style dialogs show the inherited value and its source. Blank controls remain
+blank; placeholders and help are informative, never authored values. Defaults also show
+the next inherited value, ending at the built-in style. Diagram styling does not change
+editor chrome or application preferences. The repository's examples/default-styles.json demonstrates these settings.

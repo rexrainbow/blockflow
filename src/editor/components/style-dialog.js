@@ -2,6 +2,7 @@ import { parseStyle } from '../../lib/blockchart/styles.js';
 import { APPEARANCES, parseAppearance } from '../../lib/blockchart/appearances.js';
 import { button, escape as e, field, input, select } from './ui.js';
 
+let hintSequence = 0;
 const textFields = [
   ['Hidden', 'hidden', 'visibility'],
   ['Text color', 'color', 'color'],
@@ -37,11 +38,16 @@ const connectionTextFields = [
   ['Corner radius', 'borderRadius', 'nonnegative'],
 ];
 
-function fields(definitions, style, group) {
+export function renderStyleFields(definitions, style, group, inheritance) {
   return `<div class="style-grid">${definitions
     .map(([label, property, type]) => {
       const value = style?.[property] ?? '';
-      const attrs = `data-style-property="${property}" data-style-group="${group}" aria-label="${label}"`;
+      const hintId = `style-inheritance-${++hintSequence}`;
+      const attrs = `data-style-property="${property}" data-style-group="${group}" aria-label="${label}" ${inheritance ? `aria-describedby="${hintId}"` : ''}`;
+      const inherited = inheritance?.(group, property);
+      const hint = inherited
+        ? `${value === '' ? 'Effective' : 'Inherited'}: ${inherited.value} (${inherited.source})`
+        : '';
       const numeric = ['positive', 'nonnegative', 'opacity'].includes(type);
       const control =
         type === 'repeat'
@@ -88,10 +94,17 @@ function fields(definitions, style, group) {
                 )
               : input(
                   value,
-                  `${attrs} placeholder="Inherit default" ${numeric ? `min="${type === 'positive' ? '0.1' : '0'}" step="any" ${type === 'opacity' ? 'max="1"' : ''}` : 'spellcheck="false"'}`,
+                  `${attrs} placeholder="${e(inherited ? `Inherited: ${inherited.value}` : 'Inherit default')}" ${numeric ? `min="${type === 'positive' ? '0.1' : '0'}" step="any" ${type === 'opacity' ? 'max="1"' : ''}` : 'spellcheck="false"'}`,
                   numeric ? 'number' : 'text',
                 );
-      return field(label, control, type === 'color' ? 'Hex color or transparent' : '');
+      return field(
+        label,
+        control +
+          (inheritance
+            ? `<span id="${hintId}" class="field-help" data-style-inheritance>${e(hint)}</span>`
+            : ''),
+        type === 'color' ? 'Hex color or transparent' : '',
+      );
     })
     .join('')}</div>`;
 }
@@ -170,44 +183,47 @@ export function readAppearanceDialog(dialog, session) {
   return value;
 }
 
-export function renderStyleDialog(session) {
-  const { kind, style = {}, label, direction, section = '' } = session;
-  const groups =
-    kind === 'module'
+export function styleSections(kind, branch = false) {
+  return kind === 'module'
+    ? [
+        ['', 'Block', blockFields],
+        ['label', 'Label', textFields],
+        ['portLabel', 'All ports', textFields],
+        ['inputPortLabel', 'Input labels', textFields],
+        ['outputPortLabel', 'Output labels', textFields],
+      ]
+    : kind === 'group'
       ? [
-          ['', 'Block', blockFields],
+          [
+            '',
+            'Group',
+            [
+              ...blockFields.map(([name, key, type]) => [
+                key === 'fillColor' ? 'Group fill' : name,
+                key,
+                type,
+              ]),
+              ['Corner radius', 'borderRadius', 'nonnegative'],
+            ],
+          ],
           ['label', 'Label', textFields],
           ['portLabel', 'All ports', textFields],
           ['inputPortLabel', 'Input labels', textFields],
           ['outputPortLabel', 'Output labels', textFields],
         ]
-      : kind === 'group'
-        ? [
-            [
-              '',
-              'Group',
-              [
-                ...blockFields.map(([name, key, type]) => [
-                  key === 'fillColor' ? 'Group fill' : name,
-                  key,
-                  type,
-                ]),
-                ['Corner radius', 'borderRadius', 'nonnegative'],
-              ],
-            ],
-            ['label', 'Label', textFields],
-            ['portLabel', 'All ports', textFields],
-            ['inputPortLabel', 'Input labels', textFields],
-            ['outputPortLabel', 'Output labels', textFields],
-          ]
-        : kind === 'connection'
-          ? session.branch
-            ? [['', 'Line', connectionFields.filter(([, key]) => key !== 'startArrow')]]
-            : [
-                ['', 'Line', connectionFields],
-                ['label', 'Label', connectionTextFields],
-              ]
-          : [['', 'Text', textFields]];
+      : kind === 'connection'
+        ? branch
+          ? [['', 'Line', connectionFields.filter(([, key]) => key !== 'startArrow')]]
+          : [
+              ['', 'Line', connectionFields],
+              ['label', 'Label', connectionTextFields],
+            ]
+        : [['', 'Text', textFields]];
+}
+
+export function renderStyleDialog(session) {
+  const { kind, style = {}, label, direction, section = '' } = session;
+  const groups = styleSections(kind, session.branch);
   const title =
     kind === 'group'
       ? 'Group style'
@@ -223,7 +239,7 @@ export function renderStyleDialog(session) {
     <header class="dialog-heading"><span class="dialog-eyebrow">STYLE</span><h2 id="dialog-title">${title}</h2><p class="style-target">${e(label)}</p></header>
     <p id="style-dialog-help" class="style-help">Blank fields inherit defaults. Changes apply only when you select OK.${kind === 'module' ? ' Individual port styles override the shared port defaults.' : kind === 'port' ? ' These settings affect only this port label.' : ''}</p>
     ${groups.length > 1 ? `<div class="style-tabs" role="tablist" aria-label="Style section">${groups.map(([key, name]) => `<button type="button" role="tab" id="style-tab-${key || 'block'}" aria-selected="${key === active}" aria-controls="style-panel-${key || 'block'}" tabindex="${key === active ? '0' : '-1'}" data-action="style-tab" data-style-section="${key}">${name}</button>`).join('')}</div>` : ''}
-    <div class="style-dialog-body">${groups.map(([key, name, definitions]) => `<section id="style-panel-${key || 'block'}" class="style-tab-panel" ${groups.length > 1 ? `role="tabpanel" aria-labelledby="style-tab-${key || 'block'}"` : `aria-label="${name} style"`} ${key !== active ? 'hidden' : ''}>${kind === 'module' && key === '' ? appearanceFields(session.appearance, session.moduleType) : ''}${['module', 'group'].includes(kind) && key === '' ? sizeFields(session.size) : ''}${fields(definitions, key ? style[key] : style, key)}</section>`).join('')}</div>
+    <div class="style-dialog-body">${groups.map(([key, name, definitions]) => `<section id="style-panel-${key || 'block'}" class="style-tab-panel" ${groups.length > 1 ? `role="tabpanel" aria-labelledby="style-tab-${key || 'block'}"` : `aria-label="${name} style"`} ${key !== active ? 'hidden' : ''}>${kind === 'module' && key === '' ? appearanceFields(session.appearance, session.moduleType) : ''}${['module', 'group'].includes(kind) && key === '' ? sizeFields(session.size) : ''}${renderStyleFields(definitions, key ? style[key] : style, key, (group, property) => session.inheritance?.(group, property, style))}</section>`).join('')}</div>
     <p id="style-dialog-error" class="field-error" role="alert"></p>
     <footer class="dialog-actions">${button('cancel-dialog', 'Cancel', { className: 'outline' })}${button('confirm-style', 'OK', { className: 'primary' })}</footer>
   </form>`;
@@ -267,17 +283,7 @@ export function readStyleDialog(dialog, session) {
     ['port', 'terminal'].includes(session.kind) ? 'text' : session.kind,
     'style',
     (message, path) => {
-      const error = new Error(
-        message.includes('hex color')
-          ? 'Use a hex color (#RGB, #RRGGBB, with optional alpha) or transparent.'
-          : message.includes('opacity')
-            ? 'Opacity must be between 0 and 1.'
-            : message.includes('non-negative')
-              ? 'Enter a number greater than or equal to zero.'
-              : message.includes('positive')
-                ? 'Enter a number greater than zero.'
-                : message,
-      );
+      const error = new Error(styleValidationMessage(message));
       error.path = path;
       throw error;
     },
@@ -302,4 +308,42 @@ export function styleErrorField(dialog, path) {
   );
   if (element) selectStyleTab(dialog, group, false);
   return element;
+}
+
+/** Refresh hints without replacing controls or materializing inherited properties. */
+export function updateStyleHints(root, style, inheritance) {
+  for (const element of root.querySelectorAll('[data-style-property]')) {
+    const info = inheritance(element.dataset.styleGroup, element.dataset.styleProperty, style);
+    const hint = element.closest('.field')?.querySelector('[data-style-inheritance]');
+    if (!hint || !info) continue;
+    hint.textContent = `${element.value === '' ? 'Effective' : 'Inherited'}: ${info.value} (${info.source})`;
+    if (element.tagName === 'INPUT') element.placeholder = `Inherited: ${info.value}`;
+  }
+}
+
+export function styleControlValues(root, base = {}) {
+  const style = structuredClone(base);
+  for (const element of root.querySelectorAll('[data-style-property]')) {
+    const section = element.dataset.styleGroup,
+      property = element.dataset.styleProperty;
+    const target = section ? (style[section] ??= {}) : style,
+      value = element.value.trim();
+    if (!value) delete target[property];
+    else
+      target[property] =
+        property === 'hidden' ? value === 'true' : element.type === 'number' ? Number(value) : value;
+  }
+  return style;
+}
+
+export function styleValidationMessage(message) {
+  return message.includes('hex color')
+    ? 'Use a hex color (#RGB, #RRGGBB, with optional alpha) or transparent.'
+    : message.includes('opacity')
+      ? 'Opacity must be between 0 and 1.'
+      : message.includes('non-negative')
+        ? 'Enter a number greater than or equal to zero.'
+        : message.includes('positive')
+          ? 'Enter a number greater than zero.'
+          : message;
 }

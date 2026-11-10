@@ -299,7 +299,8 @@ code {
   display: flex;
 }
 .connections-panel,
-.layout-panel {
+.layout-panel,
+.defaults-panel {
   flex: 1;
 }
 .studio[data-view='editor'] .blocks-settings {
@@ -1665,4 +1666,30 @@ dialog form > .field + .field {
 .net-target.selected-branch {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+
+.defaults-body {
+  padding: 16px;
+}
+.defaults-body .style-grid {
+  gap: 16px 20px;
+}
+.defaults-body .style-grid input,
+.defaults-body .style-grid select {
+  font-size: 13px;
+  min-height: 36px;
+}
+.defaults-body .field-help,
+[data-style-inheritance] {
+  overflow-wrap: anywhere;
+}
+.defaults-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 700px) {
+  .defaults-body .style-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

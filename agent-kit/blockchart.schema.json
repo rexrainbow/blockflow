@@ -30,6 +30,16 @@
             },
             "caption": {
               "$ref": "#/$defs/textStyle"
+            },
+            "text": {
+              "$ref": "#/$defs/textStyle",
+              "description": "Shared diagram text base. Per-type defaults and local properties override it."
+            },
+            "group": {
+              "$ref": "#/$defs/groupStyle"
+            },
+            "terminal": {
+              "$ref": "#/$defs/textStyle"
             }
           }
         },

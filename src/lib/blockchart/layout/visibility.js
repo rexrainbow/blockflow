@@ -37,10 +37,16 @@ export function visibleModel(model) {
                   : 'right',
             order: 0,
             virtual: true,
-            style: resolvePortStyle(model.diagram.style.module, group.portLabelStyle ?? {}, {
-              direction,
-              style: {},
-            }),
+            style: resolvePortStyle(
+              model.diagram.style.module,
+              group.portLabelStyle ?? {},
+              {
+                direction,
+                style: {},
+              },
+              model.diagram.style.text,
+              model.diagram.style.group ?? {},
+            ),
           })),
         });
       }

@@ -41,7 +41,7 @@ const KEYS = {
   group: [...Object.keys(GROUP_STYLE), ...TEXT_GROUPS],
   connection: [...Object.keys(connectionStyle(1)), 'label'],
   module: [...Object.keys(BLOCK_STYLE), ...TEXT_GROUPS],
-  diagram: ['module', 'connection', 'caption'],
+  diagram: ['text', 'module', 'group', 'connection', 'terminal', 'caption'],
 };
 
 /** Parse a partial style; inheritance is resolved only after all layers validate. */
@@ -59,7 +59,7 @@ export function parseStyle(value, kind, path, fail) {
       result[key] = parseStyle(
         item,
         kind === 'diagram'
-          ? key === 'caption'
+          ? ['text', 'terminal', 'caption'].includes(key)
             ? 'text'
             : key
           : kind === 'connection'
@@ -119,33 +119,113 @@ export function parseStyle(value, kind, path, fail) {
   return result;
 }
 
-export function resolveModuleStyle(global = {}, local = {}) {
-  const block = { ...BLOCK_STYLE };
-  for (const layer of [global, local])
-    for (const key of Object.keys(BLOCK_STYLE)) {
-      if (Object.hasOwn(layer, key)) block[key] = layer[key];
+/** Ordered property layers shared by model resolution and editor inheritance hints. */
+export function styleLayers(defaults = {}, kind, section = '', local = {}, context = {}) {
+  const layers = [],
+    add = (value, source) => {
+      if (value) layers.push({ value, source });
+    };
+  const text = ['text', 'terminal', 'caption', 'port'].includes(kind) || Boolean(section);
+  const builtIn = text
+    ? kind === 'connection'
+      ? CONNECTION_LABEL_STYLE
+      : TEXT_STYLE
+    : kind === 'group'
+      ? GROUP_STYLE
+      : kind === 'module'
+        ? BLOCK_STYLE
+        : {
+            ...connectionStyle(context.width),
+            endArrow: 'triangle',
+            ...(context.direction === 'both' ? { startArrow: 'triangle' } : {}),
+          };
+  add(builtIn, 'Built-in');
+  if (text && kind !== 'text') add(defaults.text, 'Diagram > Text');
+  const names = {
+    module: 'Blocks',
+    group: 'Groups',
+    connection: 'Connections',
+    terminal: 'Terminals',
+    caption: 'Caption',
+    text: 'Text',
+  };
+  const parts = {
+    label: 'Label',
+    portLabel: 'All ports',
+    inputPortLabel: 'Input labels',
+    outputPortLabel: 'Output labels',
+  };
+  if (kind === 'port') {
+    const direction = context.direction ?? 'input',
+      side = direction === 'inout' ? null : direction === 'input' ? 'inputPortLabel' : 'outputPortLabel';
+    for (const [owner, base] of [
+      [defaults.module, 'Diagram > Blocks'],
+      ...(context.ownerKind === 'group' ? [[defaults.group, 'Diagram > Groups']] : []),
+      [context.ownerStyle, context.ownerLabel ?? 'Owner'],
+    ]) {
+      add(owner?.portLabel, base + ' > All ports');
+      if (side) add(owner?.[side], base + ' > ' + parts[side]);
     }
-  return { ...block, label: { ...TEXT_STYLE, ...global.label, ...local.label } };
+    add(local, 'This port');
+    return layers;
+  }
+  if (['portLabel', 'inputPortLabel', 'outputPortLabel'].includes(section)) {
+    if (kind === 'group') {
+      add(defaults.module?.portLabel, 'Diagram > Blocks > All ports');
+      if (section !== 'portLabel') add(defaults.module?.[section], 'Diagram > Blocks > ' + parts[section]);
+    }
+    add(defaults[kind]?.portLabel, 'Diagram > ' + names[kind] + ' > All ports');
+    if (section !== 'portLabel')
+      add(defaults[kind]?.[section], 'Diagram > ' + names[kind] + ' > ' + parts[section]);
+    add(local.portLabel, 'This object > All ports');
+    if (section !== 'portLabel') add(local[section], 'This object > ' + parts[section]);
+    return layers;
+  }
+  add(
+    section ? defaults[kind]?.[section] : defaults[kind],
+    'Diagram > ' + names[kind] + (section ? ' > ' + parts[section] : ''),
+  );
+  if (context.netStyle) add(section ? context.netStyle[section] : context.netStyle, 'This Net');
+  add(section ? local[section] : local, 'This object');
+  return layers;
 }
 
-export function resolvePortStyle(global = {}, local = {}, port) {
-  if (port.direction === 'inout')
-    return { ...TEXT_STYLE, ...global.portLabel, ...local.portLabel, ...port.style };
-  const side = port.direction === 'input' ? 'inputPortLabel' : 'outputPortLabel';
+export const resolveStyleLayers = (layers) => Object.assign({}, ...layers.map((layer) => layer.value));
+export function inheritedStyleValue(defaults, kind, section, local, property, context = {}) {
+  const copy = structuredClone(local ?? {});
+  const target = section ? copy[section] : copy;
+  if (target) delete target[property];
+  let info;
+  for (const layer of styleLayers(defaults, kind, section, copy, context))
+    if (Object.hasOwn(layer.value, property)) info = { value: layer.value[property], source: layer.source };
+  return info;
+}
+
+export function resolveModuleStyle(global = {}, local = {}, text = {}) {
+  const defaults = { module: global, text },
+    resolved = resolveStyleLayers(styleLayers(defaults, 'module', '', local));
   return {
-    ...TEXT_STYLE,
-    ...global.portLabel,
-    ...global[side],
-    ...local.portLabel,
-    ...local[side],
-    ...port.style,
+    ...Object.fromEntries(Object.keys(BLOCK_STYLE).map((key) => [key, resolved[key]])),
+    label: resolveStyleLayers(styleLayers(defaults, 'module', 'label', local)),
   };
 }
 
-export function resolveGroupStyle(local = {}) {
+export function resolvePortStyle(global = {}, local = {}, port, text = {}, group = undefined) {
+  return resolveStyleLayers(
+    styleLayers({ module: global, text, group }, 'port', '', port.style, {
+      direction: port.direction,
+      ownerStyle: local,
+      ownerKind: group ? 'group' : 'module',
+    }),
+  );
+}
+
+export function resolveGroupStyle(local = {}, global = {}, text = {}) {
+  const defaults = { group: global, text },
+    resolved = resolveStyleLayers(styleLayers(defaults, 'group', '', local));
   return {
-    ...resolveModuleStyle({}, { ...GROUP_STYLE, ...local }),
-    borderRadius: local.borderRadius ?? GROUP_STYLE.borderRadius,
+    ...Object.fromEntries(Object.keys(GROUP_STYLE).map((key) => [key, resolved[key]])),
+    label: resolveStyleLayers(styleLayers(defaults, 'group', 'label', local)),
   };
 }
 

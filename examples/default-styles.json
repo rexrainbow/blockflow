@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Processor style defaults",
+    "caption": "Shared text with type-specific overrides",
+    "style": {
+      "text": {
+        "fontSize": 14,
+        "color": "#243b53"
+      },
+      "module": {
+        "label": {
+          "fontSize": 18
+        },
+        "portLabel": {
+          "fontSize": 12
+        }
+      },
+      "group": {
+        "label": {
+          "fontSize": 16
+        },
+        "fillColor": "#f3f6fb",
+        "borderRadius": 10
+      },
+      "connection": {
+        "label": {
+          "fontSize": 13,
+          "backgroundColor": "#fff9e6",
+          "padding": 4
+        }
+      },
+      "terminal": {
+        "fontSize": 15
+      },
+      "caption": {
+        "color": "#59677d"
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "Processor",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "ALU",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "Compute",
+      "label": "Compute pipeline",
+      "members": [
+        "Processor",
+        "ALU"
+      ]
+    }
+  ],
+  "terminals": [
+    {
+      "id": "Input",
+      "direction": "input"
+    },
+    {
+      "id": "Result",
+      "direction": "output"
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "terminal": "Input"
+      },
+      "to": [
+        "Processor.in"
+      ]
+    },
+    {
+      "from": "Processor.out",
+      "to": [
+        "ALU.in"
+      ],
+      "label": "Operand data"
+    },
+    {
+      "from": "ALU.out",
+      "to": [
+        {
+          "terminal": "Result"
+        }
+      ]
+    }
+  ]
+}

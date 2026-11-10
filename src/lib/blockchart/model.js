@@ -95,7 +95,7 @@ export function createDiagramModel(input) {
   };
   array(input.modules, 'modules', Array.isArray(input.groups) && input.groups.length ? 0 : 1);
   const moduleIds = new Set();
-  function parsePorts(rawPorts, path, style) {
+  function parsePorts(rawPorts, path, style, group = false) {
     const portIds = new Set();
     const counts = { input: 0, output: 0, inout: 0 };
     return rawPorts.map((port, j) => {
@@ -128,7 +128,13 @@ export function createDiagramModel(input) {
               ? 'left'
               : 'right',
         order: counts[port.direction]++,
-        style: resolvePortStyle(diagram.style.module, style, { direction: port.direction, style: portStyle }),
+        style: resolvePortStyle(
+          diagram.style.module,
+          style,
+          { direction: port.direction, style: portStyle },
+          diagram.style.text,
+          group ? (diagram.style.group ?? {}) : undefined,
+        ),
       };
       return result;
     });
@@ -169,7 +175,7 @@ export function createDiagramModel(input) {
         : {}),
       ...(own(module, 'width') ? { width: positive(module.width, `${path}.width`) } : {}),
       ...(own(module, 'height') ? { height: positive(module.height, `${path}.height`) } : {}),
-      style: resolveModuleStyle(diagram.style.module, style),
+      style: resolveModuleStyle(diagram.style.module, style, diagram.style.text),
     };
   });
 
@@ -215,7 +221,7 @@ export function createDiagramModel(input) {
       fail('Only boundary or collection groups may hide contents', `${path}.collapsed`);
     const rawPorts = own(group, 'ports') ? group.ports : [];
     array(rawPorts, `${path}.ports`);
-    const ports = parsePorts(rawPorts, `${path}.ports`, style);
+    const ports = parsePorts(rawPorts, `${path}.ports`, style, true);
     return {
       id: groupId,
       label: own(group, 'label') ? text(group.label, `${path}.label`, true) : groupId,
@@ -227,7 +233,7 @@ export function createDiagramModel(input) {
       ...(type === 'collection' ? { portLabelStyle: style } : {}),
       ...(own(group, 'width') ? { width: positive(group.width, `${path}.width`) } : {}),
       ...(own(group, 'height') ? { height: positive(group.height, `${path}.height`) } : {}),
-      style: resolveGroupStyle(style),
+      style: resolveGroupStyle(style, diagram.style.group, diagram.style.text),
     };
   });
 
@@ -264,7 +270,7 @@ export function createDiagramModel(input) {
       displayName: width > 1 ? `${label}[${width - 1}:0]` : label,
       width,
       order: terminalOrders[item.direction]++,
-      style: { ...TEXT_STYLE, ...style },
+      style: { ...TEXT_STYLE, ...diagram.style.text, ...diagram.style.terminal, ...style },
     };
   });
   const rawConnections = own(input, 'connections') ? input.connections : [];
@@ -366,7 +372,14 @@ export function createDiagramModel(input) {
         ...diagram.style.connection,
         ...style,
         ...(label !== undefined || diagram.style.connection?.label || style.label
-          ? { label: { ...CONNECTION_LABEL_STYLE, ...diagram.style.connection?.label, ...style.label } }
+          ? {
+              label: {
+                ...CONNECTION_LABEL_STYLE,
+                ...diagram.style.text,
+                ...diagram.style.connection?.label,
+                ...style.label,
+              },
+            }
           : {}),
       };
       return {

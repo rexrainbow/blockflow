@@ -1,3 +1,5 @@
+import { DefaultsPanel } from './components/defaults-panel.js';
+import { inheritedStyleValue } from '../lib/blockchart/styles.js';
 import { renderNetRow, renderNetDialog } from './components/net-controls.js';
 import { targetEntries, targetEndpoint, targetEndpoints } from '../lib/blockchart/nets.js';
 import { validViewRoot, viewScopeOptions } from './state/view-scope.js';
@@ -10,7 +12,7 @@ import {
   portAdjustmentFields,
 } from './components/layout-panel.js';
 import { reconcileGrids } from '../lib/blockchart/grid.js';
-import { normalizeDisplayText } from '../lib/blockchart/model.js';
+import { normalizeDisplayText, createDiagramModel } from '../lib/blockchart/model.js';
 import { setDirection } from '../lib/blockchart/direction.js';
 import { endpointKey, endpointFromKey, endpointLabel } from '../lib/blockchart/endpoints.js';
 import { renderTerminalDialog } from './components/terminal-dialog.js';
@@ -59,6 +61,8 @@ import {
   updateAppearanceFields,
   selectStyleTab,
   styleErrorField,
+  styleControlValues,
+  updateStyleHints,
 } from './components/style-dialog.js';
 import {
   singleLine,
@@ -82,6 +86,7 @@ import {
 const STORAGE = 'blockflow.editor.v1';
 const VIEW_STORAGE = 'blockflow.editor.view';
 const VIEWS = ['split', 'editor', 'preview'];
+const EDITOR_TABS = ['blocks', 'connections', 'layout', 'defaults'];
 const defaultExample = () => {
   const doc = structuredClone(example);
   doc.diagram.name = 'Pipeline / Feedback';
@@ -100,6 +105,7 @@ class Editor {
     let document = defaultExample();
     let restored = false;
     let drafts = [];
+    let defaultsDraft;
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
       if (stored?.document && Array.isArray(stored.document.modules)) {
@@ -118,6 +124,7 @@ class Editor {
             throw error;
         }
         document = stored.document;
+        defaultsDraft = stored.defaultsDraft;
         drafts = Array.isArray(stored.formDrafts)
           ? stored.formDrafts
               .filter(
@@ -170,6 +177,7 @@ class Editor {
     this.resetView = true;
     this.rootGroupId = null;
     this.shell();
+    this.defaults = new DefaultsPanel(this, defaultsDraft);
     this.preview = new Preview(
       root.querySelector('#preview-host'),
       (id) => this.selectModule(id),
@@ -206,8 +214,13 @@ class Editor {
           json(meaningful(d)) !== json(meaningful(newGridDraft(this.document, d.scope))),
       );
   }
+  get defaultsDirty() {
+    return Boolean(this.defaults?.dirty);
+  }
   get dirty() {
-    return this.gridDirty || this.formDrafts.size > 0 || json(this.document) !== this.saved;
+    return (
+      this.defaultsDirty || this.gridDirty || this.formDrafts.size > 0 || json(this.document) !== this.saved
+    );
   }
 
   shell() {
@@ -235,18 +248,19 @@ class Editor {
           ${button('settings', 'Layout settings', { glyph: 'settings', iconOnly: true })}
         </div>
       </header>
-      <main class="studio">
+      <main class="studio"><h1 class="sr-only">blockflow Diagram Studio</h1>
         <div class="workbench">
         <form id="workspace" class="workspace" novalidate aria-label="Diagram editor">
           <div class="editor-tabs" role="tablist" aria-label="Diagram settings">
             <button type="button" id="blocks-tab" role="tab" aria-controls="blocks-settings" aria-selected="true" tabindex="0" data-action="editor-tab" data-editor-tab="blocks">Blocks</button>
             <button type="button" id="connections-tab" role="tab" aria-controls="connections-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="connections">Connections</button>
-          <button type="button" id="layout-tab" role="tab" aria-controls="layout-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="layout">Layout</button></div>
+          <button type="button" id="layout-tab" role="tab" aria-controls="layout-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="layout">Layout</button><button type="button" id="defaults-tab" role="tab" aria-controls="defaults-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="defaults">Defaults</button></div>
           <div id="blocks-settings" class="blocks-settings" style="--block-list-width:${this.blockListWidth}px;--editor-list-width:${this.editorListWidth}px" role="tabpanel" aria-labelledby="blocks-tab">
           <section class="panel block-panel" aria-labelledby="blocks-heading"><header class="panel-header"><h2 id="blocks-heading">Blocks </h2><span id="block-count" class="count"></span></header><div class="group-list-tools"><label class="group-search"><span class="sr-only">Search blocks and groups</span><input type="search" data-field="group-search" data-focus-key="group-search" aria-label="Search blocks and groups" placeholder="Find block or group"/></label>${button('collapse-all', 'Collapse all', { glyph: 'minus', iconOnly: true })}${button('expand-all', 'Expand all', { glyph: 'plus', iconOnly: true })}</div><div id="block-list" class="panel-scroll block-list" data-scroll="blocks" role="group" aria-label="Block list" tabindex="0"></div><footer class="panel-footer">${button('add-block', 'Add block', { glyph: 'plus', className: 'add-button' })}${button('add-concat', 'Add Concat', { glyph: 'plus', className: 'add-button' })}${button('add-group', 'Add group', { glyph: 'plus', className: 'add-button' })}</footer></section>
           <div id="block-list-splitter" class="splitter block-list-splitter" role="separator" tabindex="0" aria-label="Resize block list" aria-orientation="vertical" aria-valuemin="200" aria-valuemax="560" aria-valuenow="${this.blockListWidth}"><span></span></div><section class="panel detail-panel" aria-labelledby="detail-heading"><header class="panel-header"><h2 id="detail-heading">Block details </h2><div class="panel-header-tools"><span id="selected-id" class="code-tag"></span>${button('block-help', '[?]', { className: 'help-button', ariaLabel: 'Block editing help' })}</div></header><div id="block-detail" class="panel-scroll" data-scroll="detail"></div></section>
           </div>
           <div id="connections-settings" class="connections-settings" role="tabpanel" aria-labelledby="connections-tab" hidden><section class="panel connections-panel" aria-labelledby="connections-heading"><header class="panel-header"><h2 id="connections-heading">Connections </h2><span id="connection-count" class="count"></span></header><div id="connection-list" class="panel-scroll connection-list" data-scroll="connections"></div><footer class="panel-footer">${button('add-terminal', 'Add terminal', { className: 'add-button' })}${button('add-connection', 'Add connection', { glyph: 'plus', className: 'add-button' })}</footer></section></div>
+          <div id="defaults-settings" class="connections-settings" role="tabpanel" aria-labelledby="defaults-tab" hidden></div>
           <div id="layout-settings" class="connections-settings" role="tabpanel" aria-labelledby="layout-tab" hidden></div>
         </form>
         <div id="splitter" class="splitter" role="separator" tabindex="0" aria-label="Resize editor area" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow="50" aria-valuetext="50% settings"><span></span></div>
@@ -303,6 +317,7 @@ class Editor {
     );
     this.renderBlockDetail();
     this.renderGridPanel();
+    this.defaults?.render();
     this.root.querySelector('#connection-list').innerHTML = this.connections();
     this.root.querySelectorAll('details[data-keep]').forEach((el) => {
       if (opens.has(el.dataset.keep)) el.open = opens.get(el.dataset.keep);
@@ -481,11 +496,17 @@ class Editor {
   updateControls() {
     this.root
       .querySelectorAll('[data-action="undo"]')
-      .forEach((el) => (el.disabled = !this.history.past.length && !this.formDrafts.size && !this.gridDirty));
+      .forEach(
+        (el) =>
+          (el.disabled =
+            !this.history.past.length && !this.formDrafts.size && !this.gridDirty && !this.defaultsDirty),
+      );
     this.root
       .querySelectorAll('[data-action="redo"]')
       .forEach(
-        (el) => (el.disabled = !this.history.future.length || this.formDrafts.size > 0 || this.gridDirty),
+        (el) =>
+          (el.disabled =
+            !this.history.future.length || this.formDrafts.size > 0 || this.gridDirty || this.defaultsDirty),
       );
     this.root
       .querySelectorAll('[data-action^="export-"]')
@@ -497,29 +518,41 @@ class Editor {
             this.exporting ||
             !this.currentSvg ||
             this.formDrafts.size > 0 ||
-            this.gridDirty),
+            this.gridDirty ||
+            this.defaultsDirty),
       );
     this.root.querySelector('[data-action="save"]').disabled =
       this.gridDirty ||
+      this.defaultsDirty ||
       this.formDrafts.size > 0 ||
       (!this.documentValid && this.document.modules.length !== 0);
     this.updatePreviewActions();
     const state = this.root.querySelector('#save-state');
     state.title = this.storageError
       ? 'Draft storage unavailable. Download JSON.'
-      : this.gridDirty
-        ? 'Unapplied layout edits. Apply layout or reset the draft before leaving.'
-        : this.dirty
-          ? 'Unsaved changes. Draft stored locally; download JSON to keep a file copy.'
-          : 'Document saved';
+      : this.defaultsDirty
+        ? 'Unapplied default styles. Apply or discard the Defaults draft.'
+        : this.gridDirty
+          ? 'Unapplied layout edits. Apply layout or reset the draft before leaving.'
+          : this.dirty
+            ? 'Unsaved changes. Draft stored locally; download JSON to keep a file copy.'
+            : 'Document saved';
     state.setAttribute('aria-label', state.title);
     state.classList.toggle('unsaved', this.dirty);
     state.classList.toggle('storage-error', Boolean(this.storageError));
   }
 
   persist() {
+    this.defaults?.sync();
     try {
-      localStorage.setItem(STORAGE, json({ document: this.document, formDrafts: [...this.formDrafts] }));
+      localStorage.setItem(
+        STORAGE,
+        json({
+          document: this.document,
+          formDrafts: [...this.formDrafts],
+          defaultsDraft: this.defaults?.serialize(),
+        }),
+      );
       this.storageError = false;
     } catch {
       this.storageError = true;
@@ -823,7 +856,7 @@ class Editor {
   }
 
   setEditorTab(tab, focus = false) {
-    if (!['blocks', 'connections', 'layout'].includes(tab)) return;
+    if (!EDITOR_TABS.includes(tab)) return;
     this.rememberPanelScrolls();
     this.activeEditorTab = tab;
     for (const button of this.root.querySelectorAll('[data-editor-tab]')) {
@@ -832,8 +865,7 @@ class Editor {
       button.tabIndex = selected ? 0 : -1;
       if (selected && focus) button.focus({ preventScroll: true });
     }
-    for (const name of ['blocks', 'connections', 'layout'])
-      this.root.querySelector(`#${name}-settings`).hidden = name !== tab;
+    for (const name of EDITOR_TABS) this.root.querySelector(`#${name}-settings`).hidden = name !== tab;
     this.restorePanelScrolls();
     try {
       localStorage.setItem('blockflow.editor.tab', tab);
@@ -846,13 +878,16 @@ class Editor {
     this.root.querySelector('.editor-tabs').addEventListener('keydown', (event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
-      const tabs = ['blocks', 'connections', 'layout'];
+      const tabs = EDITOR_TABS;
       const tab =
         event.key === 'Home'
           ? 'blocks'
           : event.key === 'End'
-            ? 'layout'
-            : tabs[(tabs.indexOf(this.activeEditorTab) + (event.key === 'ArrowLeft' ? 2 : 1)) % 3];
+            ? 'defaults'
+            : tabs[
+                (tabs.indexOf(this.activeEditorTab) + (event.key === 'ArrowLeft' ? tabs.length - 1 : 1)) %
+                  tabs.length
+              ];
       this.setEditorTab(tab, true);
     });
     let savedTab;
@@ -861,7 +896,7 @@ class Editor {
     } catch {
       /* Optional preference. */
     }
-    this.setEditorTab(['connections', 'layout'].includes(savedTab) ? savedTab : 'blocks');
+    this.setEditorTab(EDITOR_TABS.includes(savedTab) ? savedTab : 'blocks');
     bindDisclosureMenus(this.root);
     this.root.addEventListener('focusin', (event) => {
       const row = event.target.closest('.connection-row');
@@ -1049,6 +1084,11 @@ class Editor {
       if (!this.styleSession || !event.target.matches('[data-style-property]')) return;
       clearFieldError(event.target);
       this.dialog.querySelector('#style-dialog-error').textContent = '';
+      updateStyleHints(
+        this.dialog,
+        styleControlValues(this.dialog, this.styleSession.style),
+        this.styleSession.inheritance,
+      );
     });
     this.dialog.addEventListener('keydown', (event) => {
       if (this.labelSession && event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -1087,19 +1127,6 @@ class Editor {
     clearFieldError(el);
     if (el.dataset.focusKey) this.formDrafts.delete(el.dataset.focusKey);
     const field = el.dataset.field;
-    if (field === 'default-port-labels' || field === 'default-end-arrow') {
-      this.commit((doc) => {
-        doc.diagram.style ??= {};
-        const kind = field === 'default-port-labels' ? 'module' : 'connection';
-        doc.diagram.style[kind] ??= {};
-        if (kind === 'module') {
-          doc.diagram.style.module.portLabel ??= {};
-          doc.diagram.style.module.portLabel.hidden = el.value === 'true';
-        } else doc.diagram.style.connection.endArrow = el.value;
-        validateDocument(doc);
-      }, 'Diagram defaults updated.');
-      return;
-    }
     if (field === 'grid-scope') {
       this.gridDrafts ??= new Map();
       this.gridDrafts.set(this.gridDraft.scope, this.gridDraft);
@@ -1513,6 +1540,16 @@ class Editor {
     }
     if (action === 'editor-tab') return this.setEditorTab(target.dataset.editorTab);
     if (action === 'add-block' || action === 'add-concat') this.setEditorTab('blocks');
+    if (action.startsWith('defaults-')) return this.defaults.action(action, target);
+    if (action === 'open-defaults') {
+      this.dialog.close();
+      if (this.viewMode === 'preview') {
+        this.viewMode = 'split';
+        this.applyViewMode();
+      }
+      this.setEditorTab('defaults', true);
+      return;
+    }
     if (action === 'edit-style') return this.openStyleDialog(target);
     if (action === 'view-scope') return this.changeViewScope(target.dataset.id || null);
     if (action === 'view-contents') return this.changeViewScope(target.dataset.id);
@@ -1635,6 +1672,11 @@ class Editor {
     if (action === 'move-up' || action === 'move-down')
       return this.move(target, action === 'move-up' ? -1 : 1);
     if (action === 'undo' || action === 'redo') {
+      if (action === 'undo' && this.defaultsDirty) {
+        this.defaults.reset();
+        this.announce('Unapplied default styles discarded.');
+        return;
+      }
       if (action === 'undo' && this.gridDirty) {
         this.gridDrafts?.clear();
         this.gridDraft = newGridDraft(this.document, this.gridDraft?.scope ?? '');
@@ -2076,6 +2118,29 @@ class Editor {
         endpointLabel(net.from) + ' to ' + endpointLabel(targetEndpoint(net.to[session.targetIndex]));
     }
     session.direction = target.direction;
+    const owner = module ?? target;
+    const net =
+      kind === 'connection' ? this.styleTarget(this.document, { ...session, targetIndex: undefined }) : null;
+    let width;
+    if (net) {
+      try {
+        width = createDiagramModel(this.document).connections.find(
+          (edge) => edge.connectionIndex === this.document.connections.indexOf(net),
+        )?.width;
+      } catch {
+        /* Other validation stays visible in Preview. */
+      }
+    }
+    const context = {
+      ownerKind: this.document.groups?.some((g) => g.id === session.moduleId) ? 'group' : 'module',
+      ownerStyle: owner.style,
+      ownerLabel: owner.label ?? owner.id,
+      direction: kind === 'connection' ? net.direction : target.direction,
+      width,
+      ...(session.branch ? { netStyle: net.style } : {}),
+    };
+    session.inheritance = (section, property, local) =>
+      inheritedStyleValue(this.document.diagram.style ?? {}, kind, section, local, property, context);
     this.showDialog(renderStyleDialog(session));
     this.styleSession = session;
     this.dialog.classList.add('style-dialog');
@@ -2373,6 +2438,7 @@ class Editor {
     this.selectedConnection = null;
     this.formDrafts.clear();
     this.history.commit(document);
+    this.defaults?.reset();
     this.selected = document.modules[0]?.id ?? null;
     this.resetView = true;
     this.afterEdit(message);
@@ -2459,29 +2525,7 @@ class Editor {
           'data-field="setting" data-property="feedbackSide"',
         ),
       )}
-      ${field(
-        'Hide port labels',
-        select(
-          [
-            { value: 'false', label: 'No' },
-            { value: 'true', label: 'Yes' },
-          ],
-          this.document.diagram.style?.module?.portLabel?.hidden ?? false,
-          'data-field="default-port-labels"',
-        ),
-      )}
-      ${field(
-        'Default end arrow',
-        select(
-          [
-            { value: 'none', label: 'None' },
-            { value: 'triangle', label: 'Triangle' },
-          ],
-          this.document.diagram.style?.connection?.endArrow ?? 'none',
-          'data-field="default-end-arrow"',
-        ),
-      )}
-      </div><p class="field-help">Outer feedback routing supports Left to right and Top to bottom. Feedback side applies only to Outer routing; blocked access falls back to ELK. Individual styles can override port-label and arrow defaults.</p>${portAdjustmentFields(layout, 'dialog')}<footer class="dialog-actions">${button('cancel-dialog', 'Done', { className: 'primary' })}</footer></form>`);
+      </div><p class="field-help">Outer feedback routing supports Left to right and Top to bottom. Feedback side applies only to Outer routing; blocked access falls back to ELK. Text, Port-label and arrow defaults are edited on the Defaults page.</p>${portAdjustmentFields(layout, 'dialog')}${button('open-defaults', 'Edit defaults', { className: 'outline' })}<footer class="dialog-actions">${button('cancel-dialog', 'Done', { className: 'primary' })}</footer></form>`);
   }
 
   filename() {

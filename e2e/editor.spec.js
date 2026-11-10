@@ -3,6 +3,144 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile, mkdir } from 'node:fs/promises';
 import sharp from 'sharp';
 
+const defaultsDocument = () => ({
+  version: 1,
+  diagram: { name: 'Shared defaults', caption: 'Caption' },
+  modules: [
+    { id: 'A', ports: [{ id: 'out', direction: 'output' }], style: { label: { fontSize: 20 } } },
+    { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+  ],
+  groups: [{ id: 'G', members: ['A'] }],
+  terminals: [{ id: 'Spare', direction: 'input' }],
+  connections: [{ from: 'A.out', to: ['B.in'], label: 'Data' }],
+});
+
+test('Defaults apply all categories atomically, inherit per property and survive Undo, export and reload', async ({
+  page,
+}) => {
+  const raw = defaultsDocument();
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Defaults', exact: true }).click();
+  const panel = page.locator('#defaults-settings');
+  const category = panel.getByRole('combobox', { name: 'Default style category' });
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('16');
+  expect(await documentState(page)).toEqual(raw);
+  await expect(page.locator('[data-action="save"]')).toBeDisabled();
+  await category.selectOption('group');
+  await panel.getByRole('tab', { name: 'Label', exact: true }).click();
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('22');
+  await category.selectOption('terminal');
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('24');
+  await category.selectOption('connection');
+  await panel.getByRole('tab', { name: 'Label', exact: true }).click();
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('18');
+  await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+  await ready(page);
+  const applied = await documentState(page);
+  expect(applied.diagram.style).toEqual({
+    text: { fontSize: 16 },
+    group: { label: { fontSize: 22 } },
+    terminal: { fontSize: 24 },
+    connection: { label: { fontSize: 18 } },
+  });
+  expect(applied.modules[0].style.label.fontSize).toBe(20);
+  await mkdir('output/editor', { recursive: true });
+  await page.screenshot({ path: 'output/editor/defaults-desktop.png' });
+  const download = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await download).path(), 'utf8');
+  for (const size of [16, 18, 20, 22, 24]) expect(svg).toContain(`font-size="${size}"`);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(applied);
+  await page.reload();
+  await ready(page);
+  await expect(panel.getByRole('spinbutton', { name: 'Font size', exact: true })).toHaveValue('18');
+  await page.getByRole('tab', { name: 'Blocks', exact: true }).click();
+  await page.getByRole('button', { name: 'Block style', exact: true }).click();
+  await page.getByRole('dialog').getByRole('tab', { name: 'Label', exact: true }).click();
+  const font = page.getByRole('dialog').getByRole('spinbutton', { name: 'Font size', exact: true });
+  await expect(font).toHaveValue('20');
+  await expect(font).toHaveAttribute('placeholder', 'Inherited: 16');
+  await font.fill('');
+  await expect(font.locator('..')).toContainText('Effective: 16');
+  await expect(font.locator('..')).toContainText('Diagram > Text');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect((await documentState(page)).modules[0].style.label.fontSize).toBe(20);
+});
+
+test('Defaults drafts recover on reload, validate across categories and discard without history or premature IME apply', async ({
+  page,
+}) => {
+  const raw = defaultsDocument();
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Defaults', exact: true }).click();
+  const panel = page.locator('#defaults-settings'),
+    category = panel.getByRole('combobox', { name: 'Default style category' });
+  await panel.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('0');
+  await category.selectOption('group');
+  await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(category).toHaveValue('text');
+  const font = panel.getByRole('spinbutton', { name: 'Font size', exact: true });
+  await expect(font).toBeFocused();
+  await expect(font).toHaveAttribute('aria-invalid', 'true');
+  expect(await documentState(page)).toEqual(raw);
+  await page.reload();
+  await expect(page.locator('#layout-state')).toHaveText('Updated');
+  await expect(font).toHaveValue('0');
+  await expect(page.locator('[data-action="save"]')).toBeDisabled();
+  await panel.getByRole('button', { name: 'Discard', exact: true }).click();
+  await ready(page);
+  await expect(font).toHaveValue('');
+  expect(await documentState(page)).toEqual(raw);
+  await font.dispatchEvent('compositionstart');
+  await font.fill('19');
+  await expect(panel.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await font.dispatchEvent('compositionend');
+  await expect(panel.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  await page.getByRole('tab', { name: 'Defaults', exact: true }).click();
+  await expect(font).toHaveValue('19');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  await expect(font).toHaveValue('');
+  expect(await documentState(page)).toEqual(raw);
+});
+
+test('Defaults keyboard tabs, native popup and inheritance fields remain accessible on narrow screens', async ({
+  page,
+}) => {
+  await importJson(page, defaultsDocument());
+  await ready(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('tab', { name: 'Layout', exact: true }).focus();
+  await page.keyboard.press('End');
+  await expect(page.getByRole('tab', { name: 'Defaults', exact: true })).toBeFocused();
+  const panel = page.locator('#defaults-settings'),
+    category = panel.getByRole('combobox', { name: 'Default style category' });
+  await category.focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.keyboard.press('Escape');
+  await category.selectOption('group');
+  await panel.getByRole('tab', { name: 'Group', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(panel.getByRole('tab', { name: 'Label', exact: true })).toBeFocused();
+  const font = panel.getByRole('spinbutton', { name: 'Font size', exact: true });
+  await font.fill('18');
+  await panel.getByRole('button', { name: 'Apply', exact: true }).click();
+  await ready(page);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await mkdir('output/editor', { recursive: true });
+  await page.screenshot({ path: 'output/editor/defaults-narrow.png', fullPage: true });
+});
+
 test('Reduce bends moves Terminal names and hit targets with endpoints and supports Undo', async ({
   page,
 }) => {
@@ -1083,11 +1221,20 @@ test('signal appearance editing validates drafts, preserves history and exposes 
   await page.getByRole('button', { name: 'Layout settings', exact: true }).click();
   await page.getByRole('combobox', { name: 'Feedback side', exact: true }).selectOption('bottom');
   await ready(page);
-  await page.getByRole('combobox', { name: 'Hide port labels', exact: true }).selectOption('false');
+  await page.getByRole('button', { name: 'Edit defaults', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Defaults', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(page.locator('#workspace')).toBeVisible();
+  const defaults = page.locator('#defaults-settings');
+  await defaults.getByRole('combobox', { name: 'Default style category' }).selectOption('module');
+  await defaults.getByRole('tab', { name: 'All ports', exact: true }).click();
+  await defaults.getByRole('combobox', { name: 'Hidden', exact: true }).selectOption('false');
+  await defaults.getByRole('combobox', { name: 'Default style category' }).selectOption('connection');
+  await defaults.getByRole('combobox', { name: 'End arrow', exact: true }).selectOption('none');
+  await defaults.getByRole('button', { name: 'Apply', exact: true }).click();
   await ready(page);
-  await page.getByRole('combobox', { name: 'Default end arrow', exact: true }).selectOption('none');
-  await ready(page);
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(0);
   expect((await documentState(page)).layout.feedbackSide).toBe('bottom');
   expect((await documentState(page)).diagram.style.module.portLabel.hidden).toBe(false);
@@ -3240,10 +3387,10 @@ test('style edits validate, update geometry, and work offline after initial load
 }) => {
   await page.getByRole('button', { name: 'Block style', exact: true }).click();
   await page.getByRole('tab', { name: 'Label', exact: true }).click();
-  const size = page.locator('[data-style-group="label"][data-style-property="fontSize"]');
+  const size = page.getByRole('dialog').locator('[data-style-group="label"][data-style-property="fontSize"]');
   await size.fill('24');
   await size.press('Tab');
-  const color = page.locator('[data-style-group="label"][data-style-property="color"]');
+  const color = page.getByRole('dialog').locator('[data-style-group="label"][data-style-property="color"]');
   await color.fill('not-a-color');
   await color.press('Tab');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
