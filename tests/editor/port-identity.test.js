@@ -19,10 +19,7 @@ test('port key suffixing updates references and preserves explicit display label
       },
       { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
     ],
-    connections: [
-      { from: 'A.out', to: 'A.in' },
-      { from: 'A.out', to: 'B.in' },
-    ],
+    connections: [{ from: 'A.out', to: ['A.in', 'B.in'] }],
   };
   const history = new History(raw);
   let result;

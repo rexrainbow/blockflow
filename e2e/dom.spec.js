@@ -4,6 +4,241 @@ import { readFile } from 'node:fs/promises';
 import { convertToBoundaryGroup } from '../src/editor/state/commands.js';
 const file = new URL('../dist-dom/dom-viewer.html', import.meta.url).href;
 
+test('DOM adjusted Port anchors retain activation and straight route endpoints', async ({ page }) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/port-adjustment.json', import.meta.url), 'utf8'),
+  );
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    const layout = await layoutDiagram(createDiagramModel(raw));
+    view.setLayout(layout, { fit: true });
+    const port = layout.modules.find((n) => n.id === 'Processor').ports.find((p) => p.id === 'overlay_in'),
+      edge = layout.connections[0];
+    view.getElement('port', 'Processor.overlay_in').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const selected = view.selection;
+    view
+      .getElement('connection', 'OvlIn.out->Processor.overlay_in')
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return {
+      selected,
+      connection: view.selection,
+      tip: edge.sections.at(-1).points.at(-1),
+      port,
+      points: layout.connections.map((e) => e.sections.reduce((n, s) => n + s.points.length, 0)),
+    };
+  }, raw);
+  expect(result.selected).toMatchObject({ type: 'port', ownerId: 'Processor', portId: 'overlay_in' });
+  expect(result.connection).toMatchObject({ type: 'connection', netId: raw.connections[0].id });
+  expect(result.tip.x).toBeCloseTo(result.port.x, 5);
+  expect(result.tip.y).toBeCloseTo(result.port.y, 5);
+  expect(result.points).toEqual([2, 2, 2, 2, 2, 2]);
+});
+
+test('Net DOM keeps branch identity and one source label without exposing layout helpers', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/net-bidirectional.json', import.meta.url), 'utf8'),
+  );
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    const layout = await layoutDiagram(createDiagramModel(raw));
+    view.setLayout(layout, { fit: true });
+    const edge = layout.connections[1];
+    const key = `${edge.source.moduleId}.${edge.source.portId}->${edge.target.moduleId}.${edge.target.portId}`;
+    view.getElement('connection', key).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const selected = view.selection;
+    const before = JSON.stringify(view.layout);
+    const bad = structuredClone(layout);
+    bad.connections[0].netStyle.strokeWidth = NaN;
+    let rejected = false;
+    try {
+      view.setLayout(bad);
+    } catch {
+      rejected = true;
+    }
+    return {
+      selected,
+      rejected,
+      unchanged: before === JSON.stringify(view.layout),
+      ids: [...layout.modules, ...(layout.groups ?? [])].map((n) => n.id),
+      netId: edge.netId,
+    };
+  }, raw);
+  expect(result.selected).toMatchObject({ type: 'connection', netId: result.netId, branchIndex: 1 });
+  expect(result.rejected).toBe(true);
+  expect(result.unchanged).toBe(true);
+  expect(result.ids.some((id) => id.startsWith('_signal_'))).toBe(false);
+  await expect(page.locator('[data-role="connection-label"][data-label-position="start"]')).toHaveCount(1);
+});
+
+test('DOM end labels select their connection, masks are view-local and unsafe instances are atomic', async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const { view, createDiagramModel, layoutDiagram, mountDiagram } = portsketchDemo;
+    const raw = {
+      version: 1,
+      diagram: { name: 'Two ends' },
+      modules: [
+        { id: 'A', ports: [{ id: 'out', direction: 'output' }] },
+        { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+      ],
+      connections: [
+        {
+          from: 'A.out',
+          to: ['B.in'],
+          label: 'Bite',
+          style: {
+            label: {
+              repeatAtEnd: 'always',
+              backgroundColor: '#FFF9E6',
+              padding: 4,
+              borderColor: '#B38900',
+              borderWidth: 0.8,
+              borderRadius: 4,
+            },
+          },
+        },
+      ],
+      layout: { direction: 'down', layerSpacing: 450 },
+    };
+    const layout = await layoutDiagram(createDiagramModel(raw));
+    view.setLayout(layout, { fit: true });
+    const before = view.layout;
+    const bad = structuredClone(layout);
+    bad.connections[0].labelInstances[1].bounds.x = NaN;
+    let rejected = false;
+    try {
+      view.setLayout(bad);
+    } catch {
+      rejected = true;
+    }
+    const host = document.createElement('div');
+    document.body.append(host);
+    const second = mountDiagram(host, layout);
+    const ids = [...document.querySelectorAll('mask')].map((n) => n.id);
+    second.destroy();
+    host.remove();
+    return {
+      rejected,
+      unchanged: JSON.stringify(view.layout) === JSON.stringify(before),
+      ids,
+      labels: layout.connections[0].labelInstances,
+    };
+  });
+  expect(result.rejected).toBe(true);
+  expect(result.unchanged).toBe(true);
+  expect(result.labels).toHaveLength(2);
+  const end = page.locator('[data-role="connection-label"][data-label-position="end"]');
+  await expect(end.locator('rect[data-role="label-background"]')).toHaveAttribute('stroke', '#b38900');
+  await expect(end.locator('rect[data-role="label-background"]')).toHaveAttribute('rx', '4');
+  const point = await end.evaluate((n) => {
+    const b = n.getBoundingClientRect();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  });
+  await page.mouse.click(point.x, point.y);
+  const selected = await page.evaluate(() => portsketchDemo.view.selection);
+  expect(selected.type).toBe('connection');
+  expect(result.ids.every((id) => id.startsWith('portsketch-view-'))).toBe(true);
+  expect(new Set(result.ids).size).toBe(result.ids.length);
+});
+
+test('rounded group DOM remains selectable and rejects unsafe radii atomically', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    const raw = {
+      version: 1,
+      diagram: { name: 'Round DOM' },
+      modules: [{ id: 'A' }],
+      groups: [{ id: 'G', members: ['A'], style: { borderRadius: 16 } }],
+    };
+    const layout = await layoutDiagram(createDiagramModel(raw));
+    view.setLayout(layout, { fit: true });
+    view.getElement('group', 'G').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const selection = view.selection;
+    const copy = structuredClone(layout);
+    copy.groups[0].style.borderRadius = -1;
+    let rejected = false;
+    try {
+      view.setLayout(copy);
+    } catch {
+      rejected = true;
+    }
+    return { selection, rejected, radius: view.layout.groups[0].style.borderRadius };
+  });
+  expect(result.selection).toMatchObject({ type: 'group', key: 'G' });
+  expect(result.rejected).toBe(true);
+  expect(result.radius).toBe(16);
+  await expect(page.locator('[data-role="group"][data-group="G"]')).toHaveAttribute('rx', '16');
+});
+
+test('cross-group Grid retains group and port activation after scoped layout changes', async ({ page }) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+  );
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo,
+      model = createDiagramModel(raw);
+    view.setLayout(await layoutDiagram(model), { fit: true });
+    const modules = view.layout.modules,
+      a = modules.find((n) => n.id === 'Clock'),
+      b = modules.find((n) => n.id === 'ALU0');
+    view.getElement('group', 'ComputeCluster').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const group = view.selection;
+    view.getElement('port', 'ALU2.controller').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const port = view.selection;
+    view.setLayout(await layoutDiagram(model, { rootGroupId: 'ComputeCluster' }), { fit: true });
+    return { a: a.y + a.height / 2, b: b.y + b.height / 2, group, port, count: view.layout.modules.length };
+  }, raw);
+  expect(result.a).toBeCloseTo(result.b, 5);
+  expect(result.group).toMatchObject({ type: 'group', key: 'ComputeCluster' });
+  expect(result.port).toMatchObject({ type: 'port', key: 'ALU2.controller' });
+  expect(result.count).toBe(5);
+});
+
+test('partial Grid preserves real DOM identities for automatic and fixed members', async ({ page }) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/partial-grid.json', import.meta.url), 'utf8'));
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    const before = JSON.stringify(raw);
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    view.getElement('block', 'Source').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const automatic = view.selection;
+    view.getElement('block', 'A').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return {
+      automatic,
+      fixed: view.selection,
+      modules: view.layout.modules.map((n) => n.id),
+      groups: view.layout.groups,
+      unchanged: before === JSON.stringify(raw),
+    };
+  }, raw);
+  expect(result.automatic).toMatchObject({ type: 'block', key: 'Source' });
+  expect(result.fixed).toMatchObject({ type: 'block', key: 'A' });
+  expect(result.groups).toBeUndefined();
+  expect(result.modules).toHaveLength(5);
+  expect(result.unchanged).toBe(true);
+});
+
+test('ComputeCluster fixed Grid and inout ports retain DOM selection and captions', async ({ page }) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/processor-overview.json', import.meta.url), 'utf8'),
+  );
+  const result = await page.evaluate(async (raw) => {
+    const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
+    view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
+    view.getElement('port', 'Controller.alu2').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const port = view.selection;
+    view.getElement('block', 'ALU4').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return { port, selection: view.selection, caption: view.layout.caption.text };
+  }, raw);
+  expect(result.port).toMatchObject({ type: 'port', key: 'Controller.alu2' });
+  expect(result.selection).toMatchObject({ type: 'block', key: 'ALU4' });
+  expect(result.caption).toContain('Double-headed');
+  await expect(page.locator('[data-role="connection-start-arrow"]')).toHaveCount(3);
+});
+
 test('vertical geometry keeps DOM port activation and connection selection through direction changes', async ({
   page,
 }) => {
@@ -96,17 +331,17 @@ test('terminal DOM targets emit terminalclick and keep endpoint identities when 
       'terminalclick',
       (event) => (terminal = { id: event.id, type: event.type, data: event.data.direction }),
     );
-    view.getElement('terminal', 'OverlayIn').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    view.getElement('terminal', 'DataIn').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     const selection = view.selection;
-    view.select({ type: 'connection', key: '@terminal:OverlayIn->TGEN.overlay_in' });
+    view.select({ type: 'connection', key: '@terminal:DataIn->Processor.data_in' });
     const edge = view.selection;
     raw.connections.reverse();
     view.setLayout(await layoutDiagram(createDiagramModel(raw)));
     return { terminal, selection, edge, after: view.selection };
   }, raw);
-  expect(result.terminal).toMatchObject({ id: 'OverlayIn', type: 'terminalclick', data: 'input' });
-  expect(result.selection).toMatchObject({ type: 'terminal', key: 'OverlayIn' });
-  expect(result.edge.source).toEqual({ terminal: 'OverlayIn' });
+  expect(result.terminal).toMatchObject({ id: 'DataIn', type: 'terminalclick', data: 'input' });
+  expect(result.selection).toMatchObject({ type: 'terminal', key: 'DataIn' });
+  expect(result.edge.source).toEqual({ terminal: 'DataIn' });
   expect(result.after.key).toBe(result.edge.key);
 });
 

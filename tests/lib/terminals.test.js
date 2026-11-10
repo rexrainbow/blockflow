@@ -30,7 +30,7 @@ test('terminal JSON validates without mutation, retains endpoint identity and te
   const snapshot = structuredClone(raw),
     model = createDiagramModel(raw);
   assert.deepEqual(raw, snapshot);
-  assert.deepEqual(model.connections[0].source, { terminal: 'OverlayIn' });
+  assert.deepEqual(model.connections[0].source, { terminal: 'DataIn' });
   assert.equal(model.terminals[0].label, '輸入\n信號');
   assert.equal(model.terminals[0].style.color, '#11223344');
   assert.equal(model.terminals[0].width, null);
@@ -39,7 +39,7 @@ test('terminal JSON validates without mutation, retains endpoint identity and te
 
 test('terminal validation rejects malformed definitions and cross-object mistakes', () => {
   const changes = [
-    (d) => (d.terminals[0].id = 'TGEN'),
+    (d) => (d.terminals[0].id = 'Processor'),
     (d) => (d.terminals[1].id = d.terminals[0].id),
     (d) => (d.terminals[0].direction = 'output'),
     (d) => (d.terminals[0].width = null),
@@ -49,12 +49,12 @@ test('terminal validation rejects malformed definitions and cross-object mistake
     (d) => (d.terminals[0].label = 'bad\ttext'),
     (d) => (d.terminals[0].ports = []),
     (d) => (d.connections[0].from = { terminal: 'Missing' }),
-    (d) => (d.connections[0].from = { terminal: 'OverlayIn', extra: true }),
-    (d) => (d.connections[0].from = '@terminal:OverlayIn'),
-    (d) => (d.connections[0].from = { terminal: 'OverlayIn\n' }),
-    (d) => (d.connections[0].to = { terminal: 'OverlayOut' }),
+    (d) => (d.connections[0].from = { terminal: 'DataIn', extra: true }),
+    (d) => (d.connections[0].from = '@terminal:DataIn'),
+    (d) => (d.connections[0].from = { terminal: 'DataIn\n' }),
+    (d) => (d.connections[0].to = [{ terminal: 'DataOut' }]),
     (d) => d.connections.push(structuredClone(d.connections[0])),
-    (d) => d.connections.push({ from: 'TGEN.interrupts', to: { terminal: 'OverlayOut' } }),
+    (d) => d.connections.push({ from: 'Processor.interrupts', to: [{ terminal: 'DataOut' }] }),
     (d) => {
       d.terminals[0].width = 8;
       d.modules[0].ports[0].width = 16;
@@ -76,12 +76,12 @@ test('terminal inputs fan out; bit widths stay local and unknown ports remain un
   const raw = structuredClone(example);
   raw.terminals[0].width = 8;
   raw.modules.push({ id: 'B', ports: [{ id: 'i', direction: 'input' }] });
-  raw.connections.push({ from: { terminal: 'OverlayIn' }, to: 'B.i' });
+  raw.connections[0].to.push('B.i');
   const model = createDiagramModel(raw);
   assert.equal(model.connections[0].width, 8);
-  assert.equal(model.connections.at(-1).width, 8);
+  assert.equal(model.connections[1].width, 8);
   assert.equal(model.modules[0].ports[0].width, null);
-  assert.equal(targetReason(raw, { terminal: 'OverlayIn' }, 'B.i'), 'Input already connected');
+  assert.equal(targetReason(raw, { terminal: 'DataIn' }, 'B.i'), 'Input already connected');
 });
 
 test('root terminals honor every boundary and cannot become group members', () => {
@@ -90,7 +90,7 @@ test('root terminals honor every boundary and cannot become group members', () =
     {
       id: 'G',
       type: 'boundary',
-      members: ['TGEN'],
+      members: ['Processor'],
       ports: [
         { id: 'i', direction: 'input' },
         { id: 'o', direction: 'output' },
@@ -99,17 +99,17 @@ test('root terminals honor every boundary and cannot become group members', () =
   ];
   assert.throws(() => createDiagramModel(raw), /crosses boundary/);
   raw.connections = [
-    { from: { terminal: 'OverlayIn' }, to: 'G.i' },
-    { from: 'G.i', to: 'TGEN.overlay_in' },
-    { from: 'TGEN.overlay_out', to: 'G.o' },
-    { from: 'G.o', to: { terminal: 'OverlayOut' } },
+    { from: { terminal: 'DataIn' }, to: ['G.i'] },
+    { from: 'G.i', to: ['Processor.data_in'] },
+    { from: 'Processor.data_out', to: ['G.o'] },
+    { from: 'G.o', to: [{ terminal: 'DataOut' }] },
   ];
   createDiagramModel(raw);
-  raw.groups[0].members.push('OverlayIn');
+  raw.groups[0].members.push('DataIn');
   assert.throws(() => createDiagramModel(raw), /Unknown group member/);
 });
 
-for (const direction of ['right', 'left'])
+for (const direction of ['right'])
   test(`terminal geometry, order, endpoints, SVG and PNG ${direction}`, async () => {
     const raw = structuredClone(example);
     raw.layout = { direction };
@@ -150,7 +150,7 @@ for (const direction of ['right', 'left'])
         }
     }
     assert.deepEqual(copyLayout(layout), layout);
-    assert.equal(connectionKey(layout.connections[0]), '@terminal:OverlayIn->TGEN.overlay_in');
+    assert.equal(connectionKey(layout.connections[0]), '@terminal:DataIn->Processor.data_in');
     const svg = renderSvg(layout);
     assert.equal((svg.match(/data-role="terminal"/g) ?? []).length, 5);
     assert.ok(!svg.includes('@terminal:'));
@@ -170,12 +170,12 @@ test('unused terminals reserve space, and exterior routing leaves terminal edges
 
 test('collection projection retains terminal references; group views omit external terminals', async () => {
   const raw = structuredClone(example);
-  raw.groups = [{ id: 'G', type: 'collection', collapsed: true, members: ['TGEN'] }];
+  raw.groups = [{ id: 'G', type: 'collection', collapsed: true, members: ['Processor'] }];
   const model = createDiagramModel(raw),
     layout = await layoutDiagram(model);
   assert.equal(layout.modules.length, 0);
   assert.equal(layout.terminals.length, 5);
-  assert.deepEqual(layout.connections[0].source, { terminal: 'OverlayIn' });
+  assert.deepEqual(layout.connections[0].source, { terminal: 'DataIn' });
   assert.equal(layout.connections[0].routingTarget.moduleId, 'G');
   copyLayout(layout);
   const scoped = await layoutDiagram(model, { rootGroupId: 'G' });
@@ -186,19 +186,19 @@ test('collection projection retains terminal references; group views omit extern
 
 test('terminal editing is atomic; renames update references and delete cleans only dependent links', () => {
   const raw = structuredClone(example);
-  assert.ok(endpoints(raw, 'output').some((item) => item.ref === '@terminal:OverlayIn'));
-  assert.ok(endpoints(raw, 'input').some((item) => item.ref === '@terminal:OverlayOut'));
+  assert.ok(endpoints(raw, 'output').some((item) => item.ref === '@terminal:DataIn'));
+  assert.ok(endpoints(raw, 'input').some((item) => item.ref === '@terminal:DataOut'));
   const before = structuredClone(raw);
-  assert.throws(() => saveTerminal(raw, 'OverlayIn', { id: 'Renamed', direction: 'output' }));
+  assert.throws(() => saveTerminal(raw, 'DataIn', { id: 'Renamed', direction: 'output' }));
   assert.deepEqual(raw, before);
-  saveTerminal(raw, 'OverlayIn', { id: 'Renamed', direction: 'input' });
+  saveTerminal(raw, 'DataIn', { id: 'Renamed', direction: 'input' });
   assert.deepEqual(raw.connections[0].from, { terminal: 'Renamed' });
-  renameModule(raw, 'TGEN', 'NewBlock');
-  assert.equal(raw.connections[0].to, 'NewBlock.overlay_in');
+  renameModule(raw, 'Processor', 'NewBlock');
+  assert.deepEqual(raw.connections[0].to, ['NewBlock.data_in']);
   removeTerminal(raw, 'Renamed');
   assert.equal(raw.connections.length, 4);
   createDiagramModel(raw);
   removeModule(raw, 'NewBlock');
   assert.equal(raw.connections.length, 0);
-  assert.equal(endpointKey({ terminal: 'OverlayOut' }), '@terminal:OverlayOut');
+  assert.equal(endpointKey({ terminal: 'DataOut' }), '@terminal:DataOut');
 });

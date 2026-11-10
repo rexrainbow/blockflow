@@ -40,13 +40,13 @@ test('leaving Boundary refuses referenced ports but retains inactive definitions
     groups: [
       {
         id: 'G',
-        portMode: 'boundary',
+        type: 'boundary',
         collapsed: true,
         members: [],
         ports: [{ id: 'in', direction: 'input' }],
       },
     ],
-    connections: [{ from: 'A.out', to: 'G.in' }],
+    connections: [{ from: 'A.out', to: ['G.in'] }],
   };
   const before = structuredClone(doc);
   assert.throws(

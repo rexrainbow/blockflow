@@ -279,31 +279,73 @@
   "connections": [
     {
       "from": "A.b_out",
-      "to": "B.b_in"
+      "to": [
+        "B.b_in"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "B.b_out",
-      "to": "C.c_in"
+      "to": [
+        "C.c_in"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "C.c_out",
-      "to": "D.c_in"
+      "to": [
+        "D.c_in"
+      ],
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "A.e_out",
-      "to": "E.e_in"
+      "to": [
+        "E.e_in"
+      ],
+      "id": "net_4",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "E.e_out",
-      "to": "D.e_in"
+      "to": [
+        "D.e_in"
+      ],
+      "id": "net_5",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "F.f_out",
-      "to": "D.f_in"
+      "to": [
+        "D.f_in"
+      ],
+      "id": "net_6",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "D.feedback",
-      "to": "A.feedback"
+      "to": [
+        "A.feedback"
+      ],
+      "id": "net_7",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ],
   "layout": {

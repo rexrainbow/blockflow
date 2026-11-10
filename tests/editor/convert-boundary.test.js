@@ -43,7 +43,7 @@ test('conversion preserves keys, ports, labels, dimensions, connections and effe
   assert.equal(g.width, 2.3);
   assert.equal(g.height, 3.5);
   assert.deepEqual(raw.connections, connections);
-  assert.deepEqual(normalized.style, old.style);
+  assert.deepEqual(normalized.style, { ...old.style, borderRadius: 0 });
   assert.deepEqual(normalized.ports, old.ports);
   assert.deepEqual(moduleGeometry(normalized), moduleGeometry(old));
 });
@@ -64,9 +64,9 @@ test('nested conversion preserves parent membership and sibling order in one und
 test('conversion permits unrelated empty drafts and keeps layout settings', () => {
   const raw = fixture();
   raw.modules.push({ id: 'Draft', ports: [] });
-  raw.layout = { direction: 'left', placement: 'relaxed' };
+  raw.layout = { direction: 'right', placement: 'relaxed' };
   convertToBoundaryGroup(raw, 'a');
-  assert.deepEqual(raw.layout, { direction: 'left', placement: 'relaxed' });
+  assert.deepEqual(raw.layout, { direction: 'right', placement: 'relaxed' });
   assert.deepEqual(raw.modules.at(-1), { id: 'Draft', ports: [] });
 });
 
@@ -96,7 +96,7 @@ for (const [name, change, id] of [
   [
     'invalid connection',
     (d) => {
-      d.connections[0].to = 'Missing.in';
+      d.connections[0].to = ['Missing.in'];
     },
     'a',
   ],
@@ -111,7 +111,8 @@ for (const [name, change, id] of [
 
 test('same-block self-loop becomes an external group feedback route with unchanged endpoints', async () => {
   const raw = fixture();
-  raw.connections.push({ from: 'a.o', to: 'a.i', feedback: true, label: 'Feedback' });
+  raw.connections[0].to.push({ endpoint: 'a.i', feedback: true });
+  raw.connections[0].label = 'Feedback';
   const before = structuredClone(raw.connections);
   convertToBoundaryGroup(raw, 'a');
   assert.deepEqual(raw.connections, before);
@@ -132,7 +133,7 @@ test('converted group can expand, accept a child and connect through its origina
   const child = raw.modules.find((n) => n.id === id);
   const input = addPort(child, 'input'),
     output = addPort(child, 'output');
-  raw.connections.push({ from: 'a.i', to: id + '.' + input }, { from: id + '.' + output, to: 'a.o' });
+  raw.connections.push({ from: 'a.i', to: [id + '.' + input] }, { from: id + '.' + output, to: ['a.o'] });
   createDiagramModel(raw);
   assert.deepEqual(raw.groups[0].members, [id]);
 });

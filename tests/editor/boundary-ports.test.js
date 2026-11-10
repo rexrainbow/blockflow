@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  setGroupPortMode,
+  setGroupType,
   renamePort,
   removePort,
   addPort,
@@ -22,29 +22,29 @@ test('group mode changes are atomic, reversible and preserve inactive port defin
   const doc = structuredClone(fixture),
     before = structuredClone(doc);
   assert.throws(
-    () => setGroupPortMode(doc, 'Outer', false),
+    () => setGroupType(doc, 'Outer', 'container'),
     (error) => error.problems.length === 4,
   );
   assert.deepEqual(doc, before);
   doc.connections = [];
   const history = new History(doc);
-  history.update((d) => setGroupPortMode(d, 'Outer', false));
-  assert.equal(history.present.groups[0].portMode, 'direct');
+  history.update((d) => setGroupType(d, 'Outer', 'container'));
+  assert.equal(history.present.groups[0].type, 'container');
   assert.deepEqual(history.present.groups[0].ports, doc.groups[0].ports);
   assert.ok(!endpoints(history.present, 'output').some((p) => p.ref === 'Outer.in'));
   history.undo();
-  assert.equal(history.present.groups[0].portMode, 'boundary');
+  assert.equal(history.present.groups[0].type, 'boundary');
   history.redo();
-  assert.equal(history.present.groups[0].portMode, 'direct');
+  assert.equal(history.present.groups[0].type, 'container');
 });
 
 test('enabling a boundary reports bypass connections without changing the document', () => {
   const doc = structuredClone(fixture);
-  doc.groups.forEach((g) => (g.portMode = 'direct'));
-  doc.connections = [{ from: 'Source.out', to: 'Decode.in' }];
+  doc.groups.forEach((g) => (g.type = 'container'));
+  doc.connections = [{ from: 'Source.out', to: ['Decode.in'] }];
   const before = structuredClone(doc);
   assert.throws(
-    () => setGroupPortMode(doc, 'Outer', true),
+    () => setGroupType(doc, 'Outer', 'boundary'),
     (error) => error.problems[0].includes('Source.out') && error.problems[0].includes('Outer'),
   );
   assert.deepEqual(doc, before);
@@ -55,7 +55,7 @@ test('group ports share block key, display, style, reordering and connection ren
     g = doc.groups[0];
   const result = renamePort(doc, 'Outer', 'in', 'out');
   assert.equal(result.id, 'out_2');
-  assert.equal(doc.connections[0].to, 'Outer.out_2');
+  assert.deepEqual(doc.connections[0].to, ['Outer.out_2']);
   assert.equal(doc.connections[1].from, 'Outer.out_2');
   assert.equal(g.ports[0].label, 'Data\nin');
   const id = addPort(g, 'input');

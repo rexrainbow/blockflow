@@ -10,7 +10,8 @@ self.addEventListener('message', async ({ data }) => {
     const layout = await layoutDiagram(createDiagramModel(data.document), { rootGroupId: data.rootGroupId });
     // Bind hit targets to this layout's document, never to a later array index.
     for (const edge of layout.connections) {
-      const connection = data.document.connections[Number(edge.id.slice('connection_'.length))];
+      const connection =
+        data.document.connections[edge.connectionIndex ?? Number(edge.id.slice('connection_'.length))];
       edge.editorKey = connectionKey(connection);
       edge.editorLabel = `${endpointLabel(connection.from)} to ${endpointLabel(connection.to)}`;
     }

@@ -28,7 +28,7 @@ function routeCost(sections) {
 export function routeOuterFeedback(result, model) {
   if(model.layout.direction==='down') {
     const point=p=>({x:p.y,y:p.x}),box=b=>({...b,x:b.y,y:b.x,width:b.height,height:b.width});
-    const node=n=>({...box(n),ports:(n.ports??[]).map(p=>({...p,...point(p)})),labelBounds:box(n.labelBounds),headerObstacle:box({...n,height:n.labelBounds.y+n.labelBounds.height-n.y+8})});
+    const node=n=>({...box(n),ports:(n.ports??[]).map(p=>({...p,...point(p),side:({left:'top',right:'bottom',top:'left',bottom:'right'})[p.side]})),labelBounds:box(n.labelBounds),headerObstacle:box({...n,height:n.labelBounds.y+n.labelBounds.height-n.y+8})});
     const projected={modules:result.modules.map(node),groups:(result.groups??[]).map(node),connections:result.connections.map(e=>({...e,sections:e.sections.map(s=>({points:s.points.map(point)}))}))};
     routeOuterFeedback(projected,{...model,layout:{...model.layout,direction:'right',feedbackSide:({left:'top',right:'bottom',auto:'auto'})[model.layout.feedbackSide??'auto']}});
     for(const [i,edge] of projected.connections.entries()) {
@@ -57,6 +57,7 @@ export function routeOuterFeedback(result, model) {
     if(ref.source.terminal!==undefined||ref.target.terminal!==undefined) {connection.routingInfo={method:'elk',reason:'terminal'};return false;}
     if(model.rootGroupId || ref.boundaryScoped) {connection.routingInfo={method:'elk',reason:model.rootGroupId?'group-view':'boundary-scope'};return false;}
     const { source, target } = endpoints(connection);
+    if((source.side&&source.side!=='right')||(target.side&&target.side!=='left')){connection.routingInfo={method:'elk',reason:'port-side'};return false;}
     return source.x > target.x + EPSILON;
   }).sort((a, b) => {
     const key = connection => { const ref = refs.get(connection.id); return `${ref.source.moduleId}.${ref.source.portId}->${ref.target.moduleId}.${ref.target.portId}`; };

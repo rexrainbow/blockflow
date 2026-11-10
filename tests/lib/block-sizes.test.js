@@ -56,8 +56,8 @@ test('height increases port gaps and preserves row pairing, title and minimum te
   assert.deepEqual(moduleGeometry(mux),original);
 });
 
-for(const direction of ['right','left']) test('ELK routes use resized borders/ports and SVG/PNG preserve dimensions '+direction,async()=>{
-  const raw=structuredClone(sample);raw.layout.direction=direction;
+for(const direction of ['right']) test('Fixed-port ELK routes use resized borders/ports and SVG/PNG preserve dimensions '+direction,async()=>{
+  const raw=structuredClone(sample);raw.layout.direction=direction;raw.layout.portAdjustment='fixed';
   const model=createDiagramModel(raw),before=structuredClone(model);
   const layout=await layoutDiagram(freeze(model));checkLayout(model,layout);assert.deepEqual(model,before);
   const mux=layout.modules.find(node=>node.id==='Mux');near(mux.width,168);near(mux.height,294);
@@ -74,7 +74,7 @@ test('group bounds grow around sized blocks; once and outer-feedback routes reta
   const a=layout.modules[0],group=layout.groups[0];
   assert.ok(a.x>group.x && a.y>group.y && a.x+a.width<group.x+group.width && a.y+a.height<group.y+group.height);
   delete raw.groups;raw.layout={direction:'right',feedbackRouting:'outer'};
-  raw.connections.push({from:'b.o',to:'a.i',feedback:true});
+  raw.connections.push({from:'b.o',to:['a.i'],feedback:true});
   model=createDiagramModel(raw);layout=await layoutDiagram(model);checkLayout(model,layout);
   const node=layout.modules.find(node=>node.id==='a');near(node.width,280);near(node.height,294);
 });

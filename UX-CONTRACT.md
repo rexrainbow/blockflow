@@ -1,10 +1,68 @@
 # Diagram Studio behavior contract
 
+## Grid and overview authoring
+
+Blocks / Connections / Layout are three keyboard tabs using the same retained workspace.
+Layout chooses Top or a group; Auto remains default. Grid edits are local drafts until Apply
+layout, with Reset draft and inline validation; any subset of direct members may appear,
+each at most once. Rows/Columns resize the matrix (positive integers, at most 10,000 cells
+in the GUI); selected members outside a smaller matrix return to Auto. New grids start
+empty. Auto arranged lists unselected members. Selecting an already placed member moves
+it to the new cell and clears its old cell, retaining selection focus and scroll position.
+Rows/columns and gap controls use native selects/inputs and a horizontally scrollable table.
+Layout fills the workspace width in Split and Editor views and follows splitter/window
+resizing. Its Grid cells never shrink away in a short panel: scroll the form vertically
+and the table horizontally. Auto explicitly points to Arrangement > Grid to reveal cells.
+Successful Apply is one Undo step, failed Apply preserves the document and focuses a cell.
+Undo/Redo and document replacement reset the displayed draft to the committed configuration.
+Membership changes clear stale references without filling blank cells; new members stay
+Auto. ID changes retain cell positions. Grid cells are layout
+references, never fake signal connections. Auto parents retain placement unless resized
+children overlap. Fixed routes avoid block interiors; obstructed access reports a layout
+error and disables image export until corrected. Partial Grids occupy one temporary
+rectangle among Auto neighbors, preserving empty tracks and never altering JSON hierarchy
+or signal identity. All-null Grids leave every member Auto and reserve no rectangle.
+
+Expand containers for layout uses native checkboxes in a fieldset. Only nonempty direct
+Containers are eligible, replacing their own cell option with named/path-labelled direct
+children. Every expanded child must be placed; Needs Grid placement lists missing children
+separately from Auto arranged. Empty Containers show a disabled checkbox with an explanation.
+Each expanded Container spans a disjoint rectangle containing only its members or null.
+Apply failures retain the draft and focus the relevant checkbox/cell. Unchecking clears
+child cells and returns the whole Container to Auto unless explicitly placed. Membership
+changes keep references but never auto-fill: a new expanded member must be placed before
+valid export. Shared track gutters reserve Container titles, borders and size minima.
+Real frames fit around cells and preserve ancestry, Port/edge identity and selection.
+Ancestor control suspends the expanded Container's saved layout only in that view; group
+views reuse the saved local layout. Boundary/Collection stay atomic. One-level expansion
+per scope keeps nested groups whole while their own internal layouts continue to work.
+An expanded Container's Layout scope includes a note naming the ancestor Grid and
+explaining when it controls positions and when the local settings apply.
+
+Portless ordinary blocks are valid, with port count zero reflected in details. With all Port names hidden, block
+geometry omits text lanes and proxy Port rows, using title/appearance geometry plus
+minimum slot extents. Ports and their identity remain intact, explicit minimum dimensions
+are honored, and showing Port names restores text-aware geometry in either Flow.
+Concat keeps its minimum input/one-output rule. Add bidirectional port creates inout; Side selects Follow
+Flow or a physical side. Connections support Both directions (two inout receiving faces)
+and Affect placement, preserving all signal validation. Style has Start arrow and End arrow.
+Layout's Diagram caption edits the global multiline footer with normal blur/history behavior.
+Schema, scoped/collapsed layouts, SVG/PNG, DOM, offline and Agent Kit share these rules.
+
+## Rounded group styles
+
+Group Style adds Corner radius as the shared non-negative numeric field. Blank inherits
+0; zero draws square corners. Cancel/Escape discard, OK validates and commits one Undo
+step, and invalid values retain the dialog and focus the field. Expanded group frames,
+collapsed faces/cards, Preview, SVG/PNG and DOM share the same clamped radius. This group
+style does not alter geometry, routing, Port anchors or signal semantics. Blocks do not
+expose this field. Signal-only labels/abstract concat reuse existing Connection, Terminal
+and Concat controls; no diagram-specific renderer or layout behavior.
+
 ## Flow direction
 
 Preview uses a native Flow select beside View for Left to right / Top to bottom, sharing
-layout.direction with Layout settings. Preserve a legacy Left choice only while a Left
-document is selected. Axis changes map exterior sides Top/Bottom ↔ Left/Right atomically,
+layout.direction with Layout settings. Only Right and Down are available.
 preserve endpoint/Concat order and selection, and fit after the latest worker result is
 accepted. Undo/Redo also synchronize selectors and fit. Clear cached scope cameras on a
 direction change so another view cannot restore geometry from a different axis. Invalid or
@@ -58,7 +116,8 @@ property; JSON requires non-blank text when present. Changes commit on blur (Ent
 existing IME, invalid draft, history and camera behavior. Add connection accepts the same
 optional Label. Connection Style reuses the shared modal with Line/Label tabs and transactional
 OK/Cancel, validation and focus restoration. Label clicks select the owning connection.
-The library measures/reserves label space, then checks final routes after feedback routing.
+Compact layout places blocks and routes without reserving Connection label rectangles in
+ELK, then measures/fits all labels on final routes after feedback routing.
 Labels remain visible when clearance cannot be achieved, with structured layout warnings
 shown in the existing preview message surface; valid SVG/PNG exports remain available.
 
@@ -89,7 +148,7 @@ show a persistent warning. JSON download marks a document saved. New/import/exam
 documents only after an app dialog if unsaved, and remain recoverable with Undo.
 
 Dropping one JSON file anywhere inside the editor uses the same openFile pipeline as
-File > Open JSON: size limit, JSON parsing, legacy migration, model validation and dirty
+File > Open JSON: size limit, JSON parsing, model validation and dirty
 replacement confirmation. Prevent browser navigation on file drag/drop; use the copy cursor
 when available. Reject multiple files and unsupported file types through the existing notice
 without changing the document. Keep internal block/group/port/connection reordering separate.
@@ -102,7 +161,7 @@ the unknown port. No width inference across fanout. Inputs cannot have multiple 
 Input/output order controls port placement; block and connection list order do not impose
 layout position. Connections form one flat list in document order. Reordering rows changes
 only array order. GUI rows and the Add connection
-dialog expose endpoints, labels, feedback and Style; new connections contain from/to, plus feedback:true only when selected; styles remain optional.
+dialog expose endpoints, labels, feedback and Style; new Nets contain an ID, one from and array targets, plus selected direction/feedback flags; styles remain optional.
 
 ## Forms and recovery
 
@@ -191,9 +250,7 @@ forms or triggers layout, preserving draft input, selected block and each list's
 Selecting a block in the preview opens the Blocks tab without changing the view mode.
 Split / Editor / Preview continue to support both tabs, editing, export and undo/redo.
 
-The GUI, library and CLI share once layout for all visible edges. Old editor JSON/drafts
-are upgraded by removing retired connection order/alignment and layout.orderMode fields.
-Current schema/core input rejects these fields. Other settings and graph content are retained.
+The GUI, library and CLI share Auto/Grid layout for all visible Nets. Retired connection order/alignment and layout.orderMode fields are rejected on import and restore without migration.
 
 The cycle-view button maps Split → Editor → Preview → Split. This is a locally persisted
 UI preference outside document history. Hidden panels are removed from keyboard navigation;
@@ -355,14 +412,31 @@ line centers and existing horizontal anchors. Single-line rendering remains unch
 
 ## Relative block minimum dimensions
 
+Port adjustment uses the shared portAdjustmentFields native select/number adapter in
+layout-panel.js, reused by Layout settings. These are global immediate settings, independent
+of the Grid Apply/Reset draft. Default Reduce bends uses maximum shift 40. Explicit Fixed preserves fixed-port output.
+Reduce bends keeps hardware placement/dimensions and Port identity/order intact; names
+follow anchors. Terminal anchors and names move together perpendicular to flow within the
+same shift limit, preserving order and separation and avoiding Blocks, Groups and other
+Terminals. Feedback anchors remain fixed. Zero shift is valid, invalid limits preserve the document and expose the
+existing field error. Settings are persisted and undoable, including offline. The page owns
+recoverable numeric drafts/focus; the existing settings modal retains its immediate-edit
+contract. Do not add drag handles or export UI overlays for this automatic pass.
+
 Block Width/Height are positive finite relative minima, with step 0.1 and blank = Auto.
 They are document geometry fields, separate from port bit width and style. Native number
 inputs reuse the canonical field validation/draft/focus adapter; invalid edits preserve raw
 document geometry and disable export until corrected or undone. Enter/blur commits one
 history step. Key changes remap dimension drafts, and block deletion discards them.
+The Block/Group Style first tab also exposes Size using the same native field adapter.
+Blank is Auto, 1 is the shared base unit; dimensions remain top-level geometry properties.
+Style sessions snapshot dimensions alongside appearance and styles. OK applies all changes
+in one history step; Cancel/Escape discards every draft. Invalid dimensions reveal the
+first tab and focus the offending field without changing the document or preview.
 Content sizing remains the lower bound. Shared base units are fixed, not derived from each
 block's contents or styles. Increased height adds equal space above/between/below port rows;
-paired input/output rows, title position, text size, border width and padding stay consistent.
+paired input/output rows stay paired with Fixed Port adjustment. Reduce bends may slide
+opposite sides independently. Title position, text size, border width and padding stay consistent.
 Layout precedes rendering; once, grouping, feedback, SVG/PNG and offline use the
 same geometry. Straight connections remain a layout preference, not a sizing guarantee.
 
@@ -525,3 +599,61 @@ logical view center/anchor. Worker revisions include the requested scope so rapi
 cannot display/export a prior view. Pending/failed views disable image export and actions.
 SVG/PNG reflect the accepted current view; JSON always contains the full project. Offline
 uses the same scope, gesture, validation, navigation and export implementations.
+
+## Connection label positions and long traces
+
+Source: the user's approved Inline/Beside/Callout and endpoint-repetition discussion.
+Connection Style ? Label reuses the native select/field adapter for Label placement
+(Inline, Beside, Callout) and Label position (Middle, Start, End, Both ends). Blank means
+inherit; defaults are Inline/Middle. Cancel/Escape discard; OK commits both in one Undo
+operation. The same enum validation applies to JSON, DOM layouts and offline imports.
+Other text styles reject these connection-only fields. Hidden removes all instances.
+
+Positions follow source-to-target route order, independently of arrows. Both ends becomes
+one middle label on short routes. Matching starts on a shared source segment may draw once;
+its label selects the representative connection, while each target and route stays selectable.
+All unshared instances select/edit their own connection, including the end instance.
+Inline opens a gap only in its own route. A failed Inline placement uses a Callout with an
+attachment dot and leader. Labels avoid foreign routes, blocks, arrows and group frames/titles;
+leaders may cross group frames. Unavoidable conflicts stay visible through existing warnings.
+Do not grow global diagram spacing because of label conflicts. Geometry, exported bounds,
+SVG/PNG, Preview and DOM hit areas include every instance and leader; DOM mask IDs are scoped
+per view. `labelPosition`/`labelBounds` remain aliases for the first instance.
+
+## Net and Concat connection creation
+
+Source: the user's approved one-source/N-peer Net and virtual label-node discussion.
+Reuse ui.js native select/checkbox/field/button primitives and the existing transactional dialog,
+history, validation, notices and Preview owners. Add connection chooses Net or Concat. Net has
+one main endpoint, target add/remove and a Bidirectional checkbox; all endpoints must be inout
+when checked. Concat accepts multiple sources and creates its element plus input/output Nets
+atomically, in the common scope when available. Errors stay inline with drafts preserved.
+Connection rows edit Net ID/common text, targets, direction, shared Style and target placement
+influence. Removing a receiver prunes only that branch; the last receiver cannot be removed
+from the row. Deleting an actual endpoint prunes affected branches and removes an empty Net.
+All connections are Nets. Old files are rejected without conversion.
+
+Canonical ownership: components/net-controls.js owns shared Net row/dialog markup using ui.js;
+state/commands.js owns rename/prune/conversion; lib/nets.js owns target traversal and identities.
+No separate dialog, menu, notification, token palette or persistence system is introduced.
+
+Net label geometry is text-sized, with an 8-unit gap in a routing-only source wrapper before
+outer Auto/Grid placement. Synthetic structures never appear in JSON, hardware hits or public
+membership. A source name is common to all branches. Destination labels are Callouts controlled
+by Style/Label Destination labels (Auto/Always/Never) and Long branch threshold (positive, 600).
+They are added after routing. Hidden removes the source virtual node and every end label.
+A source label selects the whole Net; a branch selects that Net and reveals its target row.
+Branch routing identities remain available to DOM hosts via netId/branchIndex. Layout warnings
+remain honest when full clearance is impossible. Narrow viewport, native popup, Cancel, atomic
+Undo, offline and SVG/PNG parity use the same existing application contracts.
+
+## Net label frames
+
+Connection style > Label reuses the shared color/number controls for border color, width,
+opacity and corner radius. Blank inherits; zero width/opacity disables the frame. Negative
+width/radius and out-of-range opacity retain drafts and use existing inline validation and
+focus recovery. OK commits with other Net label fields in one Undo step; Cancel discards.
+Frames are shared-source/receiver label presentation, never branch line styles. In SVG,
+PNG, Preview, DOM and Agent Kit output their ink stays inside the same label/hit bounds.
+Hidden labels suppress fill, border and text together. Default transparent border preserves
+existing unframed diagrams. No new screen, menu, palette preset or interaction overlay.

@@ -1,6 +1,9 @@
+import { targetEndpoints } from './nets.js';
 import { ancestors } from './hierarchy.js';
 import { groupType } from './group-type.js';
-import { endpointLabel } from './endpoints.js';
+import { endpointLabel,endpointKey } from './endpoints.js';
+
+export const receivingFaceKey=end=>endpointKey(end.ref)+(end.isGroup&&end.port.direction==='inout'?(end.inside?':inside':':outside'):'');
 
 export const portOwner = (document, id) => [...document.modules, ...(document.groups ?? [])].find(item => item.id === id);
 export const boundaryGroups = document => (document.groups ?? []).filter(group => groupType(group) === 'boundary');
@@ -31,15 +34,16 @@ export function createConnectionContext(document) {
     return {...found,ref:{moduleId:found.owner.id,portId:found.port.id},isGroup:groups.has(found.owner.id)};
   };
   return {
-    resolve(from,to) {
+    resolve(from,to,direction='forward') {
       const source=lookup(from,'from');if (source.error) return source;
       const target=lookup(to,'to');if (target.error) return target;
       if(source.isTerminal && target.isTerminal) return {error:'A terminal connection must have a real port at the other end',field:'to'};
+      if(direction==='both'&&(source.isTerminal||target.isTerminal||source.port.direction!=='inout'||target.port.direction!=='inout'))return {error:'Bidirectional connections require two inout ports',field:'to'};
       const pass=source.isGroup&&source.owner.id===target.owner.id&&source.port.direction==='input'&&target.port.direction==='output';
       const face=(end,peer)=>end.isGroup&&(end.owner.id===peer.owner.id?pass:paths.get(peer.owner.id).includes(end.owner.id));
       source.inside=face(source,target);target.inside=face(target,source);
       for (const [end,field,expected] of [[source,'from',source.inside?'input':'output'],[target,'to',target.inside?'output':'input']]) {
-        if (end.port.direction!==expected) return {error:`Expected ${expected} port${end.isGroup ? ' on the '+(end.inside?'inside':'outside')+' of group '+end.owner.id : ''}`,field};
+        if (end.port.direction!=='inout'&&end.port.direction!==expected) return {error:`Expected ${expected} port${end.isGroup ? ' on the '+(end.inside?'inside':'outside')+' of group '+end.owner.id : ''}`,field};
       }
       for (const group of boundaryGroups(document)) {
         const a=paths.get(source.owner.id).includes(group.id),b=paths.get(target.owner.id).includes(group.id);
@@ -58,8 +62,8 @@ export function createConnectionContext(document) {
 
 export function boundaryConnectionProblems(document) {
   const context=createConnectionContext(document);
-  return (document.connections??[]).flatMap(edge=>{
-    const result=context.resolve(edge.from,edge.to);
-    return result.error?[`${endpointLabel(edge.from)} → ${endpointLabel(edge.to)}: ${result.error}`]:[];
-  });
+  return (document.connections??[]).flatMap(edge=>targetEndpoints(edge).flatMap(target=>{
+    const result=context.resolve(edge.from,target,edge.direction);
+    return result.error?[`${endpointLabel(edge.from)} → ${endpointLabel(target)}: ${result.error}`]:[];
+  }));
 }

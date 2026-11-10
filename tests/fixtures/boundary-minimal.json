@@ -57,7 +57,6 @@
       "members": [
         "Inner"
       ],
-      "portMode": "boundary",
       "ports": [
         {
           "id": "in",
@@ -85,7 +84,8 @@
           "fontSize": 12,
           "color": "#1e40af"
         }
-      }
+      },
+      "type": "boundary"
     },
     {
       "id": "Inner",
@@ -93,7 +93,6 @@
       "members": [
         "Decode"
       ],
-      "portMode": "boundary",
       "ports": [
         {
           "id": "in",
@@ -112,34 +111,47 @@
         "inputPortLabel": {
           "color": "#0f766e"
         }
-      }
+      },
+      "type": "boundary"
     }
   ],
   "connections": [
     {
       "from": "Source.out",
-      "to": "Outer.in",
+      "to": [
+        "Outer.in"
+      ],
       "label": "Request"
     },
     {
       "from": "Outer.in",
-      "to": "Inner.in"
+      "to": [
+        "Inner.in"
+      ]
     },
     {
       "from": "Inner.in",
-      "to": "Decode.in"
+      "to": [
+        "Decode.in"
+      ]
     },
     {
       "from": "Decode.out",
-      "to": "Inner.out"
+      "to": [
+        "Inner.out"
+      ]
     },
     {
       "from": "Inner.out",
-      "to": "Outer.out"
+      "to": [
+        "Outer.out"
+      ]
     },
     {
       "from": "Outer.out",
-      "to": "Sink.in",
+      "to": [
+        "Sink.in"
+      ],
       "label": "Response"
     }
   ],

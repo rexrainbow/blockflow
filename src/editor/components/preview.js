@@ -112,7 +112,7 @@ export class Preview {
       release();
       if (!click) return;
       this.lastClick = previousClick;
-      if (target?.kind === 'connection') this.onSelectConnection?.(target.id);
+      if (target?.kind === 'connection') this.onSelectConnection?.(target.id, target.branchIndex);
       else if (!target) this.onSelect(null);
       this.clicked(target, event);
     });
@@ -149,7 +149,10 @@ export class Preview {
       const edge = event.target.closest('[data-edge]');
       if (edge && ['Enter', ' '].includes(event.key)) {
         event.preventDefault();
-        this.onSelectConnection?.(edge.dataset.edge);
+        this.onSelectConnection?.(
+          edge.dataset.edge,
+          edge.dataset.branchIndex === undefined ? undefined : Number(edge.dataset.branchIndex),
+        );
         return;
       }
       const target = event.target.closest('[data-module]');
@@ -188,7 +191,15 @@ export class Preview {
         id: node.dataset.module,
       };
     const edge = element.closest('[data-edge]');
-    return edge ? { kind: 'connection', id: edge.dataset.edge } : null;
+    return edge
+      ? {
+          kind: 'connection',
+          id: edge.dataset.edge,
+          ...(edge.dataset.branchIndex !== undefined
+            ? { branchIndex: Number(edge.dataset.branchIndex) }
+            : {}),
+        }
+      : null;
   }
 
   targetElement(target) {
@@ -229,7 +240,8 @@ export class Preview {
       Math.hypot(event.clientX - previous.x, event.clientY - previous.y) >= 4
     )
       return;
-    this.lastClick = null;
+    // Retain the latest valid click until native dblclick consumes the pair.
+    // A preceding single click must not make a following double click lose its target.
     this.doubleClickTarget = target;
   }
 
@@ -368,11 +380,11 @@ export class Preview {
   selectConnection(key) {
     this.select(null);
     this.selectedConnection = key;
-    const edge = this.layout?.connections.find((edge) => edge.editorKey === key);
-    if (!edge) return;
+    const edges = this.layout?.connections.filter((edge) => edge.editorKey === key);
+    if (!edges?.length) return;
     for (const className of ['connection-selection-halo', 'connection-selection-outline']) {
       const path = document.createElementNS(NS, 'path');
-      path.setAttribute('d', this.edgePath(edge));
+      path.setAttribute('d', edges.map((edge) => this.edgePath(edge)).join(' '));
       path.setAttribute('vector-effect', 'non-scaling-stroke');
       path.classList.add(className);
       this.world.append(path);
@@ -461,27 +473,54 @@ export class Preview {
       hit.setAttribute('aria-label', 'Select group ' + group.label);
       this.world.append(hit);
     }
+    const netTrunks = new Set();
     for (const edge of layout.connections) {
       if (!edge.editorKey) continue;
       const hit = document.createElementNS(NS, 'path');
-      hit.setAttribute('d', this.edgePath(edge));
+      hit.setAttribute(
+        'd',
+        this.edgePath(
+          edge.netTrunkSections ? { ...edge, sections: edge.sections.slice(edge.netTrunkSections) } : edge,
+        ),
+      );
       hit.setAttribute('vector-effect', 'non-scaling-stroke');
       hit.setAttribute('tabindex', '0');
       hit.setAttribute('role', 'button');
       hit.setAttribute('aria-label', `Select connection ${edge.editorLabel}`);
       hit.classList.add('connection-hit');
       hit.dataset.edge = edge.editorKey;
+      if (edge.branchIndex !== undefined) hit.dataset.branchIndex = edge.branchIndex;
       this.world.append(hit);
-      const label = [...this.world.querySelectorAll('[data-role="connection-label"]')].find(
+      if (edge.netTrunkSections && !netTrunks.has(edge.netId)) {
+        netTrunks.add(edge.netId);
+        const trunk = hit.cloneNode();
+        trunk.classList.add('net-trunk-hit');
+        delete trunk.dataset.branchIndex;
+        trunk.setAttribute(
+          'd',
+          this.edgePath({ ...edge, sections: edge.sections.slice(0, edge.netTrunkSections) }),
+        );
+        trunk.setAttribute('aria-label', `Select Net ${edge.label ?? edge.netId}`);
+        this.world.append(trunk);
+      }
+      const labels = [...this.world.querySelectorAll('[data-role="connection-label"]')].filter(
         (node) => node.dataset.connection === edge.id,
       );
-      if (label) {
+      for (const label of labels) {
         label.dataset.edge = edge.editorKey;
+        if (edge.branchIndex !== undefined && label.dataset.labelPosition !== 'start')
+          label.dataset.branchIndex = edge.branchIndex;
         label.classList.add('connection-label-hit');
         label.setAttribute('tabindex', '-1');
         label.setAttribute('role', 'button');
         label.setAttribute('aria-label', `Select connection ${edge.editorLabel}: ${edge.label}`);
       }
+    }
+    // Inline text must stay above the wide route hit paths, including both endpoint labels.
+    for (const label of this.world.querySelectorAll('[data-role="connection-label"]')) {
+      label.setAttribute('font-family', 'monospace');
+      label.setAttribute('dominant-baseline', 'central');
+      this.world.append(label);
     }
     for (const module of [...layout.modules, ...(layout.groups ?? []).filter((group) => group.collapsed)]) {
       const hit = document.createElementNS(NS, 'rect');

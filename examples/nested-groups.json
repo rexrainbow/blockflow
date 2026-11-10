@@ -199,70 +199,104 @@
   "connections": [
     {
       "from": "A.b_out",
-      "to": "B.b_in",
-      "label": "Source data\npayload"
+      "to": [
+        "B.b_in"
+      ],
+      "label": "Source data\npayload",
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "B.c_out",
-      "to": "C.c_in",
-      "label": "Decoded data"
+      "to": [
+        "C.c_in"
+      ],
+      "label": "Decoded data",
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "C.d_out",
-      "to": "D.c_in",
-      "label": "Execution result"
+      "to": [
+        "D.c_in"
+      ],
+      "label": "Execution result",
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "A.e_out",
-      "to": "E.e_in",
+      "to": [
+        "E.e_in"
+      ],
       "style": {
         "strokeColor": "#d97706",
         "lineStyle": "dashed",
         "strokeWidth": 2,
         "label": {
           "color": "#92400e"
-        }
+        },
+        "endArrow": "none"
       },
-      "label": "Bypass request"
+      "label": "Bypass request",
+      "id": "net_4"
     },
     {
       "from": "E.d_out",
-      "to": "D.e_in",
+      "to": [
+        "D.e_in"
+      ],
       "style": {
         "strokeColor": "#d97706",
         "lineStyle": "dashed",
         "strokeWidth": 2,
         "label": {
           "color": "#92400e"
-        }
+        },
+        "endArrow": "none"
       },
-      "label": "Bypass data"
+      "label": "Bypass data",
+      "id": "net_5"
     },
     {
       "from": "F.d_out",
-      "to": "D.f_in",
+      "to": [
+        "D.f_in"
+      ],
       "style": {
         "strokeColor": "#7c3aed",
         "lineStyle": "dotted",
         "opacity": 0.75,
         "label": {
           "color": "#6d28d9"
-        }
+        },
+        "endArrow": "none"
       },
-      "label": "Auxiliary data"
+      "label": "Auxiliary data",
+      "id": "net_6"
     },
     {
       "from": "D.feedback",
-      "to": "A.feedback",
+      "to": [
+        "A.feedback"
+      ],
       "style": {
         "strokeColor": "#dc2626",
         "strokeWidth": 4,
         "lineStyle": "dashed",
         "label": {
           "color": "#b91c1c"
-        }
+        },
+        "endArrow": "none"
       },
-      "label": "Feedback\nreturn path"
+      "label": "Feedback\nreturn path",
+      "id": "net_7"
     }
   ],
   "layout": {
@@ -284,7 +318,8 @@
           "color": "#2457d6",
           "fontSize": 16
         }
-      }
+      },
+      "type": "container"
     },
     {
       "id": "auxiliary",
@@ -292,7 +327,8 @@
       "members": [
         "E",
         "F"
-      ]
+      ],
+      "type": "container"
     },
     {
       "id": "core",
@@ -300,14 +336,16 @@
       "members": [
         "pipeline",
         "auxiliary"
-      ]
+      ],
+      "type": "container"
     },
     {
       "id": "system",
       "label": "System",
       "members": [
         "core"
-      ]
+      ],
+      "type": "container"
     }
   ]
 }

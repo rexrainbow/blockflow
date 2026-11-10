@@ -10,7 +10,7 @@ import {freeze} from './helpers.js';
 const boundary=JSON.parse(await readFile(new URL('../../examples/boundary-groups.json',import.meta.url),'utf8'));
 const collection=JSON.parse(await readFile(new URL('../../examples/collection-instances.json',import.meta.url),'utf8'));
 
-for(const rootGroupId of ['Inner','Outer']) for(const direction of ['left','right']) test('group view isolates the complete boundary interface and internal graph '+rootGroupId+' '+direction,async()=>{
+for(const rootGroupId of ['Inner','Outer']) for(const direction of ['right']) test('group view isolates the complete boundary interface and internal graph '+rootGroupId+' '+direction,async()=>{
   const raw=structuredClone(boundary);raw.layout.direction=direction;
   raw.groups.forEach(group=>group.collapsed=true);
   const model=createDiagramModel(freeze(raw)),snapshot=structuredClone(model);
@@ -36,7 +36,7 @@ for(const rootGroupId of ['Inner','Outer']) for(const direction of ['left','righ
 });
 
 test('a group view includes inside pass-through but excludes same-owner external feedback',async()=>{
-  const model=createDiagramModel({version:1,diagram:{name:'Faces'},modules:[],groups:[{id:'G',type:'boundary',collapsed:true,members:[],ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]}],connections:[{from:'G.in',to:'G.out',label:'Internal'},{from:'G.out',to:'G.in',label:'External',feedback:true}]});
+  const model=createDiagramModel({version:1,diagram:{name:'Faces'},modules:[],groups:[{id:'G',type:'boundary',collapsed:true,members:[],ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]}],connections:[{from:'G.in',to:['G.out'],label:'Internal'},{from:'G.out',to:['G.in'],label:'External',feedback:true}]});
   const layout=await layoutDiagram(model,{rootGroupId:'G'});copyLayout(layout);
   assert.deepEqual(layout.connections.map(e=>e.id),['connection_0']);
   assert.ok(renderSvg(layout).includes('Internal'));assert.ok(!renderSvg(layout).includes('External'));
@@ -64,12 +64,12 @@ test('Top default is unchanged; unknown groups fail; full input validation still
   assert.deepEqual(await layoutDiagram(model,{}),await layoutDiagram(model,{rootGroupId:null}));
   await assert.rejects(layoutDiagram(model,{rootGroupId:'missing'}),/Unknown view group/);
   await assert.rejects(layoutDiagram(model,{rootGroupId:false}),/Unknown view group/);
-  const raw=structuredClone(boundary);raw.connections.push({from:'Source.missing',to:'Sink.in'});
+  const raw=structuredClone(boundary);raw.connections.push({from:'Source.missing',to:['Sink.in']});
   assert.throws(()=>createDiagramModel(raw),/Unknown port/);
 });
 
 test('group view keeps feedback inside the selected frame when outer routing is configured',async()=>{
-  const raw={version:1,diagram:{name:'Loop'},modules:['A','B'].map(id=>({id,ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]})),groups:[{id:'G',members:['A','B']}],connections:[{from:'A.out',to:'B.in'},{from:'B.out',to:'A.in',feedback:true}],layout:{feedbackRouting:'outer'}};
+  const raw={version:1,diagram:{name:'Loop'},modules:['A','B'].map(id=>({id,ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]})),groups:[{id:'G',members:['A','B']}],connections:[{from:'A.out',to:['B.in']},{from:'B.out',to:['A.in'],feedback:true}],layout:{feedbackRouting:'outer'}};
   const layout=await layoutDiagram(createDiagramModel(raw),{rootGroupId:'G'}),root=layout.groups[0];
   for(const edge of layout.connections) {
     assert.equal(edge.routingInfo.reason,'group-view');

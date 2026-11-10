@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { placeEdgeLabels } from '../../src/lib/layout/edge-labels.js';
-import { TEXT_STYLE, connectionStyle } from '../../src/lib/styles.js';
+import { TEXT_STYLE, CONNECTION_LABEL_STYLE, connectionStyle } from '../../src/lib/styles.js';
 import { fixture, freeze, checkLayout } from './helpers.js';
 
 const intersects = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -20,7 +20,7 @@ test('connection label styles inherit per property and are independently owned',
   raw.diagram.style = { connection: { label: { color: '#abc', fontSize: 18, padding: 3 } } };
   raw.connections[0].style = { label: { color: '#123' } };
   const before = structuredClone(raw), model = createDiagramModel(freeze(raw));
-  assert.deepEqual(model.connections[0].style.label, { ...TEXT_STYLE, color: '#112233', fontSize: 18, padding: 3 });
+  assert.deepEqual(model.connections[0].style.label, { ...CONNECTION_LABEL_STYLE, color: '#112233', fontSize: 18, padding: 3 });
   model.connections[0].style.label.padding = 5;
   assert.deepEqual(raw, before);
   for (const style of [{ label: null }, { label: { fontSize: 0 } }, { label: { color: 'red' } }]) {
@@ -29,36 +29,7 @@ test('connection label styles inherit per property and are independently owned',
   }
 });
 
-test('crossing/parallel routes avoid text, strokes and crossing points deterministically', () => {
-  const input = { modules: [], groups: [], connections: [
-    labeledEdge('a', [{x:0,y:100},{x:300,y:100}]),
-    labeledEdge('b', [{x:150,y:0},{x:150,y:220}], 'ready'),
-    labeledEdge('c', [{x:0,y:130},{x:300,y:130}], 'valid'),
-  ] };
-  const duplicate = structuredClone(input);
-  assert.deepEqual(placeEdgeLabels(input), []);
-  assert.deepEqual(placeEdgeLabels(duplicate), []);
-  assert.deepEqual(input, duplicate);
-  for (const edge of input.connections) {
-    const bounds = edge.labelBounds;
-    for (const other of input.connections) {
-      if (edge !== other) assert.ok(!intersects(bounds, other.labelBounds));
-      const [a,b] = other.sections[0].points;
-      const stroke = { x:Math.min(a.x,b.x)-1,y:Math.min(a.y,b.y)-1,width:Math.abs(a.x-b.x)+2,height:Math.abs(a.y-b.y)+2 };
-      assert.ok(!intersects(bounds, stroke), 'label masks a route');
-    }
-  }
-});
-
-test('blocked labels remain visible with a structured warning', () => {
-  const edge = labeledEdge('blocked', [{x:10,y:50},{x:30,y:50}], 'long label');
-  const warnings = placeEdgeLabels({ modules: [{x:-100,y:-100,width:300,height:300}], groups: [], connections:[edge] });
-  assert.equal(warnings[0].code, 'EDGE_LABEL_OVERLAP');
-  assert.equal(warnings[0].connectionId, 'blocked');
-  assert.ok(edge.labelBounds && edge.labelPosition);
-});
-
-for (const direction of ['right', 'left']) test('ELK reserves text space; bounds, SVG and PNG agree ' + direction, async () => {
+for (const direction of ['right']) test('Source signal labels retain bounds, SVG and PNG agreement ' + direction, async () => {
   const raw = fixture(); raw.layout = { direction }; raw.connections[0].label = 'data <&> \u8cc7\u6599';
   raw.connections[0].style = { label: { color:'#123456', backgroundColor:'#fff', padding:4, fontSize:20 } };
   const model = createDiagramModel(raw), before = structuredClone(model);

@@ -64,15 +64,33 @@
   "connections": [
     {
       "from": "A.out",
-      "to": "Mux.a"
+      "to": [
+        "Mux.a"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "B.out",
-      "to": "Mux.b"
+      "to": [
+        "Mux.b"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "C.out",
-      "to": "Mux.c"
+      "to": [
+        "Mux.c"
+      ],
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ],
   "layout": {

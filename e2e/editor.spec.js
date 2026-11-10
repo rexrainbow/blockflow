@@ -3,11 +3,467 @@ import AxeBuilder from '@axe-core/playwright';
 import { readFile, mkdir } from 'node:fs/promises';
 import sharp from 'sharp';
 
+test('Reduce bends moves Terminal names and hit targets with endpoints and supports Undo', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
+  raw.layout = { ...raw.layout, portAdjustment: 'fixed', maxPortShift: 120 };
+  await importJson(page, raw);
+  await ready(page);
+  const terminal = page.locator('.terminal-hit[data-module="CommandIn"]');
+  const position = async () =>
+    Number(await terminal.getAttribute('y')) -
+    Number(await page.locator('.block-hit[data-module="Processor"]').getAttribute('y'));
+  const before = await position();
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  const mode = page.getByRole('combobox', { name: 'Port adjustment', exact: true });
+  await mode.selectOption('reduce-bends');
+  await ready(page);
+  expect(Math.abs((await position()) - before)).toBeGreaterThan(1);
+  expect(Math.abs((await position()) - before)).toBeLessThanOrEqual(120);
+  const routes = await page.locator('.connection-hit:not(.net-trunk-hit)').evaluateAll((nodes) =>
+    nodes.map((p) =>
+      p
+        .getAttribute('d')
+        .match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi)
+        .map(Number),
+    ),
+  );
+  expect(routes).toHaveLength(5);
+  expect(routes.every((points) => points.length === 4)).toBe(true);
+  const labelY = await page
+    .locator('[data-role="terminal"][data-terminal="CommandIn"] text')
+    .getAttribute('y');
+  const y = Number(await terminal.getAttribute('y'));
+  expect(Number(labelY)).toBeGreaterThan(y);
+  expect(Number(labelY)).toBeLessThan(y + Number(await terminal.getAttribute('height')));
+  const saved = await documentState(page);
+  expect(saved.terminals).toEqual(raw.terminals);
+  expect(saved.modules).toEqual(raw.modules);
+  await page.screenshot({ path: 'output/editor/terminal-adjustment.png' });
+  await terminal.click();
+  await expect(terminal).toBeFocused();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await position()).toBeCloseTo(before);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  expect(Math.abs((await position()) - before)).toBeGreaterThan(1);
+});
+
+test('Layout Port adjustment straightens six interfaces, preserves Grid, validates limits and supports Undo', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/port-adjustment.json', import.meta.url), 'utf8'),
+  );
+  delete raw.layout.portAdjustment;
+  delete raw.layout.maxPortShift;
+  await importJson(page, raw);
+  await ready(page);
+  const corners = () =>
+    page
+      .locator('.connection-hit:not(.net-trunk-hit)')
+      .evaluateAll((nodes) =>
+        nodes.reduce(
+          (n, p) =>
+            n +
+            Math.max(0, (p.getAttribute('d').match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).length / 2 - 2),
+          0,
+        ),
+      );
+  expect(await corners()).toBeLessThan(12);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  const mode = page.getByRole('combobox', { name: 'Port adjustment', exact: true }),
+    limit = page.getByRole('spinbutton', { name: 'Maximum shift', exact: true });
+  await expect(mode).toHaveValue('reduce-bends');
+  await expect(limit).toHaveValue('40');
+  await mode.selectOption('fixed');
+  await ready(page);
+  expect(await corners()).toBe(12);
+  await limit.fill('120');
+  await limit.blur();
+  await ready(page);
+  await mode.focus();
+  await mode.press('Alt+ArrowDown');
+  await page.keyboard.press('Escape');
+  await mode.selectOption('reduce-bends');
+  await ready(page);
+  expect(await corners()).toBe(0);
+  await expect(mode).toBeFocused();
+  const saved = await documentState(page);
+  expect(saved.layout.cells).toEqual(raw.layout.cells);
+  expect(saved.modules).toEqual(raw.modules);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await corners()).toBe(12);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  expect(await corners()).toBe(0);
+  await limit.fill('-1');
+  await limit.blur();
+  await expect(limit).toHaveAttribute('aria-invalid', 'true');
+  expect(await documentState(page)).toEqual(saved);
+  await limit.fill('120');
+  await limit.blur();
+  await ready(page);
+  const chooser = page.waitForEvent('download');
+  await toolbarAction(page, 'file', 'Save JSON');
+  expect(JSON.parse(await readFile(await (await chooser).path(), 'utf8'))).toEqual(saved);
+  await page.getByRole('button', { name: 'Layout settings', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Layout settings', exact: true });
+  await expect(dialog.getByRole('combobox', { name: 'Port adjustment', exact: true })).toHaveValue(
+    'reduce-bends',
+  );
+  await dialog.getByRole('spinbutton', { name: 'Maximum shift', exact: true }).fill('0');
+  await dialog.getByRole('spinbutton', { name: 'Maximum shift', exact: true }).blur();
+  await ready(page);
+  expect(await corners()).toBe(12);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#editor-dialog')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: 'output/editor/port-adjust-settings-mobile.png' });
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(limit).toHaveValue('0');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('Block Style sizes validate drafts and commit geometry, appearance and color in one Undo', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/block-sizes.json', import.meta.url), 'utf8'));
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  const block = page.locator('.block-hit[data-module="Mux"]');
+  const beforeHeight = Number(await block.getAttribute('height'));
+  await block.dblclick();
+  const dialog = page.getByRole('dialog', { name: 'Block style', exact: true });
+  const width = dialog.getByRole('spinbutton', { name: 'Width', exact: true });
+  const height = dialog.getByRole('spinbutton', { name: 'Height', exact: true });
+  await expect(width).toHaveValue('1.2');
+  await expect(height).toHaveValue('3.5');
+  await width.fill('2.5');
+  await height.fill('4');
+  await dialog.getByRole('textbox', { name: 'Border color', exact: true }).fill('#123456');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await documentState(page)).toEqual(raw);
+  await expect(block).toBeFocused();
+  await block.dblclick();
+  await width.fill('0');
+  await dialog.getByRole('tab', { name: 'Label', exact: true }).click();
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(dialog.getByRole('tab', { name: 'Block', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(width).toHaveAttribute('aria-invalid', 'true');
+  expect(await documentState(page)).toEqual(raw);
+  await width.fill('2.5');
+  await height.fill('4');
+  await dialog.getByRole('combobox', { name: 'Appearance', exact: true }).selectOption('trapezoid');
+  await dialog.getByRole('textbox', { name: 'Border color', exact: true }).fill('#123456');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  const saved = await documentState(page),
+    module = saved.modules.find((n) => n.id === 'Mux');
+  expect(module).toMatchObject({
+    width: 2.5,
+    height: 4,
+    appearance: { type: 'trapezoid' },
+    style: { borderColor: '#123456' },
+  });
+  expect(module.style).not.toHaveProperty('width');
+  expect(module.style).not.toHaveProperty('height');
+  expect(Number(await block.getAttribute('height'))).toBeGreaterThan(beforeHeight);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(saved);
+});
+
+test('Group Style sizes support narrow keyboard drafts, Auto and exports', async ({ page }) => {
+  const raw = {
+    version: 1,
+    diagram: { name: 'Group size' },
+    modules: [{ id: 'A' }],
+    groups: [{ id: 'G', members: ['A'], width: 1.5, height: 2 }],
+    connections: [],
+  };
+  await importJson(page, raw);
+  await ready(page);
+  await previewOnly(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const group = page.locator('.group-hit[data-module="G"]');
+  await group.dblclick();
+  const dialog = page.getByRole('dialog', { name: 'Group style', exact: true });
+  const width = dialog.getByRole('spinbutton', { name: 'Width', exact: true });
+  const height = dialog.getByRole('spinbutton', { name: 'Height', exact: true });
+  await width.fill('4');
+  await height.fill('5');
+  await page.keyboard.press('Escape');
+  expect(await documentState(page)).toEqual(raw);
+  await expect(group).toBeFocused();
+  await group.dblclick();
+  await width.fill('4');
+  await height.fill('5');
+  await dialog.getByRole('textbox', { name: 'Border color', exact: true }).fill('#334455');
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#editor-dialog')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: 'output/editor/group-style-size-mobile.png' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).groups[0]).toMatchObject({
+    width: 4,
+    height: 5,
+    style: { borderColor: '#334455' },
+  });
+  await page.getByRole('button', { name: 'Fit to view', exact: true }).click();
+  await group.dblclick();
+  await width.fill('');
+  await height.fill('');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  const saved = await documentState(page);
+  expect(saved.groups[0]).not.toHaveProperty('width');
+  expect(saved.groups[0]).not.toHaveProperty('height');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).groups[0]).toMatchObject({ width: 4, height: 5 });
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  const download = page.waitForEvent('download');
+  await toolbarAction(page, 'file', 'Save JSON');
+  expect(JSON.parse(await readFile(await (await download).path(), 'utf8'))).toEqual(saved);
+});
+
+test('Net creation, multiple peers, Bidirectional, shared selection and target edits preserve one signal', async ({
+  page,
+}) => {
+  const raw = {
+    version: 1,
+    diagram: { name: 'Net editor' },
+    modules: [
+      { id: 'Master', ports: [{ id: 'bus', direction: 'inout' }] },
+      ...['A', 'B', 'C'].map((id) => ({ id, ports: [{ id: 'bus', direction: 'inout' }] })),
+    ],
+    connections: [],
+  };
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await page.getByRole('button', { name: 'Add connection', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Connection mode', exact: true })).toHaveValue('net');
+  await page.getByRole('combobox', { name: 'Main endpoint', exact: true }).selectOption('Master.bus');
+  await page.getByRole('checkbox', { name: 'Bidirectional', exact: true }).check();
+  await page.getByRole('combobox', { name: 'Target 1', exact: true }).selectOption('A.bus');
+  await page.getByRole('button', { name: 'Add target', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Target 2', exact: true }).selectOption('B.bus');
+  await page.getByRole('textbox', { name: 'Label', exact: true }).fill('Control interface');
+  expect((await new AxeBuilder({ page }).include('#editor-dialog').analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: 'Add connection', exact: true }).last().click();
+  await ready(page);
+  let doc = await documentState(page);
+  expect(doc.connections).toHaveLength(1);
+  expect(doc.connections[0]).toMatchObject({
+    from: 'Master.bus',
+    to: ['A.bus', 'B.bus'],
+    direction: 'both',
+    label: 'Control interface',
+  });
+  await expect(page.locator('.connection-hit:not(.net-trunk-hit)')).toHaveCount(2);
+  await expect(page.locator('[data-label-position="start"]')).toHaveCount(1);
+  await page.locator('.connection-label-hit').first().click();
+  await expect(page.locator('.connection-row.selected')).toHaveCount(1);
+  const selected = await page.locator('.connection-selection-outline').getAttribute('d');
+  expect((selected.match(/M/g) || []).length).toBeGreaterThan(2);
+  await page.getByRole('button', { name: 'Add target', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).connections[0].to).toEqual(['A.bus', 'B.bus', 'C.bus']);
+  await page.getByRole('button', { name: 'Remove target 2 from Connection 1', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).connections[0].to).toHaveLength(2);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).connections[0].to).toHaveLength(3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('checkbox', { name: 'Bidirectional', exact: true })).toBeChecked();
+  await page.getByRole('button', { name: /Connection style: Master.bus/ }).click();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Destination labels', exact: true }).selectOption('always');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-label-position="end"]')).toHaveCount(3);
+  const beforeStyle = await documentState(page);
+  const branchStyle = page.getByRole('button', { name: 'Target 2 style', exact: true });
+  await branchStyle.click();
+  await expect(page.getByRole('tab', { name: 'Label', exact: true })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Line color', exact: true }).fill('#ab1234');
+  await page.keyboard.press('Escape');
+  await expect(branchStyle).toBeFocused();
+  expect(await documentState(page)).toEqual(beforeStyle);
+  await branchStyle.click();
+  await page.getByRole('textbox', { name: 'Line color', exact: true }).fill('#ab1234');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).connections[0].to[1]).toEqual({
+    endpoint: 'B.bus',
+    style: { strokeColor: '#ab1234' },
+  });
+  await expect(branchStyle).toBeFocused();
+  expect((await new AxeBuilder({ page }).include('#workspace').analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'output/editor/net-mobile.png' });
+});
+
+test('Concat creation mode adds the element and all Nets atomically and reports width errors in its dialog', async ({
+  page,
+}) => {
+  const raw = {
+    version: 1,
+    diagram: { name: 'Concat tool' },
+    modules: [
+      ...['A', 'B'].map((id) => ({ id, ports: [{ id: 'out', direction: 'output', width: 16 }] })),
+      { id: 'Mux', ports: [{ id: 'in', direction: 'input', width: 32 }] },
+    ],
+    connections: [],
+  };
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await page.getByRole('button', { name: 'Add connection', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Connection mode', exact: true }).selectOption('concat');
+  await page.getByRole('combobox', { name: 'Source 1', exact: true }).selectOption('A.out');
+  await page.getByRole('button', { name: 'Add connection', exact: true }).last().click();
+  await expect(page.locator('#dialog-error')).toContainText('width mismatch');
+  expect(await documentState(page)).toEqual(raw);
+  await page.getByRole('button', { name: 'Add source', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Source 2', exact: true }).selectOption('B.out');
+  await page.getByRole('combobox', { name: 'Target 1', exact: true }).selectOption('Mux.in');
+  await page.getByRole('button', { name: 'Add connection', exact: true }).last().click();
+  await ready(page);
+  const doc = await documentState(page);
+  expect(doc.modules.filter((n) => n.type === 'concat')).toHaveLength(1);
+  expect(doc.connections).toHaveLength(3);
+  expect(doc.connections.every((c) => Array.isArray(c.to))).toBe(true);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+});
+
+test('Net destination labels commit atomically, export and support either label', async ({ page }) => {
+  const raw = {
+    version: 1,
+    diagram: { name: 'Long label controls' },
+    modules: [
+      { id: 'A', ports: [{ id: 'out', direction: 'output' }] },
+      { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+    ],
+    connections: [{ from: 'A.out', to: ['B.in'], label: 'Bite', style: { label: { repeatAtEnd: 'never' } } }],
+    layout: { direction: 'down', layerSpacing: 450 },
+  };
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  const open = page.getByRole('button', { name: 'Connection style: A.out to B.in', exact: true });
+  await open.click();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  const repeat = page.getByRole('combobox', { name: 'Destination labels', exact: true });
+  await repeat.selectOption('always');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await documentState(page)).toEqual(raw);
+  await open.click();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  await repeat.selectOption('always');
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Background color', exact: true }).fill('#FFF9E6');
+  await dialog.getByRole('textbox', { name: 'Border color', exact: true }).fill('#B38900');
+  const borderWidth = dialog.getByRole('spinbutton', { name: 'Border width', exact: true });
+  await borderWidth.fill('-1');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(borderWidth).toBeFocused();
+  await expect(dialog.locator('#style-dialog-error')).not.toBeEmpty();
+  expect(await documentState(page)).toEqual(raw);
+  await borderWidth.fill('0.8');
+  await dialog.getByRole('spinbutton', { name: 'Border opacity', exact: true }).fill('0.8');
+  await dialog.getByRole('spinbutton', { name: 'Corner radius', exact: true }).fill('4');
+  expect((await new AxeBuilder({ page }).include('#editor-dialog').analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  const labels = page.locator('.connection-label-hit[data-edge="A.out->B.in"]');
+  await expect(labels).toHaveCount(2);
+  expect((await documentState(page)).connections[0].style.label).toEqual({
+    repeatAtEnd: 'always',
+    backgroundColor: '#FFF9E6',
+    borderColor: '#B38900',
+    borderWidth: 0.8,
+    borderOpacity: 0.8,
+    borderRadius: 4,
+  });
+  await labels.last().click();
+  await expect(page.locator('.connection-row.selected')).toHaveCount(1);
+  await labels.last().dblclick();
+  await expect(page.getByRole('dialog')).toHaveAccessibleName('Connection style');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  const downloaded = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await downloaded).path(), 'utf8');
+  expect((svg.match(/data-role="connection-label"/g) || []).length).toBe(2);
+  expect(svg).toContain('<mask ');
+  expect(svg).toContain('stroke="#b38900"');
+  expect(svg).toContain('rx="4" ry="4"');
+  expect(svg).toContain('stroke-width="0.8"');
+  expect(svg).not.toContain('connection-label-hit');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await expect(labels).toHaveCount(1);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  await expect(labels).toHaveCount(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open.click();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  await repeat.focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await page.keyboard.press('Escape');
+  await repeat.selectOption('always');
+  const box = await page.getByRole('dialog').boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(391);
+  expect((await new AxeBuilder({ page }).include('#editor-dialog').analyze()).violations).toEqual([]);
+  await page.screenshot({ path: 'output/editor/label-position-narrow.png' });
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="label-leader"]')).toHaveCount(1);
+});
+
 const previewActionsDocument = () => ({
   version: 1,
   diagram: { name: 'Preview editing' },
   modules: [
-    { id: 'Source', ports: [{ id: 'out', direction: 'output' }] },
+    {
+      id: 'Source',
+      ports: [
+        { id: 'out', direction: 'output' },
+        { id: 'aux', direction: 'output' },
+      ],
+    },
     ...['A', 'B'].map((id) => ({
       id,
       ports: [
@@ -28,11 +484,387 @@ const previewActionsDocument = () => ({
     { id: 'G', label: 'Processing', type: 'collection', members: ['A', 'B'] },
   ],
   connections: [
-    { from: 'Source.out', to: 'A.in', label: 'Data' },
-    { from: 'Source.out', to: 'B.in' },
-    { from: 'A.out', to: 'Sink.a' },
-    { from: 'B.out', to: 'Sink.b' },
+    { from: 'Source.out', to: ['A.in'], label: 'Data' },
+    { from: 'Source.aux', to: ['B.in'] },
+    { from: 'A.out', to: ['Sink.a'] },
+    { from: 'B.out', to: ['Sink.b'] },
   ],
+});
+
+test('Group corner radius validates transactionally, exports and restores through Undo', async ({ page }) => {
+  const raw = {
+    version: 1,
+    diagram: { name: 'Rounded frame' },
+    modules: [{ id: 'A' }],
+    groups: [{ id: 'G', members: ['A'] }],
+  };
+  await importJson(page, raw);
+  await ready(page);
+  await page.locator('.group-select[data-id="G"]').click();
+  const open = page.getByRole('button', { name: 'Group style', exact: true });
+  await open.click();
+  const radius = page.getByRole('spinbutton', { name: 'Corner radius', exact: true });
+  await radius.fill('18');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await documentState(page)).toEqual(raw);
+  await expect(open).toBeFocused();
+  await open.click();
+  await radius.fill('-1');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(radius).toHaveAttribute('aria-invalid', 'true');
+  expect(await documentState(page)).toEqual(raw);
+  await radius.fill('18');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="group"][data-group="G"]')).toHaveAttribute('rx', '18');
+  expect((await documentState(page)).groups[0].style.borderRadius).toBe(18);
+  const event = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  expect(await readFile(await (await event).path(), 'utf8')).toContain('rx="18" ry="18"');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="group"][data-group="G"]')).not.toHaveAttribute('rx');
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="group"][data-group="G"]')).toHaveAttribute('rx', '18');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open.click();
+  await radius.fill('0');
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#editor-dialog')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="group"][data-group="G"]')).not.toHaveAttribute('rx');
+});
+
+test('components migration renders rounded Auto groups, signal labels and abstract concats', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/processor-components.json', import.meta.url), 'utf8'),
+  );
+  await importJson(page, raw);
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(16);
+  await expect(page.locator('[data-role="group"][rx="12"]')).toHaveCount(9);
+  await expect(page.locator('[data-appearance="bar"]')).toHaveCount(3);
+  await page.getByRole('combobox', { name: 'View target', exact: true }).selectOption('Processor');
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(9);
+  expect((await documentState(page)).layout.cells).toBeUndefined();
+  await page.screenshot({ path: 'output/editor/components-bank.png' });
+});
+
+test('cross-group Grid expands Containers transactionally and shares row centers', async ({ page }) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+  );
+  await importJson(page, raw);
+  await ready(page);
+  const centerY = async (id) => {
+    const box = await page.locator(`.block-hit[data-module="${id}"]`).boundingBox();
+    return box.y + box.height / 2;
+  };
+  expect(await centerY('Clock')).toBeCloseTo(await centerY('ALU0'), 4);
+  expect(await centerY('Controller')).toBeCloseTo(await centerY('ALU1'), 4);
+  expect(await centerY('ALU1')).toBeCloseTo(await centerY('ALU2'), 4);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  const expansion = page.getByRole('checkbox', { name: 'Compute cluster', exact: true });
+  const cell = (r, c) => page.getByRole('combobox', { name: `Row ${r} column ${c}`, exact: true });
+  await expect(expansion).toBeChecked();
+  await expect(cell(1, 2).locator('option[value="ComputeCluster"]')).toHaveCount(0);
+  await expect(cell(1, 2).locator('option[value="ALU0"]')).toContainText('ComputeCluster / ALU0');
+  await expansion.uncheck();
+  await expect(cell(1, 2)).toHaveValue('');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).layout.expandGroups).toBeUndefined();
+  expect((await documentState(page)).groups).toEqual(raw.groups);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await expansion.uncheck();
+  await expansion.check();
+  await expect(
+    page.getByRole('region', { name: 'Needs Grid placement', exact: true }).locator('.count'),
+  ).toHaveText('5');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await expect(page.locator('#grid-error')).toContainText('every direct member');
+  await expect(expansion).toBeFocused();
+  expect(await documentState(page)).toEqual(raw);
+  for (const [r, c, id] of [
+    [1, 2, 'ALU0'],
+    [2, 2, 'ALU1'],
+    [2, 3, 'ALU2'],
+    [3, 2, 'ALU4'],
+    [3, 3, 'ALU3'],
+  ])
+    await cell(r, c).selectOption(id);
+  await cell(1, 1).selectOption('ALU0');
+  await cell(1, 2).selectOption('Clock');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await expect(page.locator('#grid-error')).toContainText('without outside members');
+  await expect(cell(1, 2)).toBeFocused();
+  expect(await documentState(page)).toEqual(raw);
+  await cell(1, 1).selectOption('Clock');
+  await cell(1, 2).selectOption('ALU0');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await page.screenshot({ path: 'output/editor/cross-grid-wide.png' });
+  await page.getByRole('combobox', { name: 'View target', exact: true }).selectOption('ComputeCluster');
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(5);
+  await page.getByRole('combobox', { name: 'Layout scope', exact: true }).selectOption('ComputeCluster');
+  await expect(page.getByRole('note')).toContainText('Expanded by Top Grid');
+  await expect(cell(1, 1)).toHaveValue('ALU0');
+  await page.getByRole('combobox', { name: 'Layout scope', exact: true }).selectOption('');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expansion.scrollIntoViewIfNeeded();
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#layout-settings')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'output/editor/cross-grid-narrow.png', fullPage: true });
+});
+
+test('Grid page edits ComputeCluster cells transactionally with validation, Undo and caption exports', async ({
+  page,
+}) => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/processor-overview.json', import.meta.url), 'utf8'),
+  );
+  await importJson(page, raw);
+  await ready(page);
+  const alu2 = await page
+    .locator('.block-hit[data-module="ALU2"]')
+    .evaluate((n) => ({ width: Number(n.getAttribute('width')), height: Number(n.getAttribute('height')) }));
+  const alu3 = await page
+    .locator('.block-hit[data-module="ALU3"]')
+    .evaluate((n) => ({ width: Number(n.getAttribute('width')), height: Number(n.getAttribute('height')) }));
+  expect(alu2.width).toBeCloseTo(alu3.width, 5);
+  expect(alu2.height).toBeCloseTo(alu3.height, 5);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Layout scope', exact: true }).selectOption('ComputeCluster');
+  const cell = page.getByRole('combobox', { name: 'Row 1 column 1', exact: true });
+  await cell.selectOption('ALU4');
+  await expect(page.getByRole('combobox', { name: 'Row 2 column 1', exact: true })).toHaveValue('');
+  await page.getByRole('spinbutton', { name: 'Row gap', exact: true }).fill('-1');
+  await page.getByRole('spinbutton', { name: 'Row gap', exact: true }).blur();
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await expect(page.locator('#grid-error')).toContainText('non-negative');
+  expect(await documentState(page)).toEqual(raw);
+  await expect(page.getByRole('spinbutton', { name: 'Row gap', exact: true })).toBeFocused();
+  await page.getByRole('spinbutton', { name: 'Row gap', exact: true }).fill('50');
+  await page.getByRole('spinbutton', { name: 'Row gap', exact: true }).blur();
+  await page.getByRole('combobox', { name: 'Row 2 column 1', exact: true }).selectOption('ALU0');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).groups.find((g) => g.id === 'ComputeCluster').layout.cells[0][0]).toBe(
+    'ALU4',
+  );
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await page
+    .getByRole('textbox', { name: 'Diagram caption', exact: true })
+    .fill('Overview\nBoth arrows mean two paths');
+  await page.getByRole('textbox', { name: 'Diagram caption', exact: true }).blur();
+  await ready(page);
+  const event = page.waitForEvent('download');
+  await toolbarAction(page, 'export', 'Export SVG');
+  const svg = await readFile(await (await event).path(), 'utf8');
+  expect(svg).toContain('Both arrows mean two paths');
+  expect(svg.match(/connection-start-arrow/g)).toHaveLength(3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#layout-settings')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: 'output/editor/grid-layout-narrow.png' });
+  await page.getByRole('combobox', { name: 'Arrangement', exact: true }).selectOption('auto');
+  await expect(
+    page.getByText('Choose Grid in Arrangement to edit rows and columns for this scope.'),
+  ).toBeVisible();
+  await expect(cell).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Arrangement', exact: true }).selectOption('grid');
+  await expect(cell).toBeInViewport();
+});
+
+test('partial Grid dimensions, member moves and shrinking preserve Auto neighbors and history', async ({
+  page,
+}) => {
+  const raw = JSON.parse(await readFile(new URL('../examples/partial-grid.json', import.meta.url), 'utf8'));
+  delete raw.layout;
+  await importJson(page, raw);
+  await ready(page);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Arrangement', exact: true }).selectOption('grid');
+  const rows = page.getByRole('spinbutton', { name: 'Rows', exact: true });
+  const columns = page.getByRole('spinbutton', { name: 'Columns', exact: true });
+  const cell = (r, c) => page.getByRole('combobox', { name: `Row ${r} column ${c}`, exact: true });
+  const auto = page.getByRole('region', { name: 'Auto arranged', exact: true });
+  await expect(auto).toContainText('Source');
+  await expect(auto).toContainText('Sink');
+  await expect(cell(1, 1)).toHaveValue('');
+  await rows.fill('0');
+  await rows.blur();
+  await expect(rows).toHaveAttribute('aria-invalid', 'true');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await expect(page.locator('#grid-error')).toContainText('Correct Rows and Columns');
+  expect(await documentState(page)).toEqual(raw);
+  await rows.fill('2');
+  await rows.blur();
+  await columns.fill('3');
+  await columns.blur();
+  await expect(page.locator('[data-field="grid-cell"]')).toHaveCount(6);
+  await cell(1, 1).selectOption('A');
+  await cell(2, 1).selectOption('B');
+  await cell(1, 3).selectOption('C');
+  await expect(auto.locator('.count')).toHaveText('2');
+  expect(await documentState(page)).toEqual(raw);
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await ready(page);
+  expect((await documentState(page)).layout.cells).toEqual([
+    ['A', null, 'C'],
+    ['B', null, null],
+  ]);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await documentState(page)).toEqual(raw);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await ready(page);
+  await cell(1, 2).selectOption('A');
+  await expect(cell(1, 1)).toHaveValue('');
+  await expect(cell(1, 2)).toBeFocused();
+  await columns.fill('1');
+  await columns.blur();
+  await expect(auto).toContainText('A');
+  await expect(auto).toContainText('C');
+  await expect(auto.locator('.count')).toHaveText('4');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await ready(page);
+  const saved = await documentState(page);
+  expect(saved.modules).toEqual(raw.modules);
+  expect(saved.groups).toBeUndefined();
+  expect(saved.connections).toEqual(raw.connections);
+  expect(saved.layout.cells).toEqual([[null], ['B']]);
+  await page.getByRole('button', { name: 'Add row', exact: true }).click();
+  await expect(rows).toHaveValue('3');
+  await page.getByRole('button', { name: 'Reset draft', exact: true }).click();
+  await expect(rows).toHaveValue('2');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(cell(1, 1)).toBeInViewport();
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include('#layout-settings')
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: 'output/editor/partial-grid-narrow.png', fullPage: true });
+});
+
+test('Layout fills resized workspace and keeps Grid cells visible and scrollable', async ({ page }) => {
+  const modules = Array.from({ length: 60 }, (_, i) => ({ id: `B${i}` }));
+  await importJson(page, {
+    version: 1,
+    diagram: { name: 'Large Grid' },
+    modules,
+    layout: {
+      type: 'grid',
+      cells: Array.from({ length: 20 }, (_, r) => modules.slice(r * 3, r * 3 + 3).map((m) => m.id)),
+    },
+  });
+  await ready(page);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  const panel = page.locator('#layout-settings > .panel');
+  const cell = page.getByRole('combobox', { name: 'Row 1 column 1', exact: true });
+  for (const viewport of [
+    { width: 1440, height: 600 },
+    { width: 1440, height: 1000 },
+    { width: 2000, height: 1000 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const bounds = await panel.boundingBox();
+    const workspace = await page.locator('#layout-settings').boundingBox();
+    expect(bounds.width).toBeGreaterThan(workspace.width - 3);
+    await expect(cell).toBeInViewport();
+    expect((await cell.boundingBox()).height).toBeGreaterThan(24);
+  }
+  const beforeResize = (await panel.boundingBox()).width;
+  await page.getByRole('separator', { name: 'Resize editor area', exact: true }).press('End');
+  expect((await panel.boundingBox()).width).toBeGreaterThan(beforeResize + 300);
+  await expect(cell).toBeInViewport();
+  await page.locator('[data-action="cycle-view"]').click();
+  const fullWidth = await panel.boundingBox();
+  expect(fullWidth.width).toBeGreaterThan(1900);
+  await expect(cell).toBeInViewport();
+  await page.screenshot({ path: 'output/editor/layout-wide.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(cell).toBeInViewport();
+  const last = page.getByRole('combobox', { name: 'Row 20 column 3', exact: true });
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeInViewport();
+  await last.selectOption('B59');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('textbox', { name: 'Diagram caption', exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Apply layout', exact: true })).toBeInViewport();
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Add connection', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Blocks', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeVisible();
+});
+
+test('bidirectional Port sides and non-constraining links are editable through the GUI', async ({ page }) => {
+  await importJson(page, {
+    version: 1,
+    diagram: { name: 'Bidirectional editor' },
+    modules: [{ id: 'P' }, { id: 'Q', ports: [] }],
+    connections: [],
+  });
+  await ready(page);
+  await page.locator('.block-select[data-id="P"]').click();
+  await page.getByRole('button', { name: 'Add bidirectional port', exact: true }).click();
+  await ready(page);
+  await page.getByRole('combobox', { name: 'io_1 Side', exact: true }).selectOption('right');
+  await ready(page);
+  await page.locator('.block-select[data-id="Q"]').click();
+  await page.getByRole('button', { name: 'Add bidirectional port', exact: true }).click();
+  await ready(page);
+  await page.getByRole('combobox', { name: 'io_1 Side', exact: true }).selectOption('left');
+  await ready(page);
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await page.getByRole('button', { name: 'Add connection', exact: true }).click();
+  await page.locator('#dialog-source').selectOption('P.io_1');
+  await page.getByRole('checkbox', { name: 'Bidirectional', exact: true }).check();
+  await page.locator('#dialog-target').selectOption('Q.io_1');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="connection-start-arrow"]')).toHaveCount(1);
+  await expect(page.locator('[data-role="connection-arrow"]')).toHaveCount(1);
+  await page.getByRole('checkbox', { name: 'Affect placement', exact: true }).uncheck();
+  await ready(page);
+  expect((await documentState(page)).connections[0]).toMatchObject({
+    direction: 'both',
+    to: [{ endpoint: 'Q.io_1', constraint: false }],
+  });
 });
 
 test('Flow selector switches axes, maps exterior feedback atomically and stays synchronized with settings', async ({
@@ -200,7 +1032,7 @@ test('hidden text styles edit without losing terminal, title or connection label
   await ready(page);
   expect(await page.locator('#preview-host svg text').allTextContents()).toContain('Hidden processor name');
   const point = await visibleEdgePoint(
-    page.locator('.connection-hit[data-edge="@terminal:ExternalInput->Processor.in"]'),
+    page.locator('.connection-hit:not(.net-trunk-hit)[data-edge="@net:net_1"]'),
   );
   await page.mouse.dblclick(point.x, point.y);
   await page.getByRole('tab', { name: 'Label', exact: true }).click();
@@ -297,7 +1129,7 @@ test('narrow appearance controls keep native keyboard selection, cancel drafts a
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect(await documentState(page)).toEqual(raw);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.locator('.connection-label-hit[data-edge="Processor.out->Function.in"]').dblclick();
+  await page.locator('.connection-label-hit[data-edge="@net:net_2"]').dblclick();
   await page.getByRole('combobox', { name: 'End arrow', exact: true }).selectOption('none');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
   await ready(page);
@@ -315,7 +1147,7 @@ test('Terminals import, render without frames and edit through Preview with undo
   await expect(page.locator('.block-hit')).toHaveCount(1);
   await expect(page.locator('.terminal-hit')).toHaveCount(5);
   await expect(page.locator('[data-role="terminal"] rect')).toHaveCount(0);
-  const terminal = page.locator('.terminal-hit[data-module="OverlayIn"]');
+  const terminal = page.locator('.terminal-hit[data-module="DataIn"]');
   await terminal.dblclick();
   await expect(page.getByRole('dialog')).toContainText('Terminal text style');
   await page.getByRole('textbox', { name: 'Text color', exact: true }).fill('#123456');
@@ -402,8 +1234,9 @@ test('Terminals can be created from connection drafts and selected as external s
   await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
   await ready(page);
   expect((await documentState(page)).connections[0]).toEqual({
+    id: 'net_1',
     from: { terminal: 'Clock' },
-    to: 'A.in',
+    to: ['A.in'],
     label: 'Preserve connection draft',
   });
   await page.getByRole('button', { name: 'Add connection', exact: true }).click();
@@ -414,7 +1247,11 @@ test('Terminals can be created from connection drafts and selected as external s
   await expect(page.locator('#dialog-target')).toHaveValue('@terminal:Ready');
   await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
   await ready(page);
-  expect((await documentState(page)).connections[1]).toEqual({ from: 'A.out', to: { terminal: 'Ready' } });
+  expect((await documentState(page)).connections[1]).toEqual({
+    id: 'net_2',
+    from: 'A.out',
+    to: [{ terminal: 'Ready' }],
+  });
   await page.getByRole('button', { name: 'Add terminal', exact: true }).click();
   await page.getByRole('textbox', { name: 'Terminal key', exact: true }).fill('A');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -623,8 +1460,12 @@ test('Preview actions edit block, group and labeled edge styles transactionally 
   await dialog.getByRole('button', { name: 'OK', exact: true }).click();
   await ready(page);
   expect((await documentState(page)).connections[0].style.strokeColor).toBe('#123456');
-  await expect(page.locator('.connection-hit[data-edge="Source.out->A.in"]')).toBeFocused();
-  const segment = await visibleEdgePoint(page.locator('.connection-hit[data-edge="Source.out->A.in"]'));
+  await expect(
+    page.locator('.connection-hit:not(.net-trunk-hit)[data-edge="Source.out->A.in"]'),
+  ).toBeFocused();
+  const segment = await visibleEdgePoint(
+    page.locator('.connection-hit:not(.net-trunk-hit)[data-edge="Source.out->A.in"]'),
+  );
   await page.mouse.dblclick(segment.x, segment.y);
   await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
@@ -700,20 +1541,20 @@ test('Preview label actions add and remove edge text and rename groups on narrow
   await importJson(page, raw);
   await ready(page);
   await previewOnly(page);
-  const edge = page.locator('.connection-hit[data-edge="Source.out->B.in"]');
+  const edge = page.locator('.connection-hit:not(.net-trunk-hit)[data-edge="Source.aux->B.in"]');
   const point = await visibleEdgePoint(edge);
   await page.mouse.click(point.x, point.y, { button: 'right' });
   const menu = page.locator('#preview-actions-menu');
   const dialog = page.getByRole('dialog', { name: 'Edit label', exact: true });
   const label = dialog.getByRole('textbox', { name: 'Label', exact: true });
   await menu.getByRole('button', { name: 'Edit label…', exact: true }).click();
-  await expect(dialog).toContainText('Source.out → B.in');
+  await expect(dialog).toContainText('Source.aux → B.in');
   await label.fill('Bus\nrequest');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await ready(page);
   await expect(edge).toBeFocused();
   expect((await documentState(page)).connections[1].label).toBe('Bus\nrequest');
-  const edgeLabel = page.locator('.connection-label-hit[data-edge="Source.out->B.in"]');
+  const edgeLabel = page.locator('.connection-label-hit[data-edge="Source.aux->B.in"]');
   await edgeLabel.locator('tspan').first().click({ button: 'right' });
   await menu.getByRole('button', { name: 'Edit label…', exact: true }).click();
   await label.fill('Discard');
@@ -838,7 +1679,7 @@ test('Preview actions ignore blank double clicks, drag and canceled gestures and
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Preview style', exact: true })).toBeDisabled();
   await expect(page.locator('[data-action="preview-label"]')).toBeDisabled();
-  const edge = page.locator('.connection-hit[data-edge="Source.out->B.in"]'),
+  const edge = page.locator('.connection-hit:not(.net-trunk-hit)[data-edge="Source.aux->B.in"]'),
     point = await visibleEdgePoint(edge);
   await page.mouse.move(point.x, point.y);
   await page.mouse.down();
@@ -870,31 +1711,24 @@ test('Preview actions ignore blank double clicks, drag and canceled gestures and
   await expect(page.getByRole('dialog')).toBeHidden();
 });
 
-test('legacy local drafts restore as once layout and discard obsolete field drafts', async ({ page }) => {
-  await page.locator('#diagram-name').fill('Legacy draft');
+test('retired local drafts are rejected without automatic migration', async ({ page }) => {
+  await page.locator('#diagram-name').fill('Retired draft');
   await page.locator('#diagram-name').press('Enter');
   await ready(page);
   const original = await documentState(page),
-    legacy = structuredClone(original);
-  legacy.layout = { ...legacy.layout, orderMode: 'staged' };
-  Object.assign(legacy.connections[0], { order: 3, alignment: true });
+    old = structuredClone(original);
+  old.layout.orderMode = 'staged';
   await page.evaluate(
-    (legacy) =>
-      localStorage.setItem(
-        'blockflow.editor.v1',
-        JSON.stringify({
-          document: legacy,
-          formDrafts: [['order-0', { value: 'bad', message: 'Old order error' }]],
-        }),
-      ),
-    legacy,
+    (d) => localStorage.setItem('blockflow.editor.v1', JSON.stringify({ document: d })),
+    old,
   );
   await page.reload();
   await ready(page);
-  expect(await documentState(page)).toEqual(original);
-  expect(
-    await page.evaluate(() => JSON.parse(localStorage.getItem('blockflow.editor.v1')).formDrafts),
-  ).toEqual([]);
+  await expect(page.locator('#diagram-name')).toHaveValue('Pipeline / Feedback');
+  await page.locator('#diagram-name').fill('Recovered current document');
+  await page.locator('#diagram-name').press('Enter');
+  await ready(page);
+  expect((await documentState(page)).layout).not.toHaveProperty('orderMode');
 });
 
 test('Convert to boundary group preserves size, appearance and links, with atomic undo and group sizing', async ({
@@ -1016,7 +1850,8 @@ test('Hide contents collapses boundary groups while list editing, JSON, history 
   const saved = JSON.parse(await readFile(await (await download).path(), 'utf8'));
   expect(saved.groups[1].collapsed).toBe(true);
   expect(saved.modules[1].label).toBe('Hidden decoder');
-  expect(saved.connections).toHaveLength(19);
+  expect(saved.connections).toHaveLength(15);
+  expect(saved.connections.reduce((n, c) => n + c.to.length, 0)).toBe(19);
   download = page.waitForEvent('download');
   await toolbarAction(page, 'export', 'Export SVG');
   const svg = await readFile(await (await download).path(), 'utf8');
@@ -1039,7 +1874,7 @@ test('Hide contents collapses boundary groups while list editing, JSON, history 
   await ready(page);
   await expect(page.locator('.block-hit')).toHaveCount(2);
   await expect(page.locator('.group-hit')).toHaveCount(1);
-  await expect(page.locator('.connection-hit')).toHaveCount(2);
+  await expect(page.locator('.connection-hit:not(.net-trunk-hit)')).toHaveCount(2);
   download = page.waitForEvent('download');
   await toolbarAction(page, 'export', 'Export PNG');
   expect((await sharp(await readFile(await (await download).path())).metadata()).width).toBeGreaterThan(0);
@@ -1082,7 +1917,7 @@ test('boundary groups edit ports, block unsafe changes, connect both faces and e
   await key.fill('data');
   await key.blur();
   await ready(page);
-  expect((await documentState(page)).connections[0].to).toBe('Outer.data');
+  expect((await documentState(page)).connections[0].to).toEqual(['Outer.data']);
   expect((await documentState(page)).connections[1].from).toBe('Outer.data');
   await page.getByRole('button', { name: 'Input data text style', exact: true }).click();
   await page.getByRole('textbox', { name: 'Text color', exact: true }).fill('#123456');
@@ -1096,14 +1931,18 @@ test('boundary groups edit ports, block unsafe changes, connect both faces and e
   await ready(page);
   await page.getByRole('tab', { name: 'Connections', exact: true }).click();
   await page.getByRole('button', { name: 'Add connection', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Source port', exact: true }).selectOption('Inner.aux');
-  await page.getByRole('combobox', { name: 'Target port', exact: true }).selectOption('Decode.aux');
+  await page.getByRole('combobox', { name: 'Main endpoint', exact: true }).selectOption('Inner.aux');
+  await page.getByRole('combobox', { name: 'Target 1', exact: true }).selectOption('Decode.aux');
   await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
   await ready(page);
-  expect((await documentState(page)).connections.at(-1)).toEqual({ from: 'Inner.aux', to: 'Decode.aux' });
+  expect((await documentState(page)).connections.at(-1)).toEqual({
+    id: 'net_16',
+    from: 'Inner.aux',
+    to: ['Decode.aux'],
+  });
   await page.getByRole('button', { name: 'Add connection', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Source port', exact: true }).selectOption('Outer.spare');
-  await page.getByRole('combobox', { name: 'Target port', exact: true }).selectOption('Inner.aux');
+  await page.getByRole('combobox', { name: 'Main endpoint', exact: true }).selectOption('Outer.spare');
+  await page.getByRole('combobox', { name: 'Target 1', exact: true }).selectOption('Inner.aux');
   await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
   await ready(page);
   await page.locator('.group-port-hit[data-module="Inner"]').first().focus();
@@ -1127,7 +1966,7 @@ test('new boundary ports toggle, reorder and retain inactive definitions with un
     version: 1,
     diagram: { name: 'Empty boundary' },
     modules: [],
-    groups: [{ id: 'G', members: [], portMode: 'boundary' }],
+    groups: [{ id: 'G', members: [], type: 'boundary' }],
   });
   await ready(page);
   await page.locator('.group-select[data-id="G"]').click();
@@ -1235,7 +2074,7 @@ test('startup and Load example demonstrate nested groups with root blocks and cr
   page,
 }) => {
   await expect(page.locator('.group-hit')).toHaveCount(4);
-  await expect(page.locator('[data-role="connection-label"]')).toHaveCount(7);
+  await expect(page.locator('[data-role="connection-label"][data-label-position="start"]')).toHaveCount(7);
   await expect(page.locator('[data-role="connection-label"]').first().locator('tspan')).toHaveCount(2);
   await expect(page.locator('.block-row[data-id="A"]')).toHaveAttribute('data-parent-group', 'pipeline');
   await expect(page.locator('.block-row[data-id="C"]')).toHaveAttribute('data-parent-group', '');
@@ -1249,8 +2088,10 @@ test('startup and Load example demonstrate nested groups with root blocks and cr
   await expect(page.locator('.group-hit')).toHaveCount(4);
   const doc = await documentState(page);
   expect(doc.groups.find((group) => group.id === 'core').members).toEqual(['pipeline', 'auxiliary']);
-  expect(doc.connections.some((edge) => edge.from === 'B.c_out' && edge.to === 'C.c_in')).toBe(true);
-  expect(doc.connections.some((edge) => edge.from === 'D.feedback' && edge.to === 'A.feedback')).toBe(true);
+  expect(doc.connections.some((edge) => edge.from === 'B.c_out' && edge.to.includes('C.c_in'))).toBe(true);
+  expect(doc.connections.some((edge) => edge.from === 'D.feedback' && edge.to.includes('A.feedback'))).toBe(
+    true,
+  );
   expect(doc.connections.at(-1).label).toBe('Feedback\nreturn path');
   await expect(page.locator('#preview-error')).toBeHidden();
   await page.getByRole('button', { name: 'Collapse all', exact: true }).click();
@@ -1383,13 +2224,13 @@ test('connection labels create, edit, style, select and export with undo', async
   await label.fill('data bus');
   await label.blur();
   await ready(page);
-  await page.locator('[data-style-kind="connection"]').click();
+  await page.locator('.connection-style-button').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Label', exact: true }).click();
   await dialog.getByRole('textbox', { name: 'Text color', exact: true }).fill('#123456');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect((await documentState(page)).connections[0].style).toBeUndefined();
-  await page.locator('[data-style-kind="connection"]').click();
+  await page.locator('.connection-style-button').click();
   await dialog.getByRole('tab', { name: 'Label', exact: true }).click();
   await dialog.getByRole('textbox', { name: 'Text color', exact: true }).fill('#123456');
   await dialog.getByRole('textbox', { name: 'Background color', exact: true }).fill('#ffffff');
@@ -1426,11 +2267,13 @@ test('labeled nested feedback remains accessible in a narrow editor', async ({ p
   );
   await importJson(page, doc);
   await ready(page);
-  await expect(page.locator('[data-role="connection-label"]')).toHaveCount(doc.connections.length);
+  await expect(page.locator('[data-role="connection-label"][data-label-position="start"]')).toHaveCount(
+    doc.connections.length,
+  );
   await expect(page.locator('#preview-error')).toBeHidden();
   await page.setViewportSize({ width: 720, height: 900 });
   await page.getByRole('tab', { name: 'Connections', exact: true }).click();
-  await page.locator('[data-style-kind="connection"]').first().click();
+  await page.locator('.connection-style-button').first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Line', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
@@ -1443,7 +2286,7 @@ test('labeled nested feedback remains accessible in a narrow editor', async ({ p
   );
   await expect(dialog).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.locator('[data-style-kind="connection"]').first()).toBeFocused();
+  await expect(page.locator('.connection-style-button').first()).toBeFocused();
   expect(
     (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze())
       .violations,
@@ -1522,8 +2365,6 @@ test('dropping JSON uses Open JSON validation, dirty confirmation, migration and
     await readFile(new URL('../examples/agent-minimal.json', import.meta.url), 'utf8'),
   );
   const legacy = structuredClone(input);
-  legacy.layout.orderMode = 'staged';
-  legacy.connections[0].order = 1;
   await page.locator('#diagram-name').fill('Keep my edits');
   await page.locator('#diagram-name').press('Enter');
   await ready(page);
@@ -1585,32 +2426,20 @@ test.beforeEach(async ({ page }) => {
   await ready(page);
 });
 
-test('legacy layout JSON migrates to once and matches library output', async ({ page }) => {
-  const input = JSON.parse(
-    await readFile(new URL('../examples/style-gallery.json', import.meta.url), 'utf8'),
-  );
-  input.layout.orderMode = 'staged';
-  input.connections[0].order = 3;
-  input.connections[0].alignment = true;
-  await importJson(page, input);
+test('Open JSON rejects retired layouts without changing the current document', async ({ page }) => {
+  await page.locator('#diagram-name').fill('Current schema');
+  await page.locator('#diagram-name').press('Enter');
   await ready(page);
-  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
-  await expect(page.locator('[data-field="connection-order"], [data-field="alignment"]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Layout settings', exact: true }).click();
-  await expect(page.getByRole('combobox', { name: 'Layout mode', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
-  const download = page.waitForEvent('download');
-  await toolbarAction(page, 'export', 'Export SVG');
-  const svg = await readFile(await (await download).path(), 'utf8');
-  const { createDiagramModel, layoutDiagram, renderSvg } = await import('../src/lib/index.js');
-  const { migrateLegacyLayout } = await import('../src/editor/state/legacy-layout.js');
-  const migrated = migrateLegacyLayout(input);
-  const expected = renderSvg(await layoutDiagram(createDiagramModel(migrated)));
-  input.layout = migrated.layout;
-  input.connections = migrated.connections;
-  expect(svg).toBe(expected);
-  expect(await documentState(page)).toEqual(input);
-  await page.screenshot({ path: 'output/editor/once-layout-flat-connections.png' });
+  const before = await documentState(page),
+    old = structuredClone(before);
+  old.layout.orderMode = 'staged';
+  await page.locator('#file-input').setInputFiles({
+    name: 'old.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(old)),
+  });
+  await expect(page.locator('#message')).toContainText('Unsupported property: orderMode');
+  expect(await documentState(page)).toEqual(before);
 });
 
 test('preview connection selection reveals its row and editor controls select the same route', async ({
@@ -1630,24 +2459,28 @@ test('preview connection selection reveals its row and editor controls select th
     'true',
   );
   const row = page.locator('.connection-row.selected');
-  await expect(row).toHaveAttribute('data-edge-key', 'D.feedback->A.feedback');
+  await expect(row).toHaveAttribute('data-edge-key', '@net:net_7');
   await expect(row).toBeInViewport();
   await expect(page.locator('.selection-outline')).toHaveCount(0);
   await expect(page.locator('.block-row.selected')).toHaveCount(0);
   await expect(page.locator('.connection-selection-outline')).toHaveAttribute(
     'd',
-    await hit.getAttribute('d'),
+    (await page.locator('.net-trunk-hit[data-edge="@net:net_7"]').getAttribute('d')) +
+      ' ' +
+      (await hit.getAttribute('d')),
   );
   expect(await documentState(page)).toEqual(before);
   expect(await world.getAttribute('transform')).toBe(transform);
   await page.screenshot({ path: 'output/editor/selected-feedback-connection.png' });
-  const source = page.getByRole('combobox', { name: 'Connection 1 source Output', exact: true });
+  const source = page.getByRole('combobox', { name: 'Connection 1 main endpoint', exact: true });
   await source.focus();
-  await expect(row).toHaveAttribute('data-edge-key', 'A.b_out->B.b_in');
+  await expect(row).toHaveAttribute('data-edge-key', '@net:net_1');
   const first = page.getByRole('button', { name: 'Select connection A.b_out to B.b_in', exact: true });
   await expect(page.locator('.connection-selection-outline')).toHaveAttribute(
     'd',
-    await first.getAttribute('d'),
+    (await page.locator('.net-trunk-hit[data-edge="@net:net_1"]').getAttribute('d')) +
+      ' ' +
+      (await first.getAttribute('d')),
   );
   await first.focus();
   await first.press('Enter');
@@ -1673,6 +2506,7 @@ test('connection selection follows endpoint edits, ordering and undo; deleted ed
         ports: [
           { id: 'out1', direction: 'output' },
           { id: 'out2', direction: 'output' },
+          { id: 'out3', direction: 'output' },
           { id: 'back', direction: 'input' },
         ],
       },
@@ -1686,23 +2520,23 @@ test('connection selection follows endpoint edits, ordering and undo; deleted ed
       { id: 'C', ports: [{ id: 'in', direction: 'input' }] },
     ],
     connections: [
-      { from: 'A.out1', to: 'B.in' },
-      { from: 'A.out2', to: 'C.in' },
-      { from: 'B.out', to: 'A.back' },
+      { from: 'A.out1', to: ['B.in'] },
+      { from: 'A.out2', to: ['C.in'] },
+      { from: 'B.out', to: ['A.back'] },
     ],
     layout: { direction: 'right' },
   });
   await ready(page);
   await page.getByRole('tab', { name: 'Connections', exact: true }).click();
-  const source = page.getByRole('combobox', { name: 'Connection 1 source Output', exact: true });
+  const source = page.getByRole('combobox', { name: 'Connection 1 main endpoint', exact: true });
   await source.focus();
-  await source.selectOption('A.out2');
+  await source.selectOption('A.out3');
   await ready(page);
-  await expect(page.locator('.connection-row.selected')).toHaveAttribute('data-edge-key', 'A.out2->B.in');
+  await expect(page.locator('.connection-row.selected')).toHaveAttribute('data-edge-key', 'A.out3->B.in');
   await expect(page.locator('.connection-selection-outline')).toHaveAttribute(
     'd',
     await page
-      .getByRole('button', { name: 'Select connection A.out2 to B.in', exact: true })
+      .getByRole('button', { name: 'Select connection A.out3 to B.in', exact: true })
       .getAttribute('d'),
   );
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -1714,10 +2548,10 @@ test('connection selection follows endpoint edits, ordering and undo; deleted ed
   await selected.locator('[data-action="drag"]').focus();
   await selected.locator('[data-action="drag"]').press('Alt+ArrowDown');
   await ready(page);
-  await expect(selected).toHaveAttribute('data-edge-key', 'A.out2->B.in');
+  await expect(selected).toHaveAttribute('data-edge-key', 'A.out3->B.in');
   await expect(selected).toHaveAttribute('data-index', '1');
   const stale = await page
-    .getByRole('button', { name: 'Select connection A.out2 to B.in', exact: true })
+    .getByRole('button', { name: 'Select connection A.out3 to B.in', exact: true })
     .elementHandle();
   await selected.locator('[data-action="delete"]').click();
   await stale.evaluate((el) =>
@@ -1730,8 +2564,8 @@ test('connection selection follows endpoint edits, ordering and undo; deleted ed
 
 test('connection highlighting preserves pan and export, and survives a hidden preview', async ({ page }) => {
   await page.getByRole('tab', { name: 'Connections', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Connection 1 source Output', exact: true }).focus();
-  const key = 'A.b_out->B.b_in';
+  await page.getByRole('combobox', { name: 'Connection 1 main endpoint', exact: true }).focus();
+  const key = '@net:net_1';
   await expect(page.locator('.connection-row.selected')).toHaveAttribute('data-edge-key', key);
   const canvas = page.locator('.preview-canvas');
   const box = await canvas.boundingBox();
@@ -1747,7 +2581,7 @@ test('connection highlighting preserves pan and export, and survives a hidden pr
   expect(svg).not.toMatch(/connection-hit|connection-selection|editorKey/);
   const view = page.locator('[data-action="cycle-view"]');
   await view.click();
-  await page.locator('.connection-row.selected [data-action="edit-style"]').click();
+  await page.locator('.connection-row.selected .connection-style-button').click();
   await page.getByRole('textbox', { name: 'Line color', exact: true }).fill('#123456');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
   await ready(page);
@@ -1761,10 +2595,7 @@ test('connection highlighting preserves pan and export, and survives a hidden pr
   await feedback.press('Enter');
   await expect(page.locator('#workspace')).toBeHidden();
   await view.click();
-  await expect(page.locator('.connection-row.selected')).toHaveAttribute(
-    'data-edge-key',
-    'D.feedback->A.feedback',
-  );
+  await expect(page.locator('.connection-row.selected')).toHaveAttribute('data-edge-key', '@net:net_7');
   await expect(page.locator('.connection-row.selected')).toBeInViewport();
   await canvas.click({ position: { x: 8, y: 8 } });
   await expect(page.locator('.connection-selection-outline')).toHaveCount(0);
@@ -1772,9 +2603,10 @@ test('connection highlighting preserves pan and export, and survives a hidden pr
   await row.focus();
   await row.press('Escape');
   await expect(page.locator('.connection-row.selected')).toHaveCount(0);
+  const unchanged = await documentState(page);
   await row.locator('[data-field="connection-from"]').selectOption('A.b_out');
-  await ready(page);
-  await expect(page.locator('.connection-row.selected')).toHaveAttribute('data-edge-key', 'A.b_out->E.e_in');
+  await expect(page.locator('#message')).toContainText('Source already belongs to another net');
+  expect(await documentState(page)).toEqual(unchanged);
   const scan = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -2073,7 +2905,11 @@ test('editable block keys update endpoints, resolve duplicates and support atomi
   expect(doc.modules[0].id).toBe('Source');
   expect(doc.modules[0].label).toBe(originalLabel);
   expect(doc.connections.some((c) => c.from.startsWith('Source.'))).toBe(true);
-  expect(doc.connections.some((c) => c.to.startsWith('A.') || c.from.startsWith('A.'))).toBe(false);
+  expect(
+    doc.connections.some(
+      (c) => c.to.some((t) => (t.endpoint ?? t).startsWith('A.')) || c.from.startsWith('A.'),
+    ),
+  ).toBe(false);
   await page.getByRole('tab', { name: 'Connections', exact: true }).click();
   await page.getByRole('button', { name: 'Add connection', exact: true }).first().click();
   await expect(page.locator('#dialog-source option[value="Source.b_out"]')).toContainText('Source.b_out');
@@ -2090,11 +2926,13 @@ test('editable block keys update endpoints, resolve duplicates and support atomi
   await ready(page);
   doc = await documentState(page);
   expect(doc.modules[1].id).toBe('Source_2');
-  expect(doc.connections.some((c) => c.to.startsWith('Source_2.'))).toBe(true);
+  expect(doc.connections.some((c) => c.to.some((t) => (t.endpoint ?? t).startsWith('Source_2.')))).toBe(true);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await ready(page);
   await expect(key).toHaveValue('B');
-  expect((await documentState(page)).connections.some((c) => c.to.startsWith('B.'))).toBe(true);
+  expect(
+    (await documentState(page)).connections.some((c) => c.to.some((t) => (t.endpoint ?? t).startsWith('B.'))),
+  ).toBe(true);
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await ready(page);
   await expect(key).toHaveValue('Source_2');
@@ -2118,8 +2956,9 @@ test('editable block keys update endpoints, resolve duplicates and support atomi
 
 test('block/port/connection CRUD, atomic undo/redo, JSON/SVG/PNG downloads', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'Add block', exact: true }).first().click();
-  await expect(page.locator('#preview-error')).toContainText('at least one');
-  await expect(page.locator('[data-action="export-svg"]')).toBeDisabled();
+  await ready(page);
+  await expect(page.locator('#preview-error')).toBeHidden();
+  await expect(page.locator('[data-action="export-svg"]')).toBeEnabled();
   await page.getByRole('textbox', { name: 'Block display name', exact: true }).fill('控制單元');
   await page.getByRole('textbox', { name: 'Block display name', exact: true }).blur();
   await page.getByRole('button', { name: 'Add input', exact: true }).click();
@@ -2136,19 +2975,26 @@ test('block/port/connection CRUD, atomic undo/redo, JSON/SVG/PNG downloads', asy
   await page.locator('#dialog-target').selectOption('block_1.in_1');
   await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
   await ready(page);
-  await expect(page.locator('#connection-count')).toHaveText('8');
+  await expect(page.locator('#connection-count')).toHaveText('7');
+  expect(
+    (await documentState(page)).connections.find((c) => c.from === 'A.b_out').to.map((t) => t.endpoint ?? t),
+  ).toContain('block_1.in_1');
   await page.getByRole('tab', { name: 'Blocks', exact: true }).click();
   await page.getByRole('textbox', { name: 'input in_1 Key (ID)', exact: true }).fill('data');
   await page.getByRole('textbox', { name: 'input in_1 Key (ID)', exact: true }).press('Enter');
   await ready(page);
-  expect((await documentState(page)).connections.some((c) => c.to === 'block_1.data')).toBe(true);
+  expect(
+    (await documentState(page)).connections.some(
+      (c) => Array.isArray(c.to) && c.to.some((t) => (t.endpoint ?? t) === 'block_1.data'),
+    ),
+  ).toBe(true);
   await page.locator('.block-row.selected [data-action="delete"]').click();
   await ready(page);
   await expect(page.locator('#connection-count')).toHaveText('7');
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await ready(page);
   await expect(page.locator('.block-hit')).toHaveCount(7);
-  await expect(page.locator('#connection-count')).toHaveText('8');
+  await expect(page.locator('#connection-count')).toHaveText('7');
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await ready(page);
   await expect(page.locator('.block-hit')).toHaveCount(6);
@@ -2262,7 +3108,7 @@ test('invalid import, field validation, stale preview and unknown width correcti
       { id: 'A', ports: [{ id: 'o', direction: 'output', width: 8 }] },
       { id: 'B', ports: [{ id: 'i', direction: 'input' }] },
     ],
-    connections: [{ from: 'A.o', to: 'B.i' }],
+    connections: [{ from: 'A.o', to: ['B.i'] }],
   };
   await importJson(page, doc);
   await ready(page);
@@ -2441,51 +3287,36 @@ test('sort menu escapes panel clipping and repeated keyboard sorting retains foc
   expect((await documentState(page)).modules[2].id).toBe('A');
 });
 
-test('legacy modes are removed before ordinary connection editing', async ({ page }) => {
-  await expect(page.getByRole('switch', { name: 'Order mode', exact: true })).toHaveCount(0);
-  for (const mode of ['all', 'staged', 'auto', undefined]) {
-    const layout = mode ? { direction: 'right', orderMode: mode } : { direction: 'right' };
-    const input = {
-      version: 1,
-      diagram: { name: 'Mode ' + (mode ?? 'omitted') },
-      modules: [
-        {
-          id: 'A',
-          ports: [
-            { id: 'data', direction: 'output' },
-            { id: 'aux', direction: 'output' },
-          ],
-        },
-        { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
-        { id: 'C', ports: [{ id: 'in', direction: 'input' }] },
-      ],
-      connections: [{ from: 'A.data', to: 'B.in', order: 3, alignment: true }],
-      layout,
-    };
-    await importJson(page, input);
-    await ready(page);
-    await page.getByRole('tab', { name: 'Connections', exact: true }).click();
-    await expect(page.locator('.main-group, .others-group')).toHaveCount(0);
-    await expect(page.locator('[data-field="connection-order"], [data-field="alignment"]')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Add connection', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Add connection', exact: true }).click();
-    await ready(page);
-    let doc = await documentState(page);
-    expect(doc.layout).toEqual({ direction: 'right' });
-    expect(doc.connections[0]).toEqual({ from: 'A.data', to: 'B.in' });
-    expect(doc.connections[1]).toEqual({ from: 'A.data', to: 'C.in' });
-    const source = page.getByRole('combobox', { name: 'Connection 2 source Output', exact: true });
-    await source.focus();
-    await source.selectOption('A.aux');
-    await ready(page);
-    doc = await documentState(page);
-    expect(doc.layout).toEqual({ direction: 'right' });
-    expect(doc.connections[1]).toEqual({ from: 'A.aux', to: 'C.in' });
-    await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    await ready(page);
-    expect((await documentState(page)).connections[1]).toEqual({ from: 'A.data', to: 'C.in' });
-    expect((await documentState(page)).layout).toEqual({ direction: 'right' });
+test('retired connection and layout formats are rejected by Open JSON', async ({ page }) => {
+  await page.locator('#diagram-name').fill('Current schema');
+  await page.locator('#diagram-name').press('Enter');
+  await ready(page);
+  const before = await documentState(page);
+  const changes = [
+    (d) => (d.layout.orderMode = 'staged'),
+    (d) => (d.connections[0].order = 2),
+    (d) => (d.connections[0].alignment = true),
+    (d) => (d.connections[0].to = d.connections[0].to[0]),
+    (d) => {
+      d.connections[0].style ??= {};
+      d.connections[0].style.label = { position: 'both' };
+    },
+    (d) => (d.layout.direction = 'left'),
+    (d) => (d.groups[0].portMode = 'boundary'),
+  ];
+  for (const change of changes) {
+    const old = structuredClone(before);
+    change(old);
+    await page.locator('#file-input').setInputFiles({
+      name: 'old.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(old)),
+    });
+    await expect(page.locator('#message')).toContainText('Cannot open file');
+    expect(await documentState(page)).toEqual(before);
   }
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Convert to Net', exact: true })).toHaveCount(0);
 });
 
 test('Split, Editor and Preview views preserve zoom and render edits made while hidden', async ({ page }) => {
@@ -2828,7 +3659,8 @@ test('feedback checkbox controls Mux cycle direction, history, persistence and J
   const zoom = await page.locator('#zoom-value').textContent();
   await checkbox.uncheck();
   await ready(page);
-  expect((await documentState(page)).connections[2]).toEqual({ from: 'Mux.c', to: 'InputA.ain' });
+  const { feedback: _feedback, ...forward } = input.connections[2];
+  expect((await documentState(page)).connections[2]).toEqual(forward);
   positions = await feedbackPositions(page);
   expect(positions.InputA).toBeGreaterThan(positions.Mux);
   await expect(checkbox).toBeFocused();
@@ -2896,11 +3728,14 @@ test('new feedback connection is a cancellable dialog draft and works on narrow 
   await dialog.getByRole('button', { name: 'Add connection', exact: true }).click();
   await ready(page);
   expect((await documentState(page)).connections[2]).toEqual({
+    id: 'net_3',
     from: 'Mux.c',
-    to: 'InputA.ain',
+    to: ['InputA.ain'],
     feedback: true,
   });
-  await expect(page.locator('.connection-row').nth(2).getByRole('checkbox')).toBeChecked();
+  await expect(
+    page.locator('.connection-row').nth(2).getByRole('checkbox', { name: 'Feedback', exact: true }),
+  ).toBeChecked();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await ready(page);
@@ -3200,12 +4035,11 @@ test('Collection group type preserves individual links, expands with history and
   await expect(
     page.locator('.preview-canvas text').filter({ hasText: 'Processing elements \u00d716' }),
   ).toHaveCount(1);
-  await page.locator('.connection-hit[data-edge="Source.out->PE_0.in"]').focus();
+  await page
+    .locator('.connection-hit:not(.net-trunk-hit)[data-edge="@net:net_1"][data-branch-index="0"]')
+    .focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('.connection-row.selected')).toHaveAttribute(
-    'data-edge-key',
-    'Source.out->PE_0.in',
-  );
+  await expect(page.locator('.connection-row.selected')).toHaveAttribute('data-edge-key', '@net:net_1');
   await page.getByRole('tab', { name: 'Blocks', exact: true }).click();
   await page.locator('.group-select[data-id="PEs"]').click();
   const hide = page.getByRole('checkbox', { name: 'Hide contents', exact: true });

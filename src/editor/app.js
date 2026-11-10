@@ -1,6 +1,15 @@
+import { renderNetRow, renderNetDialog } from './components/net-controls.js';
+import { targetEntries, targetEndpoint, targetEndpoints } from '../lib/nets.js';
 import { validViewRoot, viewScopeOptions } from './state/view-scope.js';
 import { groupType } from '../lib/group-type.js';
-import { migrateLegacyLayout } from './state/legacy-layout.js';
+import {
+  renderLayoutPanel,
+  newGridDraft,
+  resizeGridDraft,
+  layoutMembers,
+  portAdjustmentFields,
+} from './components/layout-panel.js';
+import { reconcileGrids } from '../lib/grid.js';
 import { normalizeDisplayText } from '../lib/model.js';
 import { setDirection } from '../lib/direction.js';
 import { endpointKey, endpointFromKey, endpointLabel } from '../lib/endpoints.js';
@@ -36,6 +45,7 @@ import {
   endpoints,
   targetReason,
   connectionKey,
+  findSourceNet,
 } from './state/commands.js';
 import { LayoutService } from './services/layout.js';
 import { Preview } from './components/preview.js';
@@ -45,6 +55,7 @@ import {
   renderStyleDialog,
   readStyleDialog,
   readAppearanceDialog,
+  readSizeDialog,
   updateAppearanceFields,
   selectStyleTab,
   styleErrorField,
@@ -92,12 +103,9 @@ class Editor {
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
       if (stored?.document && Array.isArray(stored.document.modules)) {
-        stored.document = migrateLegacyLayout(stored.document);
         // Restore unfinished zero-port blocks, but reject malformed schema/identifiers.
         const check = structuredClone(stored.document);
-        check.modules.forEach((module) => {
-          if (module.ports?.length === 0) module.ports.push({ id: '_draft', direction: 'input' });
-        });
+
         try {
           validateDocument(check);
         } catch (error) {
@@ -116,8 +124,6 @@ class Editor {
                 (item) =>
                   Array.isArray(item) &&
                   typeof item[0] === 'string' &&
-                  !/^(?:order|alignment|connection-order|connection-alignment)-\d+$/.test(item[0]) &&
-                  !['order-mode', 'layout-order-mode'].includes(item[0]) &&
                   typeof item[1]?.value === 'string' &&
                   typeof item[1]?.message === 'string',
               )
@@ -170,7 +176,7 @@ class Editor {
       (zoom) => {
         root.querySelector('#zoom-value').textContent = `${zoom}%`;
       },
-      (key) => this.selectConnection(key, true),
+      (key, branchIndex) => this.selectConnection(key, true, branchIndex),
       {
         onStyle: (target) => this.openPreviewStyle(target),
         onToggleGroup: (id) => this.togglePreviewGroup(id),
@@ -190,8 +196,18 @@ class Editor {
   get document() {
     return this.history.present;
   }
+  get gridDirty() {
+    const meaningful = (d) => (d.type === 'auto' ? { scope: d.scope, type: 'auto' } : d);
+    return [...(this.gridDrafts?.values() ?? []), this.gridDraft]
+      .filter(Boolean)
+      .some(
+        (d) =>
+          (!d.scope || this.document.groups?.some((g) => g.id === d.scope)) &&
+          json(meaningful(d)) !== json(meaningful(newGridDraft(this.document, d.scope))),
+      );
+  }
   get dirty() {
-    return this.formDrafts.size > 0 || json(this.document) !== this.saved;
+    return this.gridDirty || this.formDrafts.size > 0 || json(this.document) !== this.saved;
   }
 
   shell() {
@@ -225,12 +241,13 @@ class Editor {
           <div class="editor-tabs" role="tablist" aria-label="Diagram settings">
             <button type="button" id="blocks-tab" role="tab" aria-controls="blocks-settings" aria-selected="true" tabindex="0" data-action="editor-tab" data-editor-tab="blocks">Blocks</button>
             <button type="button" id="connections-tab" role="tab" aria-controls="connections-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="connections">Connections</button>
-          </div>
+          <button type="button" id="layout-tab" role="tab" aria-controls="layout-settings" aria-selected="false" tabindex="-1" data-action="editor-tab" data-editor-tab="layout">Layout</button></div>
           <div id="blocks-settings" class="blocks-settings" style="--block-list-width:${this.blockListWidth}px;--editor-list-width:${this.editorListWidth}px" role="tabpanel" aria-labelledby="blocks-tab">
           <section class="panel block-panel" aria-labelledby="blocks-heading"><header class="panel-header"><h2 id="blocks-heading">Blocks </h2><span id="block-count" class="count"></span></header><div class="group-list-tools"><label class="group-search"><span class="sr-only">Search blocks and groups</span><input type="search" data-field="group-search" data-focus-key="group-search" aria-label="Search blocks and groups" placeholder="Find block or group"/></label>${button('collapse-all', 'Collapse all', { glyph: 'minus', iconOnly: true })}${button('expand-all', 'Expand all', { glyph: 'plus', iconOnly: true })}</div><div id="block-list" class="panel-scroll block-list" data-scroll="blocks" role="group" aria-label="Block list" tabindex="0"></div><footer class="panel-footer">${button('add-block', 'Add block', { glyph: 'plus', className: 'add-button' })}${button('add-concat', 'Add Concat', { glyph: 'plus', className: 'add-button' })}${button('add-group', 'Add group', { glyph: 'plus', className: 'add-button' })}</footer></section>
           <div id="block-list-splitter" class="splitter block-list-splitter" role="separator" tabindex="0" aria-label="Resize block list" aria-orientation="vertical" aria-valuemin="200" aria-valuemax="560" aria-valuenow="${this.blockListWidth}"><span></span></div><section class="panel detail-panel" aria-labelledby="detail-heading"><header class="panel-header"><h2 id="detail-heading">Block details </h2><div class="panel-header-tools"><span id="selected-id" class="code-tag"></span>${button('block-help', '[?]', { className: 'help-button', ariaLabel: 'Block editing help' })}</div></header><div id="block-detail" class="panel-scroll" data-scroll="detail"></div></section>
           </div>
           <div id="connections-settings" class="connections-settings" role="tabpanel" aria-labelledby="connections-tab" hidden><section class="panel connections-panel" aria-labelledby="connections-heading"><header class="panel-header"><h2 id="connections-heading">Connections </h2><span id="connection-count" class="count"></span></header><div id="connection-list" class="panel-scroll connection-list" data-scroll="connections"></div><footer class="panel-footer">${button('add-terminal', 'Add terminal', { className: 'add-button' })}${button('add-connection', 'Add connection', { glyph: 'plus', className: 'add-button' })}</footer></section></div>
+          <div id="layout-settings" class="connections-settings" role="tabpanel" aria-labelledby="layout-tab" hidden></div>
         </form>
         <div id="splitter" class="splitter" role="separator" tabindex="0" aria-label="Resize editor area" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow="50" aria-valuetext="50% settings"><span></span></div>
         <section class="preview-panel" aria-labelledby="preview-heading"><header class="preview-header"><div class="preview-title"><span class="preview-glyph">${icon('grid')}</span><h2 id="preview-heading">Preview </h2><label class="preview-view-control"><span>View</span><select id="view-scope" data-field="view-scope" aria-label="View target"><option value="">Top</option></select></label><label class="preview-view-control"><span>Flow</span><select id="flow-direction" data-field="flow-direction" aria-label="Flow direction"><option value="right">Left to right</option><option value="down">Top to bottom</option></select></label><span id="layout-state" class="layout-status" role="status" aria-live="polite">Preparing layout</span></div><div class="preview-tools">${button('preview-style', 'Style', { className: 'quiet', ariaLabel: 'Preview style', disabled: true })}<details class="command-menu" id="preview-actions-menu"><summary class="button icon-button" aria-label="Preview actions" title="Preview actions">${icon('more')}</summary><div class="command-popover">${previewActions()
@@ -285,6 +302,7 @@ class Editor {
       this.groupSearch,
     );
     this.renderBlockDetail();
+    this.renderGridPanel();
     this.root.querySelector('#connection-list').innerHTML = this.connections();
     this.root.querySelectorAll('details[data-keep]').forEach((el) => {
       if (opens.has(el.dataset.keep)) el.open = opens.get(el.dataset.keep);
@@ -351,10 +369,24 @@ class Editor {
       : '<div class="detail-empty">Select a block to edit its name and ports.</div>';
   }
 
+  renderGridPanel() {
+    if (
+      !this.gridDraft ||
+      (this.gridDraft.scope && !this.document.groups?.some((g) => g.id === this.gridDraft.scope))
+    )
+      this.gridDraft = newGridDraft(this.document, '');
+    const host = this.root.querySelector('#layout-settings'),
+      top = host.querySelector('[data-scroll="layout"]')?.scrollTop ?? 0,
+      left = host.querySelector('.grid-table-scroll')?.scrollLeft ?? 0;
+    host.innerHTML = renderLayoutPanel(this.document, this.gridDraft);
+    host.querySelector('[data-scroll="layout"]').scrollTop = top;
+    if (host.querySelector('.grid-table-scroll')) host.querySelector('.grid-table-scroll').scrollLeft = left;
+  }
+
   portColumns(module) {
     const ports = (direction) => {
       const list = (module.ports ?? []).filter((p) => p.direction === direction);
-      return `<section class="port-column ${direction}"><header><span class="port-dot"></span><h3>${direction === 'input' ? 'Input' : 'Output'}</h3><span class="count">${list.length}</span></header><div class="port-items">${
+      return `<section class="port-column ${direction}"><header><span class="port-dot"></span><h3>${direction === 'input' ? 'Input' : direction === 'inout' ? 'Bidirectional' : 'Output'}</h3><span class="count">${list.length}</span></header><div class="port-items">${
         list.length
           ? list
               .map(
@@ -364,15 +396,15 @@ class Editor {
                 ) => `<div class="port-row" data-drop-kind="port" data-direction="${direction}" data-index="${i}">
         <div class="port-fields">${field('Key (ID)', input(port.id, `data-field="port-name" data-port="${e(port.id)}" data-focus-key="port-${e(module.id)}-${e(port.id)}" aria-label="${e(direction)} ${e(port.id)} Key (ID)" spellcheck="false"`))}
         ${field('Width', input(port.width ?? '', `data-field="port-width" data-port="${e(port.id)}" data-focus-key="width-${e(module.id)}-${e(port.id)}" aria-label="${e(port.id)} Width" min="1" step="1" placeholder="Unspecified"`, 'number'))}
-        <div class="port-display-name">${field('Display name', textarea(port.label ?? port.id, `data-field="port-label" data-port="${e(port.id)}" data-focus-key="port-label-${e(module.id)}-${e(port.id)}" aria-label="${e(direction)} ${e(port.id)} Display name"`))}</div></div>
-        <div class="port-row-tools">${button('edit-style', 'Style', { className: 'text-button', ariaLabel: `${direction === 'input' ? 'Input' : 'Output'} ${port.id} text style`, attrs: `data-style-kind="port" data-module="${e(module.id)}" data-port="${e(port.id)}"` })}${sortActions('port', i, list.length, `data-direction="${direction}"`)}</div>
+        <div class="port-display-name">${field('Side', select([{ value: '', label: 'Follow Flow' }, ...['left', 'right', 'top', 'bottom'].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }))], port.side ?? '', `data-field="port-side" data-port="${e(port.id)}" aria-label="${e(port.id)} Side"`))}${field('Display name', textarea(port.label ?? port.id, `data-field="port-label" data-port="${e(port.id)}" data-focus-key="port-label-${e(module.id)}-${e(port.id)}" aria-label="${e(direction)} ${e(port.id)} Display name"`))}</div></div>
+        <div class="port-row-tools">${button('edit-style', 'Style', { className: 'text-button', ariaLabel: `${direction === 'input' ? 'Input' : direction === 'inout' ? 'Bidirectional' : 'Output'} ${port.id} text style`, attrs: `data-style-kind="port" data-module="${e(module.id)}" data-port="${e(port.id)}"` })}${sortActions('port', i, list.length, `data-direction="${direction}"`)}</div>
       </div>`,
               )
               .join('')
           : '<p class="port-empty">No ports yet</p>'
-      }</div><footer>${button('add-port', direction === 'input' ? 'Add input' : 'Add output', { glyph: 'plus', className: 'add-button', disabled: module.type === 'concat' && direction === 'output', attrs: `data-direction="${direction}"` })}</footer></section>`;
+      }</div><footer>${button('add-port', direction === 'input' ? 'Add input' : direction === 'inout' ? 'Add bidirectional port' : 'Add output', { glyph: 'plus', className: 'add-button', disabled: module.type === 'concat' && direction === 'output', attrs: `data-direction="${direction}"` })}</footer></section>`;
     };
-    return `<div class="port-columns">${ports('input')}${ports('output')}</div>`;
+    return `<div class="port-columns">${ports('input')}${ports('output')}${module.ports?.some((p) => p.direction === 'inout') ? ports('inout') : ''}</div>${module.type !== 'concat' && !module.ports?.some((p) => p.direction === 'inout') ? button('add-port', 'Add bidirectional port', { className: 'add-button', attrs: 'data-direction="inout"' }) : ''}`;
   }
 
   sizeFields(owner, kind = 'Block') {
@@ -410,25 +442,7 @@ class Editor {
   }
 
   connectionRow(connection, index, position, count) {
-    const sources = endpoints(this.document, 'output').map((p) => ({
-      value: p.ref,
-      label: p.ref.startsWith('@terminal:') ? p.label : p.ref,
-    }));
-    const targets = endpoints(this.document, 'input').map((p) => {
-      const reason = targetReason(this.document, connection.from, p.ref, index);
-      return {
-        value: p.ref,
-        label: `${p.ref.startsWith('@terminal:') ? p.label : p.ref}${reason ? `（${reason}）` : ''}`,
-        disabled: !!reason,
-      };
-    });
-    return `<div class="connection-row" data-drop-kind="connection" data-index="${index}" data-edge-key="${e(connectionKey(connection))}" role="group" aria-label="Connection ${e(endpointLabel(connection.from))} to ${e(endpointLabel(connection.to))}" tabindex="0">
-      <div class="connection-endpoints"><label><span class="sr-only">Connection ${index + 1} source ${this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'port' : 'Output'}</span>${select(sources, endpointKey(connection.from), `data-field="connection-from" data-index="${index}" data-focus-key="from-${index}"`)}</label><span class="edge-arrow">${icon('arrow')}</span><label><span class="sr-only">Connection ${index + 1} target ${this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'port' : 'Input'}</span>${select(targets, endpointKey(connection.to), `data-field="connection-to" data-index="${index}" data-focus-key="to-${index}"`)}</label></div>
-      ${field('Label', textarea(connection.label ?? '', `data-field="connection-label" data-index="${index}" data-focus-key="connection-label-${index}" aria-label="Connection ${index + 1} label" placeholder="Optional"`))}
-      <div class="connection-row-bottom">
-      ${sortActions('connection', position, count, `data-connection="${index}"`)}${feedbackControl(connection.feedback, `data-field="connection-feedback" data-index="${index}" data-focus-key="feedback-${index}"`)}</div>
-      ${button('edit-style', 'Style', { className: 'text-button connection-style-button', ariaLabel: `Connection style: ${endpointLabel(connection.from)} to ${endpointLabel(connection.to)}`, attrs: `data-style-kind="connection" data-connection="${index}"` })}
-    </div>`;
+    return renderNetRow(this.document, connection, index, position, count);
   }
 
   announce(message, error = false) {
@@ -467,26 +481,37 @@ class Editor {
   updateControls() {
     this.root
       .querySelectorAll('[data-action="undo"]')
-      .forEach((el) => (el.disabled = !this.history.past.length && !this.formDrafts.size));
+      .forEach((el) => (el.disabled = !this.history.past.length && !this.formDrafts.size && !this.gridDirty));
     this.root
       .querySelectorAll('[data-action="redo"]')
-      .forEach((el) => (el.disabled = !this.history.future.length || this.formDrafts.size > 0));
+      .forEach(
+        (el) => (el.disabled = !this.history.future.length || this.formDrafts.size > 0 || this.gridDirty),
+      );
     this.root
       .querySelectorAll('[data-action^="export-"]')
       .forEach(
         (el) =>
           (el.disabled =
-            !this.valid || this.pending || this.exporting || !this.currentSvg || this.formDrafts.size > 0),
+            !this.valid ||
+            this.pending ||
+            this.exporting ||
+            !this.currentSvg ||
+            this.formDrafts.size > 0 ||
+            this.gridDirty),
       );
     this.root.querySelector('[data-action="save"]').disabled =
-      this.formDrafts.size > 0 || (!this.documentValid && this.document.modules.length !== 0);
+      this.gridDirty ||
+      this.formDrafts.size > 0 ||
+      (!this.documentValid && this.document.modules.length !== 0);
     this.updatePreviewActions();
     const state = this.root.querySelector('#save-state');
     state.title = this.storageError
       ? 'Draft storage unavailable. Download JSON.'
-      : this.dirty
-        ? 'Unsaved changes. Draft stored locally; download JSON to keep a file copy.'
-        : 'Document saved';
+      : this.gridDirty
+        ? 'Unapplied layout edits. Apply layout or reset the draft before leaving.'
+        : this.dirty
+          ? 'Unsaved changes. Draft stored locally; download JSON to keep a file copy.'
+          : 'Document saved';
     state.setAttribute('aria-label', state.title);
     state.classList.toggle('unsaved', this.dirty);
     state.classList.toggle('storage-error', Boolean(this.storageError));
@@ -504,6 +529,8 @@ class Editor {
 
   commit(change, message = 'Diagram updated.') {
     const previousConnection = this.selectedConnection;
+    const refreshGrid = !this.gridDirty,
+      gridScope = this.gridDraft?.scope ?? '';
     try {
       if (
         !this.history.update((doc) => {
@@ -511,6 +538,7 @@ class Editor {
             (connection) => connectionKey(connection) === previousConnection,
           );
           change(doc);
+          reconcileGrids(doc);
           this.selectedConnection =
             this.selected === null && selected && doc.connections.includes(selected)
               ? connectionKey(selected)
@@ -524,6 +552,13 @@ class Editor {
     } catch (error) {
       this.selectedConnection = previousConnection;
       throw error;
+    }
+    if (refreshGrid) {
+      this.gridDrafts?.clear();
+      this.gridDraft = newGridDraft(
+        this.document,
+        !gridScope || this.document.groups?.some((g) => g.id === gridScope) ? gridScope : '',
+      );
     }
     this.afterEdit(message);
   }
@@ -578,9 +613,6 @@ class Editor {
   }
 
   explain(error) {
-    const empty = this.document.modules.find((m) => !m.ports.length);
-    if (empty)
-      return `"${empty.label ?? empty.id}" needs at least one input or output port. Preview updates when it is ready.`;
     const messages = [
       [/width mismatch/, 'Explicit port widths do not match. Change a width or leave one side unspecified.'],
       [/already has a driver/, 'An input can have only one driver. Choose another target.'],
@@ -693,7 +725,7 @@ class Editor {
     if (announce) this.announce('Selection cleared.');
   }
 
-  selectConnection(key, reveal = false) {
+  selectConnection(key, reveal = false, branchIndex) {
     if (
       this.dialog.open ||
       !this.document.connections?.some((connection) => connectionKey(connection) === key)
@@ -710,6 +742,12 @@ class Editor {
     if (reveal) {
       this.setEditorTab('connections');
       this.revealSelectedConnection();
+      for (const row of this.root.querySelectorAll('.connection-row'))
+        for (const branch of row.querySelectorAll('.net-target')) {
+          const active = row.dataset.edgeKey === key && Number(branch.dataset.branchIndex) === branchIndex;
+          branch.classList.toggle('selected-branch', active);
+          if (active) branch.scrollIntoView({ block: 'nearest' });
+        }
     }
   }
 
@@ -722,6 +760,8 @@ class Editor {
     for (const row of this.root.querySelectorAll('.connection-row')) {
       const selected = row.dataset.edgeKey === this.selectedConnection;
       row.classList.toggle('selected', selected);
+      if (!selected)
+        row.querySelectorAll('.selected-branch').forEach((n) => n.classList.remove('selected-branch'));
       if (selected) row.setAttribute('aria-current', 'true');
       else row.removeAttribute('aria-current');
     }
@@ -783,7 +823,7 @@ class Editor {
   }
 
   setEditorTab(tab, focus = false) {
-    if (!['blocks', 'connections'].includes(tab)) return;
+    if (!['blocks', 'connections', 'layout'].includes(tab)) return;
     this.rememberPanelScrolls();
     this.activeEditorTab = tab;
     for (const button of this.root.querySelectorAll('[data-editor-tab]')) {
@@ -792,7 +832,7 @@ class Editor {
       button.tabIndex = selected ? 0 : -1;
       if (selected && focus) button.focus({ preventScroll: true });
     }
-    for (const name of ['blocks', 'connections'])
+    for (const name of ['blocks', 'connections', 'layout'])
       this.root.querySelector(`#${name}-settings`).hidden = name !== tab;
     this.restorePanelScrolls();
     try {
@@ -806,14 +846,13 @@ class Editor {
     this.root.querySelector('.editor-tabs').addEventListener('keydown', (event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
+      const tabs = ['blocks', 'connections', 'layout'];
       const tab =
         event.key === 'Home'
           ? 'blocks'
           : event.key === 'End'
-            ? 'connections'
-            : this.activeEditorTab === 'connections'
-              ? 'blocks'
-              : 'connections';
+            ? 'layout'
+            : tabs[(tabs.indexOf(this.activeEditorTab) + (event.key === 'ArrowLeft' ? 2 : 1)) % 3];
       this.setEditorTab(tab, true);
     });
     let savedTab;
@@ -822,7 +861,7 @@ class Editor {
     } catch {
       /* Optional preference. */
     }
-    this.setEditorTab(savedTab === 'connections' ? 'connections' : 'blocks');
+    this.setEditorTab(['connections', 'layout'].includes(savedTab) ? savedTab : 'blocks');
     bindDisclosureMenus(this.root);
     this.root.addEventListener('focusin', (event) => {
       const row = event.target.closest('.connection-row');
@@ -1061,6 +1100,69 @@ class Editor {
       }, 'Diagram defaults updated.');
       return;
     }
+    if (field === 'grid-scope') {
+      this.gridDrafts ??= new Map();
+      this.gridDrafts.set(this.gridDraft.scope, this.gridDraft);
+      this.gridDraft = this.gridDrafts.get(el.value) ?? newGridDraft(this.document, el.value);
+      this.renderGridPanel();
+      return;
+    }
+    if (field === 'grid-type') {
+      this.gridDraft.type = el.value;
+      this.renderGridPanel();
+      this.updateControls();
+      this.root.querySelector('[data-field="grid-type"]')?.focus();
+      return;
+    }
+    if (field === 'grid-expand') {
+      const expanded = new Set(this.gridDraft.expandGroups ?? []);
+      if (el.checked) expanded.add(el.dataset.group);
+      else expanded.delete(el.dataset.group);
+      if (expanded.size) this.gridDraft.expandGroups = [...expanded];
+      else delete this.gridDraft.expandGroups;
+      const allowed = new Set(layoutMembers(this.document, this.gridDraft.scope, [...expanded]));
+      this.gridDraft.cells = this.gridDraft.cells.map((row) =>
+        row.map((id) => (allowed.has(id) ? id : null)),
+      );
+      this.renderGridPanel();
+      this.root
+        .querySelector(`[data-field="grid-expand"][data-group="${CSS.escape(el.dataset.group)}"]`)
+        ?.focus();
+      this.updateControls();
+      return;
+    }
+    if (field === 'grid-cell') {
+      if (el.value)
+        this.gridDraft.cells = this.gridDraft.cells.map((row) =>
+          row.map((id) => (id === el.value ? null : id)),
+        );
+      this.gridDraft.cells[Number(el.dataset.row)][Number(el.dataset.column)] = el.value || null;
+      const selector = `[data-field="grid-cell"][data-row="${el.dataset.row}"][data-column="${el.dataset.column}"]`;
+      this.renderGridPanel();
+      this.root.querySelector(selector)?.focus({ preventScroll: true });
+      this.updateControls();
+      return;
+    }
+    if (field === 'grid-size') {
+      const rows = this.root.querySelector('[data-field="grid-size"][data-property="rows"]').value,
+        columns = this.root.querySelector('[data-field="grid-size"][data-property="columns"]').value;
+      try {
+        resizeGridDraft(this.gridDraft, Number(rows), Number(columns));
+        this.renderGridPanel();
+        this.root.querySelector(`[data-field="grid-size"][data-property="${el.dataset.property}"]`)?.focus();
+        this.updateControls();
+      } catch (error) {
+        this.gridDraft.sizeError = { rows, columns };
+        setFieldError(el, error.message);
+        this.updateControls();
+      }
+      return;
+    }
+    if (field === 'grid-gap') {
+      this.gridDraft[el.dataset.property] = el.value === '' ? NaN : Number(el.value);
+      this.updateControls();
+      return;
+    }
     if (field === 'module-key') {
       const previous = this.selected;
       let result;
@@ -1153,15 +1255,32 @@ class Editor {
       return;
     }
     if (field.startsWith('dialog-')) {
+      if (field === 'dialog-mode') {
+        const draft = this.readConnectionDraft();
+        draft.mode = el.value;
+        if (el.value === 'concat') delete draft.direction;
+        this.connectionDialog(draft);
+        this.dialog.querySelector('#dialog-mode').focus();
+        return;
+      }
       this.updateConnectionDialog();
       return;
     }
     if (field === 'setting') {
+      if (el.type === 'number' && el.validity.badInput) throw new Error('Enter a valid number.');
       this.commit((doc) => {
         doc.layout ??= {};
         doc.layout[el.dataset.property] = el.type === 'number' ? Number(el.value) : el.value;
         validateDocument(doc);
+        if (el.dataset.property === 'portAdjustment') this.formDrafts.delete('page-port-adjustment');
+        if (el.dataset.property === 'maxPortShift') this.formDrafts.delete('page-port-shift');
       }, 'Layout settings updated.');
+      for (const control of this.dialog.querySelectorAll('[data-field="setting"]'))
+        if (['portAdjustment', 'maxPortShift'].includes(control.dataset.property))
+          control.value = String(
+            this.document.layout?.[control.dataset.property] ??
+              (control.dataset.property === 'portAdjustment' ? 'reduce-bends' : 40),
+          );
       return;
     }
     this.commit((doc) => {
@@ -1192,6 +1311,15 @@ class Editor {
           module[property] = value;
         }
       }
+      if (field === 'port-side') {
+        const port = module.ports.find((p) => p.id === el.dataset.port);
+        if (el.value) port.side = el.value;
+        else delete port.side;
+      }
+      if (field === 'diagram-caption') {
+        if (el.value.trim()) doc.diagram.caption = normalizeDisplayText(el.value);
+        else delete doc.diagram.caption;
+      }
       if (field === 'port-width') {
         const port = module.ports.find((p) => p.id === el.dataset.port);
         if (el.value === '') delete port.width;
@@ -1206,16 +1334,87 @@ class Editor {
         if (el.value.trim()) connection.label = normalizeDisplayText(el.value);
         else delete connection.label;
       }
-      if (field === 'connection-from') connection.from = endpointFromKey(el.value);
-      if (field === 'connection-to') connection.to = endpointFromKey(el.value);
+      if (field === 'connection-id') {
+        if (el.value.trim()) connection.id = el.value.trim();
+        else delete connection.id;
+        validateDocument(doc);
+      }
+      if (field === 'net-bidirectional') {
+        if (el.checked) connection.direction = 'both';
+        else delete connection.direction;
+        validateDocument(doc);
+      }
+      if (field === 'net-target-constraint') {
+        const j = Number(el.dataset.targetIndex),
+          entry = connection.to[j];
+        connection.to[j] = { ...(entry?.endpoint ? entry : { endpoint: entry }), constraint: el.checked };
+        validateDocument(doc);
+      }
+      if (field === 'connection-from') {
+        connection.from = endpointFromKey(el.value);
+        validateDocument(doc);
+      }
+      if (field === 'connection-to') {
+        const j = Number(el.dataset.targetIndex),
+          entry = connection.to[j];
+        connection.to[j] = entry?.endpoint
+          ? { ...entry, endpoint: endpointFromKey(el.value) }
+          : endpointFromKey(el.value);
+        validateDocument(doc);
+      }
+      if (field === 'net-target-feedback') {
+        const j = Number(el.dataset.targetIndex),
+          entry = connection.to[j];
+        connection.to[j] = { ...(entry?.endpoint ? entry : { endpoint: entry }), feedback: el.checked };
+        validateDocument(doc);
+      }
       if (field === 'connection-feedback') {
         if (el.checked) connection.feedback = true;
         else delete connection.feedback;
+        for (const entry of connection.to) if (entry?.endpoint) delete entry.feedback;
       }
     });
   }
 
   action(action, target) {
+    if (
+      ['dialog-add-source', 'dialog-add-target', 'dialog-remove-source', 'dialog-remove-target'].includes(
+        action,
+      )
+    ) {
+      const draft = this.readConnectionDraft();
+      if (action === 'dialog-remove-source') draft.sources.splice(Number(target.dataset.index), 1);
+      else if (action === 'dialog-remove-target') draft.targets.splice(Number(target.dataset.index), 1);
+      else if (action === 'dialog-add-source')
+        draft.sources.push(
+          endpoints(this.document, 'output').find((p) => !draft.sources.includes(p.ref))?.ref ?? '',
+        );
+      else draft.targets.push('');
+      this.connectionDialog(draft);
+      const controls = this.dialog.querySelectorAll(
+        action.includes('source') ? '[data-net-source]' : '[data-net-target]',
+      );
+      controls[action.includes('remove') ? 0 : controls.length - 1]?.focus();
+      return;
+    }
+    if (action === 'add-net-target' || action === 'remove-net-target') {
+      this.commit((doc) => {
+        const i = Number(target.dataset.index),
+          net = doc.connections[i];
+        if (action === 'remove-net-target') net.to.splice(Number(target.dataset.targetIndex), 1);
+        else {
+          const used = new Set(targetEndpoints(net).map(endpointKey));
+          const next = endpoints(doc, 'input').find(
+            (p) => !used.has(p.ref) && !targetReason(doc, net.from, p.ref, i, net.direction),
+          );
+          if (!next) throw new Error('No compatible target is available. Add a receiving port first.');
+          net.to.push(endpointFromKey(next.ref));
+        }
+        validateDocument(doc);
+      }, 'Net targets updated.');
+      return;
+    }
+
     if (action === 'add-terminal') return this.terminalDialog();
     if (action === 'connection-terminal')
       return this.terminalDialog(null, target.dataset.direction, this.readConnectionDraft());
@@ -1332,6 +1531,81 @@ class Editor {
     if (action === 'confirm-label') return this.confirmPreviewLabel();
     if (action === 'style-tab') return selectStyleTab(this.dialog, target.dataset.styleSection);
     if (action === 'confirm-style') return this.confirmStyle();
+    if (action.startsWith('grid-')) {
+      const d = this.gridDraft;
+      if (action === 'grid-add-row' || action === 'grid-add-column') {
+        try {
+          resizeGridDraft(
+            d,
+            d.cells.length + (action === 'grid-add-row' ? 1 : 0),
+            d.cells[0].length + (action === 'grid-add-column' ? 1 : 0),
+          );
+        } catch (error) {
+          this.root.querySelector('#grid-error').textContent = error.message;
+          return;
+        }
+      }
+      if (action === 'grid-remove-row') d.cells.splice(Number(target.dataset.row), 1);
+      if (action === 'grid-remove-column') d.cells.forEach((row) => row.pop());
+      if (action === 'grid-cancel') {
+        this.gridDrafts?.delete(d.scope);
+        this.gridDraft = newGridDraft(this.document, d.scope);
+      }
+      if (action === 'grid-apply') {
+        if (d.type === 'grid' && d.sizeError) {
+          this.root.querySelector('#grid-error').textContent =
+            'Correct Rows and Columns before applying the layout.';
+          this.root.querySelector('[data-field="grid-size"]')?.focus();
+          return;
+        }
+        try {
+          this.commit((doc) => {
+            const owner = d.scope ? doc.groups.find((g) => g.id === d.scope) : doc;
+            const config =
+              d.type === 'grid'
+                ? {
+                    type: 'grid',
+                    cells: structuredClone(d.cells),
+                    rowGap: d.rowGap,
+                    columnGap: d.columnGap,
+                    ...(d.expandGroups?.length ? { expandGroups: [...d.expandGroups] } : {}),
+                  }
+                : { type: 'auto' };
+            if (d.scope) owner.layout = config;
+            else {
+              doc.layout ??= {};
+              for (const k of ['type', 'cells', 'rowGap', 'columnGap', 'expandGroups']) delete doc.layout[k];
+              Object.assign(doc.layout, config);
+            }
+            validateDocument(doc);
+          }, 'Layout applied.');
+        } catch (error) {
+          this.root.querySelector('#grid-error').textContent = error.message;
+          const match = error.path?.match(/cells\[(\d+)\]\[(\d+)\]/);
+          const gap = error.path?.match(/\.(rowGap|columnGap)$/);
+          const expansion = error.path?.match(/expandGroups\[(\d+)\]$/);
+          const field = expansion
+            ? this.root.querySelector(
+                `[data-field="grid-expand"][data-group="${CSS.escape(d.expandGroups[Number(expansion[1])])}"]`,
+              )
+            : gap
+              ? this.root.querySelector(`[data-field="grid-gap"][data-property="${gap[1]}"]`)
+              : match
+                ? this.root.querySelector(
+                    `[data-field="grid-cell"][data-row="${match[1]}"][data-column="${match[2]}"]`,
+                  )
+                : this.root.querySelector('[data-field="grid-cell"]');
+          field?.setAttribute('aria-invalid', 'true');
+          field?.setAttribute('aria-describedby', 'grid-error');
+          field?.focus();
+          return;
+        }
+      }
+      this.renderGridPanel();
+      this.updateControls();
+      this.root.querySelector(`[data-action="${action}"]`)?.focus();
+      return;
+    }
     if (action === 'select-block') return this.selectModule(target.dataset.id);
     if (action === 'cycle-view') {
       this.viewMode = VIEWS[(VIEWS.indexOf(this.viewMode) + 1) % VIEWS.length];
@@ -1346,9 +1620,7 @@ class Editor {
           if (parent) placeBlock(doc, this.selected, parent);
           this.selectedGroup = null;
         },
-        action === 'add-concat'
-          ? 'Concat added. Inputs are combined in list order.'
-          : 'Block added. Add at least one port.',
+        action === 'add-concat' ? 'Concat added. Inputs are combined in list order.' : 'Block added.',
       );
       return this.root.querySelector('[data-field="module-label"]')?.focus();
     }
@@ -1363,6 +1635,14 @@ class Editor {
     if (action === 'move-up' || action === 'move-down')
       return this.move(target, action === 'move-up' ? -1 : 1);
     if (action === 'undo' || action === 'redo') {
+      if (action === 'undo' && this.gridDirty) {
+        this.gridDrafts?.clear();
+        this.gridDraft = newGridDraft(this.document, this.gridDraft?.scope ?? '');
+        this.renderGridPanel();
+        this.updateControls();
+        this.announce('Unapplied layout edits discarded.');
+        return;
+      }
       if (action === 'undo' && this.formDrafts.size) {
         this.formDrafts.clear();
         this.afterEdit('Unapplied field edits discarded.');
@@ -1411,6 +1691,13 @@ class Editor {
             this.preview.renameBlock(previousModule.id, nextModule.id);
           this.selected = nextModule?.id ?? null;
         }
+        this.gridDrafts?.clear();
+        this.gridDraft = newGridDraft(
+          this.document,
+          this.gridDraft?.scope && this.document.groups?.some((g) => g.id === this.gridDraft.scope)
+            ? this.gridDraft.scope
+            : '',
+        );
         this.afterEdit(action === 'undo' ? 'Undo complete.' : 'Redo complete.');
       }
       return;
@@ -1514,9 +1801,11 @@ class Editor {
     this.dialogPreviewTarget = null;
     this.dialog.classList.remove('style-dialog');
     this.dialog.removeAttribute('aria-describedby');
-    this.dialogTrigger = document.activeElement;
-    const data = this.dialogTrigger?.dataset;
-    this.dialogFocusAction = data?.action ? `[data-action="${CSS.escape(data.action)}"]` : null;
+    if (!this.dialog.open) {
+      this.dialogTrigger = document.activeElement;
+      const data = this.dialogTrigger?.dataset;
+      this.dialogFocusAction = data?.action ? `[data-action="${CSS.escape(data.action)}"]` : null;
+    }
     this.dialog.innerHTML = content;
     this.dialog.showModal();
     resizeTextareas(this.dialog);
@@ -1527,7 +1816,6 @@ class Editor {
     const flowOptions = [
       { value: 'right', label: 'Left to right' },
       { value: 'down', label: 'Top to bottom' },
-      ...(flow === 'left' ? [{ value: 'left', label: 'Right to left (legacy)' }] : []),
     ];
     const controlFlow = this.root.querySelector('#flow-direction');
     const flowHtml = new DOMParser()
@@ -1756,6 +2044,9 @@ class Editor {
       groupId: trigger.dataset.group,
       portId: trigger.dataset.port,
       connectionIndex: Number(trigger.dataset.connection),
+      ...(trigger.dataset.targetIndex !== undefined
+        ? { targetIndex: Number(trigger.dataset.targetIndex) }
+        : {}),
     };
     this.editStyle(session);
   }
@@ -1766,6 +2057,9 @@ class Editor {
     if (!target) return;
     const module = portOwner(this.document, session.moduleId);
     session.style = structuredClone(target.style ?? {});
+    session.net = kind === 'connection';
+    session.branch = kind === 'connection' && session.targetIndex !== undefined;
+    if (['module', 'group'].includes(kind)) session.size = { width: target.width, height: target.height };
     if (kind === 'module') {
       session.appearance = structuredClone(target.appearance);
       session.moduleType = target.type;
@@ -1776,6 +2070,11 @@ class Editor {
         : kind === 'port'
           ? `${module.label ?? module.id} · ${target.id}`
           : (target.label ?? target.id);
+    if (session.branch) {
+      const net = this.styleTarget(this.document, { ...session, targetIndex: undefined });
+      session.label =
+        endpointLabel(net.from) + ' to ' + endpointLabel(targetEndpoint(net.to[session.targetIndex]));
+    }
     session.direction = target.direction;
     this.showDialog(renderStyleDialog(session));
     this.styleSession = session;
@@ -1786,16 +2085,25 @@ class Editor {
       kind === 'group'
         ? `[data-action="edit-style"][data-style-kind="group"][data-group="${CSS.escape(session.groupId)}"]`
         : `[data-action="edit-style"][data-style-kind="${kind}"]${kind === 'connection' ? `[data-connection="${session.connectionIndex}"]` : `[data-module="${CSS.escape(session.moduleId)}"]${kind === 'port' ? `[data-port="${CSS.escape(session.portId)}"]` : ''}`}`;
+    if (session.branch) this.dialogFocusAction += `[data-target-index="${session.targetIndex}"]`;
+    else if (session.kind === 'connection') this.dialogFocusAction += ':not([data-target-index])';
   }
 
-  styleTarget(document, session) {
-    if (session.kind === 'terminal')
-      return document.terminals?.find((item) => item.id === session.terminalId);
-    if (session.kind === 'group') return document.groups?.find((group) => group.id === session.groupId);
-    if (session.kind === 'connection')
-      return session.connectionKey
-        ? document.connections?.find((connection) => connectionKey(connection) === session.connectionKey)
+  styleTarget(document, session, materialize = false) {
+    if (session.kind === 'terminal') return document.terminals?.find((n) => n.id === session.terminalId);
+    if (session.kind === 'group') return document.groups?.find((n) => n.id === session.groupId);
+    if (session.kind === 'connection') {
+      const net = session.connectionKey
+        ? document.connections?.find((n) => connectionKey(n) === session.connectionKey)
         : document.connections?.[session.connectionIndex];
+      if (!net || session.targetIndex === undefined) return net;
+      const entry = net.to?.[session.targetIndex];
+      if (entry === undefined) return undefined;
+      if (entry?.endpoint) return entry;
+      const target = { endpoint: entry };
+      if (materialize) net.to[session.targetIndex] = target;
+      return target;
+    }
     const module = portOwner(document, session.moduleId);
     return session.kind === 'port' ? module?.ports.find((p) => p.id === session.portId) : module;
   }
@@ -1804,19 +2112,26 @@ class Editor {
     const session = this.styleSession;
     if (!session) return;
     this.dialog
-      .querySelectorAll('[data-style-property],[data-appearance-property]')
+      .querySelectorAll('[data-style-property],[data-appearance-property],[data-size-property]')
       .forEach((element) => clearFieldError(element));
     try {
       const style = readStyleDialog(this.dialog, session);
       const appearance = readAppearanceDialog(this.dialog, session);
+      const size = readSizeDialog(this.dialog, session);
       this.commit((doc) => {
-        const target = this.styleTarget(doc, session);
+        const target = this.styleTarget(doc, session, true);
         if (!target) throw new Error('This item is no longer available. Cancel and select it again.');
         if (Object.keys(style).length) target.style = style;
         else delete target.style;
         if (session.kind === 'module') {
           if (appearance) target.appearance = appearance;
           else delete target.appearance;
+        }
+        if (size) {
+          for (const axis of ['width', 'height']) {
+            if (size[axis] !== undefined) target[axis] = size[axis];
+            else delete target[axis];
+          }
         }
       }, 'Style updated.');
       this.dialog.close();
@@ -1829,10 +2144,15 @@ class Editor {
 
   readConnectionDraft() {
     return {
+      mode: this.dialog.querySelector('#dialog-mode')?.value ?? 'net',
       from: this.dialog.querySelector('#dialog-source')?.value,
       to: this.dialog.querySelector('#dialog-target')?.value,
+      sources: [...this.dialog.querySelectorAll('[data-net-source]')].map((n) => n.value),
+      targets: [...this.dialog.querySelectorAll('[data-net-target]')].map((n) => n.value),
       label: this.dialog.querySelector('#dialog-label')?.value,
       feedback: this.dialog.querySelector('#dialog-feedback')?.checked,
+      ...(this.dialog.querySelector('#dialog-bidirectional')?.checked ? { direction: 'both' } : {}),
+      ...(this.dialog.querySelector('#dialog-constraint')?.checked === false ? { constraint: false } : {}),
     };
   }
 
@@ -1888,6 +2208,8 @@ class Editor {
           ...session.connectionDraft,
           [item.direction === 'input' ? 'from' : 'to']: endpointKey({ terminal: item.id }),
         };
+        if (item.direction === 'input') draft.sources[0] = draft.from;
+        else draft.targets[0] = draft.to;
         this.connectionDialog(draft);
       } else {
         this.dialogPreviewTarget = { kind: 'terminal', id: item.id };
@@ -1917,73 +2239,120 @@ class Editor {
   }
 
   connectionDialog(draft = {}) {
-    const sources = endpoints(this.document, 'output');
-    this
-      .showDialog(`<form novalidate><div class="dialog-heading"><h2 id="dialog-title">Add connection</h2><p>Choose compatible ports. Group inputs can feed internal blocks; group outputs can receive internal connections. Unspecified widths do not restrict connections.</p></div>
-      ${field(
-        this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'Source port' : 'Source Output',
-        select(
-          sources.map((p) => ({ value: p.ref, label: p.label })),
-          draft.from ?? sources[0]?.ref ?? '',
-          'id="dialog-source" data-field="dialog-source" autofocus',
-        ),
-      )}
-      ${field(this.document.groups?.some((g) => groupType(g) === 'boundary') ? 'Target port' : 'Target Input', '<select id="dialog-target" data-field="dialog-target"></select>')}
-      ${button('connection-terminal', 'New external input…', { className: 'text-button', attrs: 'data-direction="input"' })}${button('connection-terminal', 'New external output…', { className: 'text-button', attrs: 'data-direction="output"' })}
-      ${field('Label', textarea(draft.label ?? '', 'id="dialog-label" placeholder="Optional"'))}
-      ${feedbackControl(draft.feedback ?? false, 'id="dialog-feedback" data-field="dialog-feedback" aria-describedby="dialog-feedback-help"')}<p class="field-help" id="dialog-feedback-help">Prefer this connection as feedback when a cycle exists. Block positions may still change.</p>
-      <p id="dialog-error" class="field-error" role="status"></p><footer class="dialog-actions">${button('cancel-dialog', 'Cancel', { className: 'outline' })}${button('confirm-connection', 'Add connection', { className: 'primary' })}</footer></form>`);
-    this.updateConnectionDialog(draft.to);
+    this.showDialog(renderNetDialog(this.document, draft));
+    this.updateConnectionDialog();
   }
 
-  updateConnectionDialog(preferred) {
+  updateConnectionDialog() {
     const source = this.dialog.querySelector('#dialog-source');
     if (!source) return;
-    const target = this.dialog.querySelector('#dialog-target');
-    const previous = preferred ?? target.value;
-    const options = endpoints(this.document, 'input').map((p) => {
-      const reason = targetReason(this.document, source.value, p.ref);
-      return { value: p.ref, label: `${p.label}${reason ? `（${reason}）` : ''}`, disabled: !!reason };
-    });
-    const selected =
-      options.find((o) => o.value === previous && !o.disabled)?.value ??
-      options.find((o) => !o.disabled)?.value ??
-      '';
-    target.innerHTML = options
-      .map(
-        (o) =>
-          `<option value="${e(o.value)}" ${o.disabled ? 'disabled' : ''} ${o.value === selected ? 'selected' : ''}>${e(o.label)}</option>`,
-      )
-      .join('');
-    target.value = selected;
-    const noTarget = !selected;
-    this.dialog.querySelector('[data-action="confirm-connection"]').disabled = noTarget;
-    this.dialog.querySelector('#dialog-error').textContent = noTarget
-      ? 'No compatible target port is available. Check boundaries, existing drivers and widths.'
+    const mode = this.dialog.querySelector('#dialog-mode').value;
+    const direction = this.dialog.querySelector('#dialog-bidirectional').checked ? 'both' : 'forward';
+    const selected = new Set();
+    for (const target of this.dialog.querySelectorAll('[data-net-target]')) {
+      const previous = target.value || target.dataset.preferred || '';
+      const options = endpoints(this.document, 'input').map((p) => {
+        const reason = selected.has(p.ref)
+          ? 'Already selected'
+          : mode === 'concat'
+            ? ''
+            : targetReason(this.document, source.value, p.ref, -1, direction);
+        return { value: p.ref, label: p.label + (reason ? ' (' + reason + ')' : ''), disabled: !!reason };
+      });
+      const value =
+        options.find((o) => o.value === previous && !o.disabled)?.value ??
+        options.find((o) => !o.disabled)?.value ??
+        '';
+      target.innerHTML = options
+        .map(
+          (o) =>
+            `<option value="${e(o.value)}" ${o.disabled ? 'disabled' : ''} ${o.value === value ? 'selected' : ''}>${e(o.label)}</option>`,
+        )
+        .join('');
+      target.value = value;
+      selected.add(value);
+    }
+    const invalid = [...this.dialog.querySelectorAll('[data-net-target]')].some((n) => !n.value);
+    this.dialog.querySelector('[data-action="confirm-connection"]').disabled = invalid;
+    this.dialog.querySelector('#dialog-error').textContent = invalid
+      ? 'No compatible target port is available. Check direction, existing drivers and widths.'
       : '';
   }
 
   confirmConnection() {
-    const from = endpointFromKey(this.dialog.querySelector('#dialog-source').value);
-    const to = endpointFromKey(this.dialog.querySelector('#dialog-target').value);
-    const feedback = this.dialog.querySelector('#dialog-feedback').checked;
-    const label = this.dialog.querySelector('#dialog-label').value;
-    const reason = targetReason(this.document, from, to);
-    if (reason) {
-      this.dialog.querySelector('#dialog-error').textContent = reason;
-      return;
+    const draft = this.readConnectionDraft();
+    try {
+      this.commit(
+        (doc) => {
+          doc.connections ??= [];
+          const options = {
+            ...(draft.direction ? { direction: draft.direction } : {}),
+            ...(draft.constraint === false ? { constraint: false } : {}),
+            ...(draft.feedback ? { feedback: true } : {}),
+            ...(draft.label?.trim() ? { label: normalizeDisplayText(draft.label) } : {}),
+          };
+          const create = (from, to, extra = {}) => {
+            let existing = findSourceNet(doc, from, targetEndpoint(to[0]), extra.direction);
+            if (existing) {
+              if ((existing.direction ?? 'forward') !== (extra.direction ?? 'forward'))
+                throw new Error('Use the existing Net to change its direction.');
+              existing.to.push(...to);
+              return existing;
+            }
+            const net = { id: nextId(doc.connections, 'net'), from, to, ...extra };
+            doc.connections.push(net);
+            return net;
+          };
+          if (draft.mode === 'concat') {
+            const id = addModule(doc, 'concat'),
+              node = doc.modules.find((n) => n.id === id);
+            const sourceInfo = endpoints(doc, 'output');
+            const widths = draft.sources.map((key) => sourceInfo.find((p) => p.ref === key)?.width ?? null);
+            node.ports = draft.sources.map((key, j) => ({
+              id: 'in_' + (j + 1),
+              direction: 'input',
+              ...(widths[j] !== null ? { width: widths[j] } : {}),
+            }));
+            node.ports.push({
+              id: 'out',
+              direction: 'output',
+              ...(widths.every((w) => w !== null) ? { width: widths.reduce((a, b) => a + b, 0) } : {}),
+            });
+            const paths = [...draft.sources, ...draft.targets].map((key) => {
+              const ref = endpointFromKey(key);
+              if (typeof ref !== 'string') return [];
+              const owner = ref.split('.')[0],
+                path = ancestors(doc, owner);
+              return doc.groups?.some((g) => g.id === owner) ? [...path, owner] : path;
+            });
+            let scope = '';
+            for (let j = 0; j < Math.min(...paths.map((path) => path.length)); j++) {
+              const id = paths[0][j];
+              if (paths.every((path) => path[j] === id)) scope = id;
+              else break;
+            }
+            if (scope) placeBlock(doc, id, scope);
+            for (const [j, key] of draft.sources.entries())
+              create(endpointFromKey(key), [id + '.in_' + (j + 1)]);
+            create(id + '.out', draft.targets.map(endpointFromKey), options);
+          } else {
+            const from = endpointFromKey(draft.from),
+              targets = draft.targets.map(endpointFromKey);
+            const existing = findSourceNet(doc, from, targetEndpoint(targets[0]), draft.direction);
+            if (existing) {
+              if ((existing.direction ?? 'forward') !== (draft.direction ?? 'forward'))
+                throw new Error('Use the existing Net to change its direction.');
+              existing.to.push(...targets);
+            } else create(from, targets, options);
+          }
+          validateDocument(doc);
+        },
+        draft.mode === 'concat' ? 'Concat and Nets added.' : 'Net updated.',
+      );
+      this.dialog.close();
+    } catch (error) {
+      this.dialog.querySelector('#dialog-error').textContent = error.message;
     }
-    this.commit((doc) => {
-      doc.connections ??= [];
-      doc.connections.push({
-        from,
-        to,
-        ...(feedback ? { feedback: true } : {}),
-        ...(label.trim() ? { label } : {}),
-      });
-      validateDocument(doc);
-    }, 'Connection added.');
-    this.dialog.close();
   }
 
   replaceDocument(document, message) {
@@ -1995,6 +2364,8 @@ class Editor {
   }
 
   performReplace(document, message) {
+    this.gridDraft = null;
+    this.gridDrafts?.clear();
     this.rootGroupId = null;
     this.groupSearch = '';
     this.root.querySelector('[data-field="group-search"]').value = '';
@@ -2012,13 +2383,9 @@ class Editor {
     this.openingFile = true;
     try {
       if (file.size > 5 * 1024 * 1024) throw new Error('This JSON file exceeds 5 MB. Choose a smaller file.');
-      const original = JSON.parse(await file.text());
-      const document = migrateLegacyLayout(original);
+      const document = JSON.parse(await file.text());
       validateDocument(document);
-      this.replaceDocument(
-        document,
-        `Opened ${file.name}.${JSON.stringify(original) !== JSON.stringify(document) ? ' Legacy layout settings removed.' : ''}`,
-      );
+      this.replaceDocument(document, `Opened ${file.name}.`);
     } catch (error) {
       this.announce(
         error instanceof SyntaxError
@@ -2042,7 +2409,6 @@ class Editor {
           [
             { value: 'right', label: 'Left to right' },
             { value: 'down', label: 'Top to bottom' },
-            ...(layout.direction === 'left' ? [{ value: 'left', label: 'Right to left (legacy)' }] : []),
           ],
           layout.direction ?? 'right',
           'data-field="setting" data-property="direction"',
@@ -2115,7 +2481,7 @@ class Editor {
           'data-field="default-end-arrow"',
         ),
       )}
-      </div><p class="field-help">Outer feedback routing supports Left to right and Top to bottom. Feedback side applies only to Outer routing; blocked access falls back to ELK. Individual styles can override port-label and arrow defaults.</p><footer class="dialog-actions">${button('cancel-dialog', 'Done', { className: 'primary' })}</footer></form>`);
+      </div><p class="field-help">Outer feedback routing supports Left to right and Top to bottom. Feedback side applies only to Outer routing; blocked access falls back to ELK. Individual styles can override port-label and arrow defaults.</p>${portAdjustmentFields(layout, 'dialog')}<footer class="dialog-actions">${button('cancel-dialog', 'Done', { className: 'primary' })}</footer></form>`);
   }
 
   filename() {

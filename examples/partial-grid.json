@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Partial Grid with automatic neighbors",
+    "caption": "A, B and C use the Grid; Source and Sink remain automatic.\nThe middle column reserves space and is never filled by Auto.",
+    "style": {
+      "module": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "Source",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "A",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "C"
+    },
+    {
+      "id": "Sink",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "Source.out",
+      "to": [
+        "A.in"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
+    },
+    {
+      "from": "B.out",
+      "to": [
+        "Sink.in"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
+    }
+  ],
+  "layout": {
+    "direction": "right",
+    "type": "grid",
+    "cells": [
+      [
+        "A",
+        null,
+        "C"
+      ],
+      [
+        "B",
+        null,
+        null
+      ]
+    ],
+    "rowGap": 60,
+    "columnGap": 80
+  }
+}

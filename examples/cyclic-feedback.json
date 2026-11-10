@@ -56,15 +56,33 @@
   "connections": [
     {
       "from": "controller.command",
-      "to": "datapath.command"
+      "to": [
+        "datapath.command"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "datapath.result",
-      "to": "monitor.result"
+      "to": [
+        "monitor.result"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "monitor.status",
-      "to": "controller.status"
+      "to": [
+        "controller.status"
+      ],
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ]
 }

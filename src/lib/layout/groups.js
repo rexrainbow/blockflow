@@ -1,8 +1,18 @@
 import { ancestors, descendants } from '../hierarchy.js';
 import {portSide} from '../direction.js';
+import {needsSides,defaultSide} from '../port-sides.js';
 import { textSize, textBounds, moduleGeometry, BLOCK_SIZE_UNIT } from '../geometry.js';
 
 export function groupGeometry(group, direction = 'right') {
+  if(group._signalWrapper)return {inset:0,title:0,top:0,left:0,right:0,bottom:0,width:0,height:0};
+  if(group.portMode==='boundary'&&needsSides(group,direction)){
+    const inset=18+group.style.borderWidth,t=textSize(group.label,group.style.label),title=group.style.label.hidden?0:t.height+2*group.style.label.padding+12;
+    const size=p=>{const v=textSize(p.displayName,p.style),pad=p.style.hidden?0:p.style.padding;return {width:v.width+2*pad,height:v.height+2*pad};};
+    const list=side=>group.ports.filter(p=>p.side===side),lane=(side,axis)=>Math.max(0,...list(side).map(p=>size(p)[axis]));
+    const span=(side,axis)=>list(side).reduce((n,p)=>n+2*(size(p)[axis]+6)+12,0);
+    const inputHeight=lane('top','height'),left=inset+lane('left','width')+24+(list('top').length?t.width+2*inset:0),right=inset+lane('right','width')+24,top=inset+inputHeight+12+title+12,bottom=inset+lane('bottom','height')+24;
+    return {inset,title,inputHeight,left,right,top,bottom,width:Math.max(180,(group.width??0)*140,left+right+Math.max(span('top','width'),span('bottom','width'),140),t.width+2*inset),height:Math.max((group.height??0)*84,top+bottom+Math.max(span('left','height'),span('right','height'),84))};
+  }
   if(direction==='down') {
     const inset=18+group.style.borderWidth,label=textSize(group.label,group.style.label),title=group.style.label.hidden?0:label.height+2*group.style.label.padding+12;
     const size=p=>{const t=textSize(p.displayName,p.style),pad=p.style.hidden?0:p.style.padding;return {width:t.width+2*pad,height:t.height+2*pad};};
@@ -40,7 +50,7 @@ export function applyGroups(graph, model) {
         layoutOptions:{'elk.portConstraints':'FIXED_POS'},
         ports:group.ports.map(port=>({id:group.id+'.'+port.id,width:0,height:0,
           x:geometry.portPoints[port.id].x,y:geometry.portPoints[port.id].y+(model.layout.direction==='down'&&port.direction==='output'?(group.stackLayers??0)*6:0),
-          layoutOptions:{'elk.port.side':portSide(model.layout.direction,port.direction==='input')},
+          layoutOptions:{'elk.port.side':portSide(model.layout.direction,port.direction==='input',port.side)},
         })),
       });
       continue;
@@ -51,12 +61,12 @@ export function applyGroups(graph, model) {
         'elk.algorithm': 'layered', 'elk.direction': model.layout.direction.toUpperCase(),
         'elk.padding': `[top=${top},left=${left},bottom=${bottom},right=${right}]`,
         'elk.nodeSize.constraints': '[MINIMUM_SIZE]', 'elk.nodeSize.minimum': `(${width},${height})`,
-        'elk.spacing.nodeNode': graph.layoutOptions['elk.spacing.nodeNode'],
-        'elk.layered.spacing.nodeNodeBetweenLayers': graph.layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'],
+        'elk.spacing.nodeNode': group._signalWrapper?'8':graph.layoutOptions['elk.spacing.nodeNode'],
+        'elk.layered.spacing.nodeNodeBetweenLayers': group._signalWrapper?'8':graph.layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'],
       },
       ...(group.portMode==='boundary'?{
-        ports:group.ports.map(port=>({id:group.id+'.'+port.id,width:model.layout.direction==='down'?2*((!port.style.hidden?textSize(port.displayName,port.style).width+2*port.style.padding:0)+6):0,height:model.layout.direction==='down'?0:2*((!port.style.hidden?textSize(port.displayName,port.style).height+2*port.style.padding:0)+6),
-          layoutOptions:{'elk.port.side':portSide(model.layout.direction,port.direction==='input'),'elk.port.index':String(model.layout.direction==='down'?(port.direction==='input'?port.order:group.ports.length-1-port.order):(port.direction==='input'?group.ports.length-1-port.order:port.order))}})),
+        ports:group.ports.map(port=>({id:group.id+'.'+port.id,width:['top','bottom'].includes(port.side)?2*((!port.style.hidden?textSize(port.displayName,port.style).width+2*port.style.padding:0)+6):0,height:['top','bottom'].includes(port.side)?0:2*((!port.style.hidden?textSize(port.displayName,port.style).height+2*port.style.padding:0)+6),
+          layoutOptions:{'elk.port.side':portSide(model.layout.direction,port.direction==='input',port.side),'elk.port.index':String(['top','right'].includes(port.side)?group.ports.filter(p=>p.side===port.side).indexOf(port):group.ports.length-1-group.ports.filter(p=>p.side===port.side).indexOf(port))}})),
       }:{}),
     });
     if(group.portMode==='boundary') Object.assign(nodes.get(group.id).layoutOptions,{
@@ -141,7 +151,8 @@ export function groupResults(model, nodes) {
         const visible=!port.style.hidden;
         const offset=(geometry?.portInset??8)+(visible?port.style.padding:0);
         const local=geometry?.portLabels?.[port.id];
-        const labelPosition=model.layout.direction==='down'?(local?{...local,x:node.x+local.x,y:node.y+local.y}:{x:x+(visible?8+size.width/2+port.style.padding:0),y:y+(port.direction==='input'?1:-1)*(8+(visible?size.height/2+port.style.padding:0)),anchor:'middle'}):{x:x+(port.direction==='input'?offset:-offset),y:geometry||!visible?y:y-size.height/2-port.style.padding-6,anchor:port.direction==='input'?'start':'end'};
+        const side=port.side??defaultSide(port,model.layout.direction),horizontal=['top','bottom'].includes(side);
+        const labelPosition=local?{...local,x:node.x+local.x,y:node.y+local.y}:horizontal?{x:x+(visible?8+size.width/2+port.style.padding:0),y:y+(side==='top'?1:-1)*(8+(visible?size.height/2+port.style.padding:0)),anchor:'middle'}:{x:x+(side==='left'?offset:-offset),y:geometry||!visible?y:y-size.height/2-port.style.padding-6,anchor:side==='left'?'start':'end'};
         return {...structuredClone(port),x,y,labelPosition,labelBounds:visible?textBounds(port.displayName,labelPosition,port.style):{x,y,width:0,height:0}};
       }):[],
     };
@@ -153,10 +164,11 @@ export function groupResults(model, nodes) {
  * Group padding reserves these lanes, so internal joins stay outside children.
  */
 export function preserveGroupPortOrder(groups, connections, flow = 'right') {
-  const down=flow==='down',axis=down?'x':'y',cross=down?'y':'x',moved=new Map();
-  for(const group of groups) for(const direction of ['input','output']) {
+  const moved=new Map();
+  for(const group of groups) for(const side of ['left','right','top','bottom']) {
+    const down=['top','bottom'].includes(side),axis=down?'x':'y',cross=down?'y':'x';
     if(group.collapsed) continue;
-    const ports=group.ports.filter(port=>port.direction===direction);
+    const ports=group.ports.filter(port=>(port.side??defaultSide(port,flow))===side);
     if(ports.every((port,i)=>!i||port[axis]>ports[i-1][axis])) continue;
     const geometry=groupGeometry(group,flow);
     const half=port=>(!port.style.hidden?textSize(port.displayName,port.style)[down?'width':'height']+2*port.style.padding:0)+6;
@@ -167,7 +179,7 @@ export function preserveGroupPortOrder(groups, connections, flow = 'right') {
     for(const port of ports) {
       const previous={x:port.x,y:port.y},value=cursor+half(port),delta=value-port[axis];
       port[axis]=value;port.labelPosition[axis]+=delta;port.labelBounds[axis]+=delta;
-      moved.set(group.id+'.'+port.id,{previous,port});cursor=value+half(port)+gap;
+      moved.set(group.id+'.'+port.id,{previous,port,axis,cross});cursor=value+half(port)+gap;
     }
   }
   const same=(a,b)=>Math.abs(a.x-b.x)<1e-6&&Math.abs(a.y-b.y)<1e-6;
@@ -176,7 +188,7 @@ export function preserveGroupPortOrder(groups, connections, flow = 'right') {
     for(const section of edge.sections) {
       const points=start?section.points:[...section.points].reverse();
       if(!same(points[0],move.previous)) continue;
-      const next=points[1];
+      const next=points[1],{axis,cross}=move;
       if(Math.abs(next[axis]-move.previous[axis])>1e-6||Math.abs(next[cross]-move.previous[cross])<1e-6) throw new Error('Expected flow-aligned group port departure');
       const elbow=move.previous[cross]+Math.sign(next[cross]-move.previous[cross])*Math.min(6,Math.abs(next[cross]-move.previous[cross])/2);
       const joined=[{x:move.port.x,y:move.port.y},{[cross]:elbow,[axis]:move.port[axis]},{[cross]:elbow,[axis]:move.previous[axis]},...points.slice(1)];

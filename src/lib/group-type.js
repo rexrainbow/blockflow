@@ -1,2 +1,2 @@
-/** Canonical group type; portMode remains an input compatibility alias. */
-export const groupType = group => group.type ?? (group.portMode === 'boundary' ? 'boundary' : 'container');
+/** Authoring and normalized groups use canonical types only. */
+export const groupType = (group) => group.type ?? 'container';

@@ -3,8 +3,10 @@ import { textSize } from '../geometry.js';
 import { TEXT_STYLE } from '../styles.js';
 import { ViewEvents } from '../view/events.js';
 import { copyLayout, connectionKey, routePath, routeBounds } from '../view/layout.js';
+import { connectionLabels } from '../layout/edge-labels.js';
 
 const NS = 'http://www.w3.org/2000/svg';
+let nextViewId = 0;
 const clone = (value) => structuredClone(value);
 const compact = (value) => value.replace(/\s*\n\s*/g, ' / ');
 const center = (box) => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
@@ -42,6 +44,7 @@ class DiagramView {
     if (!this.document?.createElementNS || !this.document.defaultView)
       throw new Error('DOM exporter requires a browser Document');
     this.window = this.document.defaultView;
+    this.svgPrefix = `portsketch-view-${++nextViewId}`;
     this.minZoom = options.minZoom ?? 0.05;
     this.maxZoom = options.maxZoom ?? 8;
     if (
@@ -129,6 +132,8 @@ class DiagramView {
   }
   describe(item) {
     const value = { type: item.type, id: item.id, key: item.key };
+    if (item.type === 'connection' && item.data.netId)
+      Object.assign(value, { netId: item.data.netId, branchIndex: item.data.branchIndex });
     if (item.type === 'port')
       Object.assign(value, {
         ownerId: item.blockId,
@@ -156,7 +161,7 @@ class DiagramView {
     this.assertAlive();
     const layout = copyLayout(input);
     const parser = new this.window.DOMParser();
-    const parsed = parser.parseFromString(renderSvg(layout), 'image/svg+xml');
+    const parsed = parser.parseFromString(renderSvg(layout, { idPrefix: this.svgPrefix }), 'image/svg+xml');
     if (parsed.querySelector('parsererror')) throw new TypeError('Cannot render DOM layout');
     const previous = this.selected ? this.describe(this.selected) : null;
     const oldCenter = this.selected ? center(this.selected.box) : null;
@@ -226,7 +231,7 @@ class DiagramView {
         'Select connection ' + (edge.source ? connectionKey(edge) : edge.id),
         [
           this.node('path', { d: routePath(edge), class: 'hit-area', 'vector-effect': 'non-scaling-stroke' }),
-          ...(edge.labelBounds ? [rectangle(edge.labelBounds)] : []),
+          ...connectionLabels(edge).map((label) => rectangle(label.bounds)),
         ],
       );
     for (const group of (layout.groups ?? []).filter((group) => group.collapsed))

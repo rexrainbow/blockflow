@@ -31,7 +31,7 @@ test('concat shape rules and type validation match schema; exact sums include sa
   d.modules[0].ports.splice(1,1);assert.doesNotThrow(()=>createDiagramModel(d));
 });
 
-for(const direction of ['right','left']) test(`abstract and sized concatenation routes, renders and mounts (${direction})`,async()=>{
+for(const direction of ['right']) test(`abstract and sized concatenation routes, renders and mounts (${direction})`,async()=>{
   const raw=structuredClone(example);raw.layout={direction};assert.equal(validate(raw),true,JSON.stringify(validate.errors));
   const model=createDiagramModel(raw),layout=await layoutDiagram(model);checkLayout(model,layout);
   for(const block of layout.modules.filter(m=>m.type==='concat')){

@@ -91,22 +91,34 @@
   "connections": [
     {
       "from": "TriggerSwitch.out",
-      "to": "Processor.in"
+      "to": [
+        "Processor.in"
+      ],
+      "id": "net_1"
     },
     {
       "from": "Processor.out",
-      "to": "Function.in",
-      "label": "Trigger input"
+      "to": [
+        "Function.in"
+      ],
+      "label": "Trigger input",
+      "id": "net_2"
     },
     {
       "from": "Function.out",
-      "to": "OutputSwitch.in",
-      "label": "Function trigger\noutput"
+      "to": [
+        "OutputSwitch.in"
+      ],
+      "label": "Function trigger\noutput",
+      "id": "net_3"
     },
     {
       "from": "OutputSwitch.out",
-      "to": "TriggerSwitch.in",
-      "feedback": true
+      "to": [
+        "TriggerSwitch.in"
+      ],
+      "feedback": true,
+      "id": "net_4"
     }
   ]
 }

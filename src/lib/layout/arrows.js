@@ -30,3 +30,22 @@ export function connectionArrow(edge) {
     },
   };
 }
+
+/** Shared finalization for output and disposable label-clearance trials. */
+export function applyConnectionArrows(connections) {
+  for (const edge of connections) {
+    delete edge.arrow;
+    delete edge.startArrow;
+    const arrow = connectionArrow(edge);
+    if (arrow) edge.arrow = arrow;
+    if ((edge.netStyle ?? edge.style).startArrow === 'triangle') {
+      const reverse = {
+        ...edge,
+        style: { ...edge.style, ...edge.netStyle, endArrow: 'triangle' },
+        sections: [...edge.sections].reverse().map((s) => ({ points: [...s.points].reverse() })),
+      };
+      const startArrow = connectionArrow(reverse);
+      if (startArrow) edge.startArrow = startArrow;
+    }
+  }
+}

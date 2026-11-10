@@ -298,7 +298,8 @@ code {
 .connections-settings {
   display: flex;
 }
-.connections-panel {
+.connections-panel,
+.layout-panel {
   flex: 1;
 }
 .studio[data-view='editor'] .blocks-settings {
@@ -582,7 +583,7 @@ input[type='checkbox'] {
   min-width: 0;
 }
 .port-items {
-  max-height: 190px;
+  max-height: clamp(240px, 40vh, 360px);
   overflow: auto;
   scrollbar-gutter: stable;
 }
@@ -898,6 +899,52 @@ input[type='checkbox'] {
   border-bottom: 1px solid var(--border);
   min-height: 48px;
 }
+.layout-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+.layout-controls > * {
+  flex-shrink: 0;
+}
+.grid-table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.grid-editor {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 6px;
+}
+.grid-editor select {
+  min-width: 160px;
+  width: 100%;
+}
+.layout-controls .dialog-actions {
+  flex-wrap: wrap;
+}
+.grid-auto h3 {
+  font-size: 12px;
+}
+.grid-expand {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  min-width: 0;
+  padding: 10px;
+}
+.grid-expand legend {
+  color: var(--muted);
+  font-size: 12px;
+}
+.grid-expand .check-label {
+  display: flex;
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.grid-auto p {
+  overflow-wrap: anywhere;
+}
 .preview-title,
 .preview-tools {
   display: flex;
@@ -1193,6 +1240,18 @@ dialog.style-dialog {
 }
 .style-dialog-body .style-grid {
   gap: 16px 20px;
+}
+.style-size {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 16px 0;
+}
+.style-size legend {
+  padding: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
 }
 .style-dialog-body .field-label {
   font-size: 12px;
@@ -1577,4 +1636,33 @@ dialog form > .field + .field {
 }
 .boundary-problems li {
   margin-block: 10px;
+}
+
+.net-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.connection-row > .check-label {
+  min-height: 28px;
+  margin-block: 4px;
+}
+.net-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-left: 2px solid var(--border);
+}
+.net-target > label:first-child {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.net-target > .check-label {
+  min-height: 28px;
+}
+.net-target.selected-branch {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
 }

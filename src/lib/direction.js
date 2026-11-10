@@ -1,6 +1,6 @@
 export const vertical = (direction) => direction === 'down';
-export const portSide = (direction, input) =>
-  vertical(direction) ? (input ? 'NORTH' : 'SOUTH') : input ? 'WEST' : 'EAST';
+export const portSide = (direction, input, side) =>
+  side?({left:'WEST',right:'EAST',top:'NORTH',bottom:'SOUTH'})[side]:vertical(direction) ? (input ? 'NORTH' : 'SOUTH') : input ? 'WEST' : 'EAST';
 export function setDirection(document, direction) {
   document.layout ??= {};
   const before = vertical(document.layout.direction),

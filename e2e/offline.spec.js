@@ -11,6 +11,224 @@ const portable = new URL('../output/editor/offline copy \u6e2c\u8a66/', import.m
 const fileUrl = new URL('index.html', portable).href;
 const feedbackFile = fileURLToPath(new URL('../examples/feedback-priority.json', import.meta.url));
 
+test('offline Net label frames inherit, export and retain style-dialog Undo', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/connection-labels.json', import.meta.url)));
+  await ready(page);
+  const frame = page
+    .locator('[data-role="connection-label"] [data-role="label-background"][stroke="#b38900"]')
+    .first();
+  await expect(frame).toBeVisible();
+  await expect(frame).toHaveAttribute('rx', '4');
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await page.getByRole('button', { name: 'Connection style: A.b_out to B.b_in', exact: true }).click();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('spinbutton', { name: 'Border width', exact: true })).toHaveValue('');
+  await dialog.getByRole('spinbutton', { name: 'Border width', exact: true }).fill('0');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.diagram.style.connection.label.borderColor).toBe('#B38900');
+  expect(raw.connections[0].style.label.borderWidth).toBe(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  await expect(frame).toBeVisible();
+});
+
+test('offline Port adjustment opens six straight interfaces and persists Fixed with Undo', async ({
+  page,
+}) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/port-adjustment.json', import.meta.url)));
+  await ready(page);
+  const corners = () =>
+    page
+      .locator('.connection-hit:not(.net-trunk-hit)')
+      .evaluateAll((nodes) =>
+        nodes.reduce(
+          (n, p) =>
+            n +
+            Math.max(0, (p.getAttribute('d').match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).length / 2 - 2),
+          0,
+        ),
+      );
+  expect(await corners()).toBe(0);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Port adjustment', exact: true }).selectOption('fixed');
+  await ready(page);
+  expect(await corners()).toBe(12);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.layout).toMatchObject({ portAdjustment: 'fixed', maxPortShift: 120 });
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  expect(await corners()).toBe(0);
+});
+
+test('offline Block Style edits top-level size and Auto together with Undo', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/block-sizes.json', import.meta.url)));
+  await ready(page);
+  const block = page.locator('.block-hit[data-module="Mux"]');
+  await block.dblclick();
+  const dialog = page.getByRole('dialog', { name: 'Block style', exact: true });
+  await dialog.getByRole('spinbutton', { name: 'Width', exact: true }).fill('');
+  await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).fill('4');
+  await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8')),
+    mux = raw.modules.find((n) => n.id === 'Mux');
+  expect(mux).not.toHaveProperty('width');
+  expect(mux.height).toBe(4);
+  expect(mux.style ?? {}).not.toHaveProperty('height');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await ready(page);
+  await block.dblclick();
+  await expect(dialog.getByRole('spinbutton', { name: 'Width', exact: true })).toHaveValue('1.2');
+  await expect(dialog.getByRole('spinbutton', { name: 'Height', exact: true })).toHaveValue('3.5');
+  await page.keyboard.press('Escape');
+});
+
+test('offline long connection labels retain Both ends and native placement controls', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/processor-components.json', import.meta.url)));
+  await ready(page);
+  const starts = page
+    .locator('[data-role="connection-label"][data-label-position="start"]')
+    .filter({ hasText: 'Bite' });
+  await expect(starts).toHaveCount(1);
+  await expect(
+    page.locator('[data-role="connection-label"][data-label-position="end"]').filter({ hasText: 'Bite' }),
+  ).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+  await page.getByRole('button', { name: /Connection style: Watchdog.bite/ }).click();
+  await page.getByRole('tab', { name: 'Label', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Destination labels', exact: true })).toHaveValue('always');
+  await page.getByRole('combobox', { name: 'Destination labels', exact: true }).selectOption('never');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(
+    page.locator('[data-role="connection-label"][data-label-position="end"]').filter({ hasText: 'Bite' }),
+  ).toHaveCount(0);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.connections.find((c) => c.from === 'Watchdog.bite').style.label.repeatAtEnd).toBe('never');
+});
+
+test('offline components use rounded groups, edge labels and abstract concat without Grid', async ({
+  page,
+}) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/processor-components.json', import.meta.url)));
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(16);
+  await expect(page.locator('[data-role="group"][rx="12"]')).toHaveCount(9);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.modules.filter((n) => n.type === 'concat')).toHaveLength(3);
+  expect(raw.layout.cells).toBeUndefined();
+  await page.locator('.group-select[data-id="Processor"]').click();
+  await page.getByRole('button', { name: 'Group style', exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Corner radius', exact: true }).fill('20');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('[data-role="group"][data-group="Processor"]')).toHaveAttribute('rx', '20');
+});
+
+test('offline cross-group Grid aligns sources and retains group membership in JSON', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/processor-cross-group-grid.json', import.meta.url)));
+  await ready(page);
+  const a = await page.locator('.block-hit[data-module="Clock"]').boundingBox(),
+    b = await page.locator('.block-hit[data-module="ALU0"]').boundingBox();
+  expect(a.y + a.height / 2).toBeCloseTo(b.y + b.height / 2, 4);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Compute cluster', exact: true })).toBeChecked();
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.layout.expandGroups).toEqual(['ComputeCluster']);
+  expect(raw.groups[0].members).toHaveLength(5);
+  expect(raw.connections).toHaveLength(4);
+  await page.getByRole('combobox', { name: 'View target', exact: true }).selectOption('ComputeCluster');
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(5);
+  await page.getByRole('combobox', { name: 'Layout scope', exact: true }).selectOption('ComputeCluster');
+  await expect(page.getByRole('note')).toContainText('Expanded by Top Grid');
+});
+
+test('offline partial Grid releases removed columns to Auto and exports the full graph', async ({ page }) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/partial-grid.json', import.meta.url)));
+  await ready(page);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  const auto = page.getByRole('region', { name: 'Auto arranged', exact: true });
+  await expect(auto).toContainText('Source');
+  await expect(auto).toContainText('Sink');
+  const columns = page.getByRole('spinbutton', { name: 'Columns', exact: true });
+  await columns.fill('2');
+  await columns.blur();
+  await expect(auto).toContainText('C');
+  await page.getByRole('button', { name: 'Apply layout', exact: true }).click();
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(5);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.layout.cells).toEqual([
+    ['A', null],
+    ['B', null],
+  ]);
+  expect(raw.groups).toBeUndefined();
+  expect(raw.connections).toHaveLength(2);
+});
+
+test('offline ComputeCluster Grid keeps portless nodes, both arrows and caption in exports', async ({
+  page,
+}) => {
+  await page
+    .locator('#file-input')
+    .setInputFiles(fileURLToPath(new URL('../examples/processor-overview.json', import.meta.url)));
+  await ready(page);
+  await expect(page.locator('.block-hit')).toHaveCount(7);
+  const alu2 = await page
+    .locator('.block-hit[data-module="ALU2"]')
+    .evaluate((n) => ({ width: Number(n.getAttribute('width')), height: Number(n.getAttribute('height')) }));
+  const alu3 = await page
+    .locator('.block-hit[data-module="ALU3"]')
+    .evaluate((n) => ({ width: Number(n.getAttribute('width')), height: Number(n.getAttribute('height')) }));
+  expect(alu2.width).toBeCloseTo(alu3.width, 5);
+  expect(alu2.height).toBeCloseTo(alu3.height, 5);
+  await expect(page.locator('[data-role="connection-start-arrow"]')).toHaveCount(3);
+  await page.getByRole('tab', { name: 'Layout', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Layout scope', exact: true }).selectOption('ComputeCluster');
+  await expect(page.getByRole('combobox', { name: 'Row 2 column 2', exact: true })).toHaveValue('ALU3');
+  await expect(page.getByRole('combobox', { name: 'Row 1 column 1', exact: true })).toBeInViewport();
+  const panel = await page.locator('#layout-settings > .panel').boundingBox();
+  const workspace = await page.locator('#layout-settings').boundingBox();
+  expect(panel.width).toBeGreaterThan(workspace.width - 3);
+  const event = page.waitForEvent('download');
+  await command(page, 'file', 'Save JSON');
+  const raw = JSON.parse(await readFile(await (await event).path(), 'utf8'));
+  expect(raw.modules.find((n) => n.id === 'ALU4').ports).toBeUndefined();
+  expect(raw.connections[2].constraint).toBe(false);
+});
+
 test('offline Flow switches vertical geometry and saves direction with mapped feedback', async ({ page }) => {
   await page
     .locator('#file-input')
@@ -86,7 +304,7 @@ test('offline terminals retain object endpoints and support Preview label editin
     .setInputFiles(fileURLToPath(new URL('../examples/terminals.json', import.meta.url)));
   await ready(page);
   await expect(page.locator('.terminal-hit')).toHaveCount(5);
-  await page.locator('.terminal-hit[data-module="OverlayIn"]').click({ button: 'right' });
+  await page.locator('.terminal-hit[data-module="DataIn"]').click({ button: 'right' });
   await page
     .locator('#preview-actions-menu')
     .getByRole('button', { name: 'Edit label…', exact: true })
@@ -98,7 +316,7 @@ test('offline terminals retain object endpoints and support Preview label editin
   await command(page, 'file', 'Save JSON');
   const saved = JSON.parse(await readFile(await (await download).path(), 'utf8'));
   expect(saved.terminals[0].label).toBe('Offline\ninput');
-  expect(saved.connections[0].from).toEqual({ terminal: 'OverlayIn' });
+  expect(saved.connections[0].from).toEqual({ terminal: 'DataIn' });
 });
 
 test('offline Group view expands hidden contents for scoped SVG while JSON retains the full graph', async ({
@@ -183,7 +401,8 @@ test('offline Preview actions edit styles and toggle group contents without the 
     style: { borderColor: '#556677' },
   });
   expect(saved.modules).toHaveLength(18);
-  expect(saved.connections).toHaveLength(47);
+  expect(saved.connections).toHaveLength(17);
+  expect(saved.connections.reduce((n, c) => n + c.to.length, 0)).toBe(47);
 });
 
 test('offline conversion keeps block dimensions and endpoints and restores its type with Undo', async ({
@@ -192,8 +411,6 @@ test('offline conversion keeps block dimensions and endpoints and restores its t
   const chooser = page.waitForEvent('filechooser');
   await command(page, 'file', 'Open JSON');
   const legacy = JSON.parse(await readFile(new URL('../examples/block-sizes.json', import.meta.url), 'utf8'));
-  legacy.layout.orderMode = 'staged';
-  legacy.connections[0].order = 3;
   await (
     await chooser
   ).setFiles({
@@ -239,7 +456,8 @@ test('offline Hide contents renders a compact group and restores children throug
   await command(page, 'file', 'Save JSON');
   const doc = JSON.parse(await readFile(await (await download).path(), 'utf8'));
   expect(doc.modules).toHaveLength(12);
-  expect(doc.connections).toHaveLength(19);
+  expect(doc.connections).toHaveLength(15);
+  expect(doc.connections.reduce((n, c) => n + c.to.length, 0)).toBe(19);
   expect(doc.groups[0].collapsed).toBe(true);
   download = page.waitForEvent('download');
   await command(page, 'export', 'Export SVG');
@@ -323,7 +541,7 @@ test('file editor renders and exports editable connection labels without network
     await chooser
   ).setFiles(fileURLToPath(new URL('../examples/connection-labels.json', import.meta.url)));
   await ready(page);
-  await expect(page.locator('[data-role="connection-label"]')).toHaveCount(7);
+  await expect(page.locator('[data-role="connection-label"][data-label-position="start"]')).toHaveCount(7);
   await page.getByRole('tab', { name: 'Connections', exact: true }).click();
   const label = page.getByRole('textbox', { name: 'Connection 1 label', exact: true });
   await label.fill('offline payload');
@@ -400,7 +618,7 @@ test('portable folder opens as classic scripts and runs a Blob layout worker wit
   expect(page.workers().every((worker) => worker.url().startsWith('blob:'))).toBe(true);
   await expect(page.locator('.block-hit')).toHaveCount(6);
   await expect(page.locator('.group-hit')).toHaveCount(4);
-  await expect(page.locator('[data-role="connection-label"]')).toHaveCount(7);
+  await expect(page.locator('[data-role="connection-label"][data-label-position="start"]')).toHaveCount(7);
   expect(await page.locator('.workbench').evaluate((el) => getComputedStyle(el).display)).toBe('grid');
   await expect(page.locator('.brand')).toHaveAttribute('href', './index.html');
   await page.screenshot({ path: 'output/editor/offline-startup.png' });

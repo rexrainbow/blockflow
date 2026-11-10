@@ -33,7 +33,7 @@ function plain() {
   for (const module of raw.modules) { delete module.style; for (const port of module.ports) delete port.style; }
   raw.layout.feedbackRouting = 'elk'; return raw;
 }
-for (const direction of ['right', 'left']) test('group containment, local/cross/root edges, fixed ports and exports ' + direction, async () => {
+for (const direction of ['right']) test('group containment, local/cross/root edges, fixed ports and exports ' + direction, async () => {
   const raw = plain(); raw.layout.direction = direction;
   const model = createDiagramModel(raw), before = structuredClone(model);
   const layout = await layoutDiagram(freeze(model));

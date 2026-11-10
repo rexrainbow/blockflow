@@ -16,4 +16,4 @@ export const endpointValue = (value) =>
 export const endpointFromKey = (value) =>
   value.startsWith('@terminal:') ? { terminal: value.slice(10) } : value;
 export const endpointLabel = (value) =>
-  value?.terminal !== undefined ? `Terminal ${value.terminal}` : endpointKey(value);
+  Array.isArray(value) ? value.map(item=>endpointLabel(item?.endpoint??item)).join(', ') : value?.terminal !== undefined ? `Terminal ${value.terminal}` : endpointKey(value);

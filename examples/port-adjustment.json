@@ -1,0 +1,246 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Port adjustment: processor interfaces",
+    "style": {
+      "module": {
+        "borderColor": "#52606D",
+        "borderWidth": 1.1,
+        "fillColor": "#FFFFFF",
+        "label": {
+          "fontSize": 10
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "strokeColor": "#334E68",
+        "strokeWidth": 1.2,
+        "endArrow": "triangle"
+      }
+    }
+  },
+  "layout": {
+    "direction": "right",
+    "type": "grid",
+    "cells": [["Inputs", "Processor", "Outputs"]],
+    "columnGap": 80,
+    "portAdjustment": "reduce-bends",
+    "maxPortShift": 120
+  },
+  "modules": [
+    {
+      "id": "OvlIn",
+      "label": "Overlay inputs\n32 signals",
+      "width": 1.4,
+      "style": {
+        "fillColor": "#EAF2FF"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output",
+          "side": "right"
+        }
+      ]
+    },
+    {
+      "id": "ExtIn",
+      "label": "External input sources",
+      "width": 1.4,
+      "style": {
+        "fillColor": "#EAF2FF"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output",
+          "side": "right"
+        }
+      ]
+    },
+    {
+      "id": "Processor",
+      "label": "Processor\nTwo cores",
+      "width": 1.25,
+      "height": 6,
+      "style": {
+        "fillColor": "#DCEBFA",
+        "borderColor": "#385A7C",
+        "borderWidth": 1.6,
+        "label": {
+          "color": "#1F4E8C"
+        }
+      },
+      "ports": [
+        {
+          "id": "overlay_in",
+          "direction": "input",
+          "side": "left"
+        },
+        {
+          "id": "external_in",
+          "direction": "input",
+          "side": "left"
+        },
+        {
+          "id": "overlay_out",
+          "direction": "output",
+          "side": "right"
+        },
+        {
+          "id": "overlay_dir",
+          "direction": "output",
+          "side": "right"
+        },
+        {
+          "id": "interrupts",
+          "direction": "output",
+          "side": "right"
+        },
+        {
+          "id": "interconnections",
+          "direction": "output",
+          "side": "right"
+        }
+      ]
+    },
+    {
+      "id": "OvlOut",
+      "label": "Overlay outputs\n32 signals",
+      "width": 1.4,
+      "style": {
+        "fillColor": "#FFF4D6"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "side": "left"
+        }
+      ]
+    },
+    {
+      "id": "OvlDir",
+      "label": "Overlay directions\n32 signals",
+      "width": 1.4,
+      "style": {
+        "fillColor": "#FFF4D6"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "side": "left"
+        }
+      ]
+    },
+    {
+      "id": "Intr",
+      "label": "Interrupts\n19 signals",
+      "width": 1.4,
+      "style": {
+        "fillColor": "#FFF4D6"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "side": "left"
+        }
+      ]
+    },
+    {
+      "id": "Interconnection",
+      "label": "Interconnections\n32 signals",
+      "width": 1.4,
+      "style": {
+        "fillColor": "#FFF4D6"
+      },
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "side": "left"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "Inputs",
+      "type": "container",
+      "label": "Input Interfaces",
+      "members": ["OvlIn", "ExtIn"],
+      "style": {
+        "borderStyle": "dashed",
+        "borderColor": "#7A9BBE",
+        "borderWidth": 1.2,
+        "fillColor": "transparent",
+        "label": {
+          "fontSize": 10,
+          "color": "#334E68"
+        }
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [["OvlIn"], ["ExtIn"]],
+        "rowGap": 32.4
+      }
+    },
+    {
+      "id": "Outputs",
+      "type": "container",
+      "label": "Output Interfaces",
+      "members": ["OvlOut", "OvlDir", "Intr", "Interconnection"],
+      "style": {
+        "borderStyle": "dashed",
+        "borderColor": "#7A9BBE",
+        "borderWidth": 1.2,
+        "fillColor": "transparent",
+        "label": {
+          "fontSize": 10,
+          "color": "#334E68"
+        }
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [["OvlOut"], ["OvlDir"], ["Intr"], ["Interconnection"]],
+        "rowGap": 32.4
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "OvlIn.out",
+      "to": ["Processor.overlay_in"],
+      "id": "net_1"
+    },
+    {
+      "from": "ExtIn.out",
+      "to": ["Processor.external_in"],
+      "id": "net_2"
+    },
+    {
+      "from": "Processor.overlay_out",
+      "to": ["OvlOut.in"],
+      "id": "net_3"
+    },
+    {
+      "from": "Processor.overlay_dir",
+      "to": ["OvlDir.in"],
+      "id": "net_4"
+    },
+    {
+      "from": "Processor.interrupts",
+      "to": ["Intr.in"],
+      "id": "net_5"
+    },
+    {
+      "from": "Processor.interconnections",
+      "to": ["Interconnection.in"],
+      "id": "net_6"
+    }
+  ]
+}

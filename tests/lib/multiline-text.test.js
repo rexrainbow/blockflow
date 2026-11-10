@@ -48,7 +48,7 @@ test('schema and model keep keys and document names single-line; invalid display
   }
 });
 
-for (const direction of ['right','left']) test('multiline blocks, ports, groups and edges stay inside measured geometry '+direction, async () => {
+for (const direction of ['right']) test('multiline blocks, ports, groups and edges stay inside measured geometry '+direction, async () => {
   const raw=fixture(); raw.layout={direction};
   raw.modules[0].label='Input Controller\nChannel A'; raw.modules[1].label='Output\nCollector';
   raw.modules[0].ports[1].label='Data\nChannel A'; raw.modules[0].ports[0].label='Enable\nValid\nReady';

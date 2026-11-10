@@ -1,33 +1,129 @@
 {
   "version": 1,
-  "diagram": { "name": "TGEN external interfaces" },
+  "diagram": {
+    "name": "Processor external interfaces"
+  },
   "modules": [
     {
-      "id": "TGEN",
-      "label": "TGEN\nBank x2",
+      "id": "Processor",
+      "label": "Processor\nCores x2",
       "height": 2,
-      "style": { "portLabel": { "opacity": 0 } },
+      "style": {
+        "portLabel": {
+          "opacity": 0
+        }
+      },
       "ports": [
-        { "id": "overlay_in", "direction": "input" },
-        { "id": "external_in", "direction": "input" },
-        { "id": "overlay_out", "direction": "output" },
-        { "id": "interrupts", "direction": "output" },
-        { "id": "interconnections", "direction": "output" }
+        {
+          "id": "data_in",
+          "direction": "input"
+        },
+        {
+          "id": "command_in",
+          "direction": "input"
+        },
+        {
+          "id": "data_out",
+          "direction": "output"
+        },
+        {
+          "id": "interrupts",
+          "direction": "output"
+        },
+        {
+          "id": "status",
+          "direction": "output"
+        }
       ]
     }
   ],
   "terminals": [
-    { "id": "OverlayIn", "direction": "input", "label": "Overlay-input" },
-    { "id": "ExternalIn", "direction": "input", "label": "External-input" },
-    { "id": "OverlayOut", "direction": "output", "label": "Overlay-output\nOverlay-direction" },
-    { "id": "Interrupts", "direction": "output", "label": "Interrupts" },
-    { "id": "Interconnections", "direction": "output", "label": "Interconnections" }
+    {
+      "id": "DataIn",
+      "direction": "input",
+      "label": "Data input"
+    },
+    {
+      "id": "CommandIn",
+      "direction": "input",
+      "label": "Command input"
+    },
+    {
+      "id": "DataOut",
+      "direction": "output",
+      "label": "Data output\nDirection"
+    },
+    {
+      "id": "Interrupts",
+      "direction": "output",
+      "label": "Interrupts"
+    },
+    {
+      "id": "Status",
+      "direction": "output",
+      "label": "Status"
+    }
   ],
   "connections": [
-    { "from": { "terminal": "OverlayIn" }, "to": "TGEN.overlay_in" },
-    { "from": { "terminal": "ExternalIn" }, "to": "TGEN.external_in" },
-    { "from": "TGEN.overlay_out", "to": { "terminal": "OverlayOut" } },
-    { "from": "TGEN.interrupts", "to": { "terminal": "Interrupts" } },
-    { "from": "TGEN.interconnections", "to": { "terminal": "Interconnections" } }
+    {
+      "from": {
+        "terminal": "DataIn"
+      },
+      "to": [
+        "Processor.data_in"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
+    },
+    {
+      "from": {
+        "terminal": "CommandIn"
+      },
+      "to": [
+        "Processor.command_in"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
+    },
+    {
+      "from": "Processor.data_out",
+      "to": [
+        {
+          "terminal": "DataOut"
+        }
+      ],
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
+    },
+    {
+      "from": "Processor.interrupts",
+      "to": [
+        {
+          "terminal": "Interrupts"
+        }
+      ],
+      "id": "net_4",
+      "style": {
+        "endArrow": "none"
+      }
+    },
+    {
+      "from": "Processor.status",
+      "to": [
+        {
+          "terminal": "Status"
+        }
+      ],
+      "id": "net_5",
+      "style": {
+        "endArrow": "none"
+      }
+    }
   ]
 }

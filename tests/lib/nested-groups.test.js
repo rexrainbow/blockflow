@@ -6,7 +6,13 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { ancestors, descendants } from '../../src/lib/hierarchy.js';
 import { checkLayout, freeze } from './helpers.js';
 const fixture = JSON.parse(await readFile(new URL('../../examples/nested-groups.json', import.meta.url), 'utf8'));
-for (const direction of ['right','left']) test('nested groups: absolute containers, ancestor geometry and parent-first painting ' + direction, async () => {
+test('styled startup example fits all labels after compact routing without global spacing retries',async()=>{
+  const layout=await layoutDiagram(createDiagramModel(fixture));
+  assert.equal(layout.warnings,undefined);
+  assert.equal(layout.connections[0].labelInstances[0].role,'start');
+  assert.equal(layout.connections[0].labelInstances[0].placement,'inline');
+});
+for (const direction of ['right']) test('nested groups: absolute containers, ancestor geometry and parent-first painting ' + direction, async () => {
   const raw = structuredClone(fixture); delete raw.diagram.style;
   for (const m of raw.modules) { delete m.style; for (const p of m.ports) delete p.style; }
   raw.layout.direction = direction; raw.layout.feedbackRouting = 'elk';

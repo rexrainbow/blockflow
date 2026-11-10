@@ -37,20 +37,20 @@ function fixture() {
         ],
       },
     ],
-    connections: [{ from: 'a.out', to: 'b.in' }],
+    connections: [{ from: 'a.out', to: ['b.in'] }],
   };
 }
 
 test('block key rename updates fanout, incoming edges and self-loops atomically', () => {
   const doc = fixture();
   doc.modules.push({ id: 'aa', ports: [{ id: 'in', direction: 'input' }] });
-  doc.connections.push({ from: 'a.out', to: 'a.in' }, { from: 'a.aux', to: 'aa.in' });
+  doc.connections[0].to.push('a.in');
+  doc.connections.push({ from: 'a.aux', to: ['aa.in'] });
   const history = new History(doc);
   history.update((draft) => renameModule(draft, 'a', 'Source'));
   assert.deepEqual(history.present.connections, [
-    { from: 'Source.out', to: 'b.in' },
-    { from: 'Source.out', to: 'Source.in' },
-    { from: 'Source.aux', to: 'aa.in' },
+    { from: 'Source.out', to: ['b.in', 'Source.in'] },
+    { from: 'Source.aux', to: ['aa.in'] },
   ]);
   assert.equal(history.present.modules[0].label, undefined);
   assert.equal(endpoints(history.present, 'output')[0].label, 'Source.out');
@@ -135,7 +135,7 @@ test('empty document and draft creation; port ordering only moves the chosen sid
   const doc = emptyDocument();
   validateDocument(doc);
   const id = addModule(doc);
-  assert.throws(() => createDiagramModel(doc));
+  assert.doesNotThrow(() => createDiagramModel(doc));
   const module = doc.modules.find((m) => m.id === id);
   addPort(module, 'input');
   addPort(module, 'output');
@@ -176,15 +176,17 @@ test('unknown/known endpoint combinations; mismatch only when both widths are ex
   assert.equal(targetReason(doc, 'a.out', 'b.in', 0), 'Width mismatch');
 });
 
-test('unknown fanout stays unknown across independent connections', () => {
+test('Net fanout checks all known widths while the source definition stays unknown', () => {
   const doc = fixture();
   doc.modules[0].ports.push({ id: 'other', direction: 'input', width: 16 });
   doc.modules[1].ports[0].width = 8;
-  doc.connections.push({ from: 'a.out', to: 'a.other' });
+  doc.connections[0].to.push('a.other');
+  assert.throws(() => createDiagramModel(doc), /width mismatch/);
+  doc.modules[0].ports.at(-1).width = 8;
   const model = createDiagramModel(doc);
   assert.deepEqual(
     model.connections.map((c) => c.width),
-    [8, 16],
+    [8, 8],
   );
   assert.equal(model.modules[0].ports[0].width, null);
   assert.equal(targetReason(doc, 'b.out', 'b.in'), 'Input already connected');

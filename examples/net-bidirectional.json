@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Shared control interface",
+    "caption": "Broadcast commands and selected-slave responses are abstract interface semantics, without arbitration or timing simulation.",
+    "style": {
+      "module": {
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "label": {
+          "padding": 3,
+          "longThreshold": 300
+        }
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "Master",
+      "ports": [
+        {
+          "id": "control",
+          "direction": "inout",
+          "side": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "ALU",
+      "ports": [
+        {
+          "id": "control",
+          "direction": "inout",
+          "side": "top"
+        }
+      ]
+    },
+    {
+      "id": "Memory",
+      "ports": [
+        {
+          "id": "control",
+          "direction": "inout",
+          "side": "top"
+        }
+      ]
+    },
+    {
+      "id": "Timer",
+      "ports": [
+        {
+          "id": "control",
+          "direction": "inout",
+          "side": "top"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "control_bus",
+      "from": "Master.control",
+      "to": [
+        "ALU.control",
+        "Memory.control",
+        "Timer.control"
+      ],
+      "direction": "both",
+      "label": "Control interface"
+    }
+  ],
+  "layout": {
+    "direction": "down",
+    "layerSpacing": 160
+  }
+}

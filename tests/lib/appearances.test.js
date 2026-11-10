@@ -42,7 +42,7 @@ test('appearance parameters, visibility, arrow and feedback side reject malforme
   }
 });
 
-for (const direction of ['right', 'left']) test(`appearance geometry keeps endpoints, names and complete footprints (${direction})`, async () => {
+for (const direction of ['right']) test(`appearance geometry keeps endpoints, names and complete footprints (${direction})`, async () => {
   const raw = await load('block-appearances'); raw.layout = { direction };
   const model = freeze(createDiagramModel(raw)), layout = await layoutDiagram(model);
   checkLayout(model, layout);

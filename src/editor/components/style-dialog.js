@@ -25,6 +25,16 @@ const connectionFields = [
   ['Line pattern', 'lineStyle', 'pattern'],
   ['Opacity', 'opacity', 'opacity'],
   ['End arrow', 'endArrow', 'arrow'],
+  ['Start arrow', 'startArrow', 'arrow'],
+];
+const connectionTextFields = [
+  ['Destination labels', 'repeatAtEnd', 'repeat'],
+  ['Long branch threshold', 'longThreshold', 'positive'],
+  ...textFields,
+  ['Border color', 'borderColor', 'color'],
+  ['Border width', 'borderWidth', 'nonnegative'],
+  ['Border opacity', 'borderOpacity', 'opacity'],
+  ['Corner radius', 'borderRadius', 'nonnegative'],
 ];
 
 function fields(definitions, style, group) {
@@ -33,40 +43,54 @@ function fields(definitions, style, group) {
       const value = style?.[property] ?? '';
       const attrs = `data-style-property="${property}" data-style-group="${group}" aria-label="${label}"`;
       const numeric = ['positive', 'nonnegative', 'opacity'].includes(type);
-      const control = ['visibility', 'arrow'].includes(type)
-        ? select(
-            [
-              { value: '', label: 'Inherit default' },
-              ...(type === 'visibility'
-                ? [
-                    { value: 'true', label: 'Yes' },
-                    { value: 'false', label: 'No' },
-                  ]
-                : [
-                    { value: 'none', label: 'None' },
-                    { value: 'triangle', label: 'Triangle' },
-                  ]),
-            ],
-            value,
-            attrs,
-          )
-        : type === 'pattern'
+      const control =
+        type === 'repeat'
           ? select(
               [
                 { value: '', label: 'Inherit default' },
-                ...['solid', 'dashed', 'dotted'].map((value, i) => ({
-                  value,
-                  label: ['Solid', 'Dashed', 'Dotted'][i],
-                })),
+                ...[
+                  ['auto', 'Long branches'],
+                  ['always', 'Always'],
+                  ['never', 'Never'],
+                ].map(([value, label]) => ({ value, label })),
               ],
               value,
               attrs,
             )
-          : input(
-              value,
-              `${attrs} placeholder="Inherit default" ${numeric ? `min="${type === 'positive' ? '0.1' : '0'}" step="any" ${type === 'opacity' ? 'max="1"' : ''}` : 'spellcheck="false"'}`,
-              numeric ? 'number' : 'text',
-            );
+          : ['visibility', 'arrow'].includes(type)
+            ? select(
+                [
+                  { value: '', label: 'Inherit default' },
+                  ...(type === 'visibility'
+                    ? [
+                        { value: 'true', label: 'Yes' },
+                        { value: 'false', label: 'No' },
+                      ]
+                    : [
+                        { value: 'none', label: 'None' },
+                        { value: 'triangle', label: 'Triangle' },
+                      ]),
+                ],
+                value,
+                attrs,
+              )
+            : type === 'pattern'
+              ? select(
+                  [
+                    { value: '', label: 'Inherit default' },
+                    ...['solid', 'dashed', 'dotted'].map((value, i) => ({
+                      value,
+                      label: ['Solid', 'Dashed', 'Dotted'][i],
+                    })),
+                  ],
+                  value,
+                  attrs,
+                )
+              : input(
+                  value,
+                  `${attrs} placeholder="Inherit default" ${numeric ? `min="${type === 'positive' ? '0.1' : '0'}" step="any" ${type === 'opacity' ? 'max="1"' : ''}` : 'spellcheck="false"'}`,
+                  numeric ? 'number' : 'text',
+                );
       return field(label, control, type === 'color' ? 'Hex color or transparent' : '');
     })
     .join('')}</div>`;
@@ -84,6 +108,39 @@ function appearanceFields(appearance, moduleType) {
   )}
     <div data-appearance-panel="stacked" ${type !== 'stacked' ? 'hidden' : ''}>${field('Stack layers', input(appearance?.layers ?? '', 'data-appearance-property="layers" aria-label="Stack layers" min="1" max="3" step="1" placeholder="Default: 2"', 'number'), 'Visual backing plates only; no members or expansion.')}</div>
     <div data-appearance-panel="trapezoid" ${type !== 'trapezoid' ? 'hidden' : ''}>${field('Right height ratio', input(appearance?.rightHeightRatio ?? '', 'data-appearance-property="rightHeightRatio" aria-label="Right height ratio" min="0.2" max="1" step="0.1" placeholder="Default: 0.6"', 'number'), 'Right-side height relative to the left (0.2–1).')}</div></div>`;
+}
+
+function sizeFields(size = {}) {
+  return `<fieldset class="style-size"><legend>Size</legend><p class="style-help">Relative minimum dimensions. Leave blank for Auto; 1 is the shared base size. Content may require more space. Text and strokes keep their size.</p><div class="style-grid">${[
+    'width',
+    'height',
+  ]
+    .map((axis) =>
+      field(
+        axis === 'width' ? 'Width' : 'Height',
+        input(
+          size[axis] ?? '',
+          `data-size-property="${axis}" aria-label="${axis === 'width' ? 'Width' : 'Height'}" min="0" step="0.1" placeholder="Auto"`,
+          'number',
+        ),
+      ),
+    )
+    .join('')}</div></fieldset>`;
+}
+
+export function readSizeDialog(dialog, session) {
+  if (!['module', 'group'].includes(session.kind)) return undefined;
+  const size = {};
+  for (const element of dialog.querySelectorAll('[data-size-property]')) {
+    const value = element.value.trim();
+    if (element.validity.badInput || (value && (!Number.isFinite(Number(value)) || Number(value) <= 0))) {
+      const error = new Error('Enter a number greater than zero, or leave blank for Auto.');
+      error.path = `size.${element.dataset.sizeProperty}`;
+      throw error;
+    }
+    if (value) size[element.dataset.sizeProperty] = Number(value);
+  }
+  return size;
 }
 
 export function updateAppearanceFields(dialog) {
@@ -129,7 +186,14 @@ export function renderStyleDialog(session) {
             [
               '',
               'Group',
-              blockFields.map(([name, key, type]) => [key === 'fillColor' ? 'Group fill' : name, key, type]),
+              [
+                ...blockFields.map(([name, key, type]) => [
+                  key === 'fillColor' ? 'Group fill' : name,
+                  key,
+                  type,
+                ]),
+                ['Corner radius', 'borderRadius', 'nonnegative'],
+              ],
             ],
             ['label', 'Label', textFields],
             ['portLabel', 'All ports', textFields],
@@ -137,10 +201,12 @@ export function renderStyleDialog(session) {
             ['outputPortLabel', 'Output labels', textFields],
           ]
         : kind === 'connection'
-          ? [
-              ['', 'Line', connectionFields],
-              ['label', 'Label', textFields],
-            ]
+          ? session.branch
+            ? [['', 'Line', connectionFields.filter(([, key]) => key !== 'startArrow')]]
+            : [
+                ['', 'Line', connectionFields],
+                ['label', 'Label', connectionTextFields],
+              ]
           : [['', 'Text', textFields]];
   const title =
     kind === 'group'
@@ -148,7 +214,7 @@ export function renderStyleDialog(session) {
       : kind === 'module'
         ? 'Block style'
         : kind === 'port'
-          ? `${direction === 'input' ? 'Input' : 'Output'} port text style`
+          ? `${direction === 'input' ? 'Input' : direction === 'inout' ? 'Bidirectional' : 'Output'} port text style`
           : kind === 'terminal'
             ? 'Terminal text style'
             : 'Connection style';
@@ -157,7 +223,7 @@ export function renderStyleDialog(session) {
     <header class="dialog-heading"><span class="dialog-eyebrow">STYLE</span><h2 id="dialog-title">${title}</h2><p class="style-target">${e(label)}</p></header>
     <p id="style-dialog-help" class="style-help">Blank fields inherit defaults. Changes apply only when you select OK.${kind === 'module' ? ' Individual port styles override the shared port defaults.' : kind === 'port' ? ' These settings affect only this port label.' : ''}</p>
     ${groups.length > 1 ? `<div class="style-tabs" role="tablist" aria-label="Style section">${groups.map(([key, name]) => `<button type="button" role="tab" id="style-tab-${key || 'block'}" aria-selected="${key === active}" aria-controls="style-panel-${key || 'block'}" tabindex="${key === active ? '0' : '-1'}" data-action="style-tab" data-style-section="${key}">${name}</button>`).join('')}</div>` : ''}
-    <div class="style-dialog-body">${groups.map(([key, name, definitions]) => `<section id="style-panel-${key || 'block'}" class="style-tab-panel" ${groups.length > 1 ? `role="tabpanel" aria-labelledby="style-tab-${key || 'block'}"` : `aria-label="${name} style"`} ${key !== active ? 'hidden' : ''}>${kind === 'module' && key === '' ? appearanceFields(session.appearance, session.moduleType) : ''}${fields(definitions, key ? style[key] : style, key)}</section>`).join('')}</div>
+    <div class="style-dialog-body">${groups.map(([key, name, definitions]) => `<section id="style-panel-${key || 'block'}" class="style-tab-panel" ${groups.length > 1 ? `role="tabpanel" aria-labelledby="style-tab-${key || 'block'}"` : `aria-label="${name} style"`} ${key !== active ? 'hidden' : ''}>${kind === 'module' && key === '' ? appearanceFields(session.appearance, session.moduleType) : ''}${['module', 'group'].includes(kind) && key === '' ? sizeFields(session.size) : ''}${fields(definitions, key ? style[key] : style, key)}</section>`).join('')}</div>
     <p id="style-dialog-error" class="field-error" role="alert"></p>
     <footer class="dialog-actions">${button('cancel-dialog', 'Cancel', { className: 'outline' })}${button('confirm-style', 'OK', { className: 'primary' })}</footer>
   </form>`;
@@ -220,6 +286,10 @@ export function readStyleDialog(dialog, session) {
 }
 
 export function styleErrorField(dialog, path) {
+  if (path?.startsWith('size.')) {
+    selectStyleTab(dialog, '', false);
+    return dialog.querySelector(`[data-size-property="${path.split('.').at(-1)}"]`);
+  }
   if (path?.startsWith('appearance.')) {
     selectStyleTab(dialog, '', false);
     return dialog.querySelector(`[data-appearance-property="${path.split('.').at(-1)}"]`);

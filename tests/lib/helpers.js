@@ -8,7 +8,7 @@ export function fixture() {
       { id: 'a', ports: [{ id: 'i', direction: 'input' }, { id: 'o', direction: 'output' }] },
       { id: 'b', ports: [{ id: 'i', direction: 'input' }, { id: 'o', direction: 'output' }] },
     ],
-    connections: [{ from: 'a.o', to: 'b.i' }],
+    connections: [{ from: 'a.o', to: ['b.i'] }],
   };
 }
 
@@ -37,7 +37,13 @@ export function checkLayout(model, layout) {
     for (const port of module.ports) {
       const expected = model.modules[i].ports.find(p => p.id === port.id);
       assert.ok(near(port.x, module.x + (port.direction === 'input' ? 0 : module.width)));
-      assert.ok(near(port.y, module.y + geometry.portPoints[expected.id].y));
+      const adjustment = model.layout.portAdjustment ?? 'reduce-bends';
+      const shift = adjustment === 'reduce-bends' &&
+        model.modules[i].type !== 'concat' &&
+        ['rectangle', 'stacked'].includes(model.modules[i].appearance?.type ?? 'rectangle')
+        ? model.layout.maxPortShift ?? 40 : 0;
+      assert.ok(Math.abs(port.y - module.y - geometry.portPoints[expected.id].y) <= shift + 1e-6,
+        `${module.id}.${port.id}: port exceeds maximum shift`);
       assert.ok(near(port.labelPosition.y, port.y));
       anchors.set(`${module.id}.${port.id}`, port);
     }

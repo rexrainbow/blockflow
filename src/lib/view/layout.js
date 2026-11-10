@@ -82,7 +82,7 @@ export function copyLayout(input) {
       const key = node.id + '.' + port.id;
       if (ports.has(key)) fail('duplicate port');
       ports.add(key);
-      if (!['input', 'output'].includes(port.direction)) fail('port direction');
+      if (!['input', 'output', 'inout'].includes(port.direction)) fail('port direction');
       number(port.x, 'port x');
       number(port.y, 'port y');
       label(port.displayName, port.labelPosition, port.labelBounds);
@@ -106,18 +106,31 @@ export function copyLayout(input) {
     identifier(edge.id);
     if (connections.has(edge.id)) fail('duplicate connection ID');
     connections.add(edge.id);
+    if (edge.netId !== undefined) identifier(edge.netId);
+    for (const property of ['branchIndex', 'connectionIndex'])
+      if (edge[property] !== undefined && (!Number.isInteger(edge[property]) || edge[property] < 0))
+        fail('Net branch identity');
     const key = connectionKey(edge);
     if (edgeKeys.has(key)) fail('duplicate connection key');
     edgeKeys.add(key);
     style(edge.style, 'connection');
-    if (edge.arrow !== undefined) {
-      if (!Array.isArray(edge.arrow?.points) || edge.arrow.points.length !== 3) fail('connection arrow');
-      for (const point of edge.arrow.points) {
-        number(point.x, 'arrow x');
-        number(point.y, 'arrow y');
+    if (edge.netStyle !== undefined) style(edge.netStyle, 'connection');
+    if (
+      edge.netTrunkSections !== undefined &&
+      (!Number.isInteger(edge.netTrunkSections) ||
+        edge.netTrunkSections < 0 ||
+        edge.netTrunkSections > edge.sections?.length)
+    )
+      fail('Net trunk sections');
+    for (const arrow of [edge.arrow, edge.startArrow])
+      if (arrow !== undefined) {
+        if (!Array.isArray(arrow?.points) || arrow.points.length !== 3) fail('connection arrow');
+        for (const point of arrow.points) {
+          number(point.x, 'arrow x');
+          number(point.y, 'arrow y');
+        }
+        box(arrow.bounds, 'arrow bounds');
       }
-      box(edge.arrow.bounds, 'arrow bounds');
-    }
     if (!Array.isArray(edge.sections) || !edge.sections.length) fail('edge sections');
     for (const section of edge.sections) {
       if (!Array.isArray(section.points) || section.points.length < 2) fail('route points');
@@ -127,6 +140,36 @@ export function copyLayout(input) {
       }
     }
     if (edge.label !== undefined) label(edge.label, edge.labelPosition, edge.labelBounds);
+    if (edge.labelInstances !== undefined) {
+      if (!Array.isArray(edge.labelInstances) || edge.labelInstances.length > 2 || edge.label === undefined)
+        fail('label instances');
+      for (const instance of edge.labelInstances) {
+        label(edge.label, instance.position, instance.bounds);
+        if (
+          !['inline', 'beside', 'callout'].includes(instance.placement) ||
+          !['center', 'start', 'end'].includes(instance.role)
+        )
+          fail('label placement');
+        if (instance.leader !== undefined) {
+          if (
+            instance.placement !== 'callout' ||
+            !Array.isArray(instance.leader) ||
+            instance.leader.length !== 2
+          )
+            fail('label leader');
+          for (const point of instance.leader) {
+            number(point.x, 'leader x');
+            number(point.y, 'leader y');
+          }
+        }
+        if (instance.sharedKey !== undefined) identifier(instance.sharedKey);
+        if (instance.connectionIds !== undefined) {
+          if (!Array.isArray(instance.connectionIds) || !instance.connectionIds.length)
+            fail('shared label connections');
+          instance.connectionIds.forEach(identifier);
+        }
+      }
+    }
     if (edge.source || edge.target)
       for (const endpoint of [edge.source, edge.target]) {
         if (!endpoint) fail('edge endpoint');
@@ -148,6 +191,10 @@ export function copyLayout(input) {
         )
           fail('edge endpoint');
       }
+  }
+  if (layout.caption) {
+    label(layout.caption.text, layout.caption.labelPosition, layout.caption.labelBounds);
+    style(layout.caption.style, 'text');
   }
   return layout;
 }

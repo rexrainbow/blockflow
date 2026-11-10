@@ -1,0 +1,1067 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Processor subsystem",
+    "caption": "Processor structure is shown once for two identical cores.\nALUs represent 24 instances per core.",
+    "style": {
+      "module": {
+        "borderColor": "#52606D",
+        "fillColor": "#EAF2FF",
+        "label": {
+          "color": "#243B53",
+          "fontSize": 12
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "strokeColor": "#34495E",
+        "endArrow": "triangle",
+        "label": {
+          "fontSize": 10,
+          "color": "#243B53",
+          "backgroundColor": "transparent",
+          "padding": 2
+        }
+      }
+    }
+  },
+  "layout": {
+    "direction": "down",
+    "moduleSpacing": 180,
+    "layerSpacing": 70
+  },
+  "modules": [
+    {
+      "id": "StartupController",
+      "label": "Startup controller",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "output"
+        }
+      ],
+      "style": {
+        "fillColor": "#F3E5F5",
+        "borderColor": "#7B1FA2"
+      }
+    },
+    {
+      "id": "InputFilter",
+      "label": "Input filters\nx32",
+      "ports": [
+        {
+          "id": "channel",
+          "direction": "input"
+        },
+        {
+          "id": "filtered",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "InputLogic",
+      "label": "Input logic\nx4",
+      "ports": [
+        {
+          "id": "filtered",
+          "direction": "input"
+        },
+        {
+          "id": "feedback",
+          "direction": "input"
+        },
+        {
+          "id": "combined",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "InputRegister",
+      "label": "Input register",
+      "ports": [
+        {
+          "id": "filtered",
+          "direction": "input"
+        },
+        {
+          "id": "route_feedback",
+          "direction": "input"
+        },
+        {
+          "id": "channel",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "InputMux",
+      "label": "Input mux",
+      "ports": [
+        {
+          "id": "command",
+          "direction": "input"
+        },
+        {
+          "id": "combined",
+          "direction": "input"
+        },
+        {
+          "id": "selected_command",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "OperandBus",
+      "label": "Operand bus",
+      "ports": [
+        {
+          "id": "channel",
+          "direction": "input"
+        },
+        {
+          "id": "command",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ],
+      "type": "concat",
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "fillColor": "#1565C0",
+        "borderColor": "#1565C0"
+      }
+    },
+    {
+      "id": "InstructionMux",
+      "label": "Instruction mux",
+      "ports": [
+        {
+          "id": "inputs",
+          "direction": "input"
+        },
+        {
+          "id": "feedback",
+          "direction": "input"
+        },
+        {
+          "id": "sources",
+          "direction": "output"
+        }
+      ],
+      "width": 1.1
+    },
+    {
+      "id": "Decoder",
+      "label": "Instruction decoder\nx24",
+      "ports": [
+        {
+          "id": "sources",
+          "direction": "input"
+        },
+        {
+          "id": "inputs",
+          "direction": "input"
+        },
+        {
+          "id": "start",
+          "direction": "input"
+        },
+        {
+          "id": "decoded",
+          "direction": "output"
+        }
+      ],
+      "width": 1.1
+    },
+    {
+      "id": "ALU",
+      "label": "ALU",
+      "ports": [
+        {
+          "id": "inputs",
+          "direction": "input"
+        },
+        {
+          "id": "decoded",
+          "direction": "input"
+        },
+        {
+          "id": "start",
+          "direction": "input"
+        },
+        {
+          "id": "data",
+          "direction": "output"
+        },
+        {
+          "id": "status",
+          "direction": "output"
+        }
+      ],
+      "width": 2.1,
+      "height": 1
+    },
+    {
+      "id": "ResultLogic",
+      "label": "Result logic\nx16",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input"
+        },
+        {
+          "id": "decoded",
+          "direction": "input"
+        },
+        {
+          "id": "route",
+          "direction": "output"
+        }
+      ],
+      "width": 1.4
+    },
+    {
+      "id": "OutputRegister",
+      "label": "Output register",
+      "ports": [
+        {
+          "id": "route",
+          "direction": "input"
+        },
+        {
+          "id": "bite",
+          "direction": "input"
+        },
+        {
+          "id": "start",
+          "direction": "input"
+        },
+        {
+          "id": "channel",
+          "direction": "output"
+        },
+        {
+          "id": "events",
+          "direction": "output"
+        }
+      ],
+      "width": 1.4
+    },
+    {
+      "id": "ResultMux",
+      "label": "Result mux\nx24",
+      "ports": [
+        {
+          "id": "alu_status",
+          "direction": "input"
+        },
+        {
+          "id": "route",
+          "direction": "input"
+        },
+        {
+          "id": "decoded",
+          "direction": "input"
+        },
+        {
+          "id": "filtered",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ],
+      "width": 1.4
+    },
+    {
+      "id": "Watchdog",
+      "label": "Watchdog",
+      "ports": [
+        {
+          "id": "bite",
+          "direction": "output"
+        }
+      ],
+      "style": {
+        "fillColor": "#F3E5F5",
+        "borderColor": "#7B1FA2"
+      }
+    },
+    {
+      "id": "InterruptRouter",
+      "label": "Interrupt router\nx8",
+      "ports": [
+        {
+          "id": "decoded",
+          "direction": "input"
+        },
+        {
+          "id": "interrupts",
+          "direction": "output"
+        }
+      ],
+      "width": 1.1
+    },
+    {
+      "id": "InterruptBus",
+      "label": "Interrupt bus",
+      "ports": [
+        {
+          "id": "switched",
+          "direction": "input"
+        },
+        {
+          "id": "io_events",
+          "direction": "input"
+        },
+        {
+          "id": "bite",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ],
+      "type": "concat",
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "fillColor": "#1565C0",
+        "borderColor": "#1565C0"
+      }
+    },
+    {
+      "id": "ResultBus",
+      "label": "Result bus",
+      "ports": [
+        {
+          "id": "cores",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ],
+      "type": "concat",
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "fillColor": "#1565C0",
+        "borderColor": "#1565C0"
+      }
+    }
+  ],
+  "terminals": [
+    {
+      "id": "CommandIn",
+      "direction": "input",
+      "label": "Command inputs\nx34",
+      "style": {
+        "fontSize": 10,
+        "color": "#243B53",
+        "backgroundColor": "transparent",
+        "padding": 2
+      }
+    },
+    {
+      "id": "DataIn",
+      "direction": "input",
+      "label": "Data inputs\nx32",
+      "style": {
+        "fontSize": 10,
+        "color": "#243B53",
+        "backgroundColor": "transparent",
+        "padding": 2
+      }
+    },
+    {
+      "id": "ResultOut",
+      "direction": "output",
+      "label": "Result output x24\nStatus channels x32",
+      "style": {
+        "fontSize": 10,
+        "color": "#243B53",
+        "backgroundColor": "transparent",
+        "padding": 2
+      }
+    },
+    {
+      "id": "IrqOut",
+      "direction": "output",
+      "label": "Interrupts\nx(8+1)x2 cores + 1",
+      "style": {
+        "fontSize": 10,
+        "color": "#243B53",
+        "backgroundColor": "transparent",
+        "padding": 2
+      }
+    },
+    {
+      "id": "DataOut",
+      "direction": "output",
+      "label": "Data outputs / Direction\nx16 per core / x32 total",
+      "style": {
+        "fontSize": 10,
+        "color": "#243B53",
+        "backgroundColor": "transparent",
+        "padding": 2
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "InputSubsystem",
+      "type": "container",
+      "label": "Input subsystem",
+      "members": [
+        "InputConditioning"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#7A9BBE",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "InputConditioning",
+      "type": "container",
+      "label": "Input conditioning",
+      "members": [
+        "InputFilter",
+        "InputLogic"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#B0B8C5",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "Processor",
+      "type": "container",
+      "label": "Processor",
+      "members": [
+        "ProcessorInputs",
+        "DecodeStage",
+        "ExecutionStage",
+        "WritebackStage",
+        "ResultStage"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#7A9BBE",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "ProcessorInputs",
+      "type": "container",
+      "label": "Operands",
+      "members": [
+        "InputRegister",
+        "InputMux",
+        "OperandBus"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#B0B8C5",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "DecodeStage",
+      "type": "container",
+      "label": "Decode",
+      "members": [
+        "InstructionMux",
+        "Decoder"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#B0B8C5",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "ExecutionStage",
+      "type": "container",
+      "label": "Execution\nx24",
+      "members": [
+        "ALU"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#1F5FBF",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "fontSize": 12,
+          "color": "#1F4E8C"
+        },
+        "borderWidth": 2.2
+      }
+    },
+    {
+      "id": "WritebackStage",
+      "type": "container",
+      "label": "Writeback",
+      "members": [
+        "ResultLogic",
+        "OutputRegister"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#B0B8C5",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "ResultStage",
+      "type": "container",
+      "label": "Results",
+      "members": [
+        "ResultMux"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#B0B8C5",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "InterruptSubsystem",
+      "type": "container",
+      "label": "Interrupts",
+      "members": [
+        "InterruptRouter",
+        "InterruptBus"
+      ],
+      "style": {
+        "borderRadius": 12,
+        "borderColor": "#7A9BBE",
+        "borderStyle": "solid",
+        "fillColor": "#F5F7FA",
+        "label": {
+          "color": "#4A5668",
+          "fontSize": 12
+        }
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "terminal": "DataIn"
+      },
+      "to": [
+        {
+          "endpoint": "InputFilter.channel",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net__terminal_DataIn"
+    },
+    {
+      "from": {
+        "terminal": "CommandIn"
+      },
+      "to": [
+        {
+          "endpoint": "InputMux.command",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net__terminal_CommandIn"
+    },
+    {
+      "from": "InputFilter.filtered",
+      "to": [
+        {
+          "endpoint": "InputRegister.filtered",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        },
+        {
+          "endpoint": "InputLogic.filtered",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#6b7280",
+            "strokeWidth": 1.5
+          }
+        },
+        {
+          "endpoint": "ResultMux.filtered",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#7b1fa2",
+            "strokeWidth": 1.5,
+            "lineStyle": "dashed"
+          }
+        }
+      ],
+      "label": "Filtered data\ninputs x32",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_InputFilter_filtered"
+    },
+    {
+      "from": "InputLogic.combined",
+      "to": [
+        {
+          "endpoint": "InputMux.combined",
+          "style": {
+            "strokeColor": "#6b7280"
+          }
+        },
+        {
+          "endpoint": "InputLogic.feedback",
+          "feedback": true,
+          "style": {
+            "strokeColor": "#6b7280"
+          }
+        }
+      ],
+      "label": "Combined data\ninputs x4",
+      "constraint": false,
+      "style": {
+        "strokeColor": "#6B7280",
+        "strokeWidth": 1.5
+      },
+      "id": "net_InputLogic_combined"
+    },
+    {
+      "from": "InputRegister.channel",
+      "to": [
+        {
+          "endpoint": "OperandBus.channel",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "label": "Data inputs\nx16",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_InputRegister_channel"
+    },
+    {
+      "from": "InputMux.selected_command",
+      "to": [
+        {
+          "endpoint": "OperandBus.command",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "label": "Command inputs\nx16",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_InputMux_selected_command"
+    },
+    {
+      "from": "OperandBus.out",
+      "to": [
+        {
+          "endpoint": "InstructionMux.inputs",
+          "style": {
+            "strokeColor": "#34495e"
+          }
+        },
+        {
+          "endpoint": "Decoder.inputs",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#7b1fa2",
+            "lineStyle": "dashed"
+          }
+        },
+        {
+          "endpoint": "ALU.inputs",
+          "style": {
+            "strokeColor": "#1565c0",
+            "strokeWidth": 4
+          }
+        }
+      ],
+      "label": "Operands\nx32",
+      "style": {
+        "strokeColor": "#34495E",
+        "strokeWidth": 1.5
+      },
+      "id": "net_OperandBus_out"
+    },
+    {
+      "from": "InstructionMux.sources",
+      "to": [
+        {
+          "endpoint": "Decoder.sources",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "label": "Instruction\nsources\nx32",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_InstructionMux_sources"
+    },
+    {
+      "from": "Decoder.decoded",
+      "to": [
+        {
+          "endpoint": "ALU.decoded",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        },
+        {
+          "endpoint": "ResultMux.decoded",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#7b1fa2",
+            "strokeWidth": 1.5,
+            "lineStyle": "dashed"
+          }
+        },
+        {
+          "endpoint": "ResultLogic.decoded",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#6b7280",
+            "strokeWidth": 1.5
+          }
+        },
+        {
+          "endpoint": "InterruptRouter.decoded",
+          "style": {
+            "strokeColor": "#34495e",
+            "strokeWidth": 1.5
+          }
+        }
+      ],
+      "label": "Decoded control\nx24",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_Decoder_decoded"
+    },
+    {
+      "from": "ALU.data",
+      "to": [
+        {
+          "endpoint": "ResultLogic.data",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "label": "ALU\nResult",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_ALU_data"
+    },
+    {
+      "from": "ALU.status",
+      "to": [
+        {
+          "endpoint": "ResultMux.alu_status",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "label": "ALU\nStatus output",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_ALU_status"
+    },
+    {
+      "from": "ResultLogic.route",
+      "to": [
+        {
+          "endpoint": "OutputRegister.route",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        },
+        {
+          "endpoint": "ResultMux.route",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#7b1fa2",
+            "strokeWidth": 1.5,
+            "lineStyle": "dashed"
+          }
+        },
+        {
+          "endpoint": "InputRegister.route_feedback",
+          "constraint": false,
+          "feedback": true,
+          "style": {
+            "strokeColor": "#7b1fa2",
+            "strokeWidth": 1.5,
+            "lineStyle": "dashed"
+          }
+        }
+      ],
+      "label": "Result routing x16",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_ResultLogic_route"
+    },
+    {
+      "from": "OutputRegister.channel",
+      "to": [
+        {
+          "endpoint": {
+            "terminal": "DataOut"
+          },
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_OutputRegister_channel"
+    },
+    {
+      "from": "OutputRegister.events",
+      "to": [
+        {
+          "endpoint": "InterruptBus.io_events",
+          "style": {
+            "strokeColor": "#34495e"
+          }
+        }
+      ],
+      "label": "I/O edge\nevents",
+      "style": {
+        "strokeColor": "#34495E",
+        "strokeWidth": 1.5
+      },
+      "id": "net_OutputRegister_events"
+    },
+    {
+      "from": "ResultMux.out",
+      "to": [
+        {
+          "endpoint": "ResultBus.cores",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        },
+        {
+          "endpoint": {
+            "terminal": "ResultOut"
+          },
+          "style": {
+            "strokeColor": "#34495e",
+            "strokeWidth": 1.5
+          },
+          "constraint": true,
+          "feedback": false
+        }
+      ],
+      "label": "Result output\nx24 per core",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "constraint": false,
+      "feedback": true,
+      "id": "net_ResultMux_out"
+    },
+    {
+      "from": "ResultBus.out",
+      "to": [
+        {
+          "endpoint": "InstructionMux.feedback",
+          "style": {
+            "strokeColor": "#1565c0"
+          }
+        }
+      ],
+      "label": "Result outputs\nx24x2 cores",
+      "style": {
+        "strokeColor": "#1565C0",
+        "strokeWidth": 4
+      },
+      "id": "net_ResultBus_out"
+    },
+    {
+      "from": "InterruptRouter.interrupts",
+      "to": [
+        {
+          "endpoint": "InterruptBus.switched",
+          "style": {
+            "strokeColor": "#34495e"
+          }
+        }
+      ],
+      "label": "Interrupt routes\nx8 per core",
+      "style": {
+        "strokeColor": "#34495E",
+        "strokeWidth": 1.5
+      },
+      "id": "net_InterruptRouter_interrupts"
+    },
+    {
+      "from": "Watchdog.bite",
+      "to": [
+        {
+          "endpoint": "InterruptBus.bite",
+          "style": {
+            "strokeColor": "#6b7280"
+          }
+        },
+        {
+          "endpoint": "OutputRegister.bite",
+          "style": {
+            "strokeColor": "#7b1fa2",
+            "lineStyle": "dashed"
+          }
+        }
+      ],
+      "label": "Bite",
+      "constraint": false,
+      "style": {
+        "strokeColor": "#6B7280",
+        "strokeWidth": 1.5,
+        "label": {
+          "repeatAtEnd": "always"
+        }
+      },
+      "id": "net_Watchdog_bite"
+    },
+    {
+      "from": "StartupController.start",
+      "to": [
+        {
+          "endpoint": "ALU.start",
+          "style": {
+            "strokeColor": "#7b1fa2"
+          }
+        },
+        {
+          "endpoint": "Decoder.start",
+          "style": {
+            "strokeColor": "#7b1fa2"
+          }
+        },
+        {
+          "endpoint": "OutputRegister.start",
+          "style": {
+            "strokeColor": "#7b1fa2"
+          }
+        }
+      ],
+      "constraint": false,
+      "style": {
+        "strokeColor": "#7B1FA2",
+        "strokeWidth": 1.5,
+        "lineStyle": "dashed"
+      },
+      "id": "net_StartupController_start"
+    },
+    {
+      "from": "InterruptBus.out",
+      "to": [
+        {
+          "endpoint": {
+            "terminal": "IrqOut"
+          },
+          "style": {
+            "strokeColor": "#34495e"
+          }
+        }
+      ],
+      "style": {
+        "strokeColor": "#34495E",
+        "strokeWidth": 1.5
+      },
+      "id": "net_InterruptBus_out"
+    }
+  ]
+}

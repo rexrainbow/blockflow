@@ -12,13 +12,42 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
 ```json
 {
   "version": 1,
-  "diagram": { "name": "Source to Sink" },
+  "diagram": {
+    "name": "Source to Sink"
+  },
   "modules": [
-    { "id": "Source", "ports": [{ "id": "data", "direction": "output" }] },
-    { "id": "Sink", "ports": [{ "id": "data", "direction": "input" }] }
+    {
+      "id": "Source",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Sink",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input"
+        }
+      ]
+    }
   ],
-  "connections": [{ "from": "Source.data", "to": "Sink.data" }],
-  "layout": { "direction": "right" }
+  "connections": [
+    {
+      "from": "Source.data",
+      "to": ["Sink.data"],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
+    }
+  ],
+  "layout": {
+    "direction": "right"
+  }
 }
 ```
 
@@ -31,7 +60,7 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
 - IDs match `[A-Za-z_][A-Za-z0-9_]*`. Module IDs are unique across the diagram; port IDs
   are unique within their module, across inputs and outputs. Keep existing IDs unless asked
   to rename them; update every affected `from` and `to` when renaming.
-- Each diagram needs at least one module or group, each module at least one port. Empty editor drafts
+- Each diagram needs at least one module or group, ordinary modules may omit ports or use an empty array; Concat retains its required input/output ports. Empty editor drafts
   are not valid library inputs. Unknown properties are rejected at every level.
 - Omit block, group or port `label` to display its ID. Display labels support LF (`\n`)
   line breaks; CRLF is normalized to LF. Labels must be non-blank XML-compatible text.
@@ -52,7 +81,7 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
   text or strokes. Extra size does not guarantee straight connections. See `examples/block-sizes.json`.
 - Port array order controls order on each side: top-to-bottom for horizontal flow, left-to-right for Down. Inputs/outputs use left/right sides horizontally and top/bottom in Down.
   Module or connection array order alone does not enforce block positions. Do not invent
-  coordinates, connection IDs, `alignmentGroups`, HTML/CSS or renderer-specific fields.
+  coordinates, compiled branch IDs, `alignmentGroups`, HTML/CSS or renderer-specific fields.
 
 ## External terminals
 
@@ -83,8 +112,7 @@ terminals and external edges. Existing block-only input remains valid without th
 ## Layout
 
 All visible connections are laid out together (once). There is no layout mode, edge order
-or main-path alignment setting. Use direction right or down; legacy left is also supported with native
-ELK routing. Labels may trigger bounded spacing retries on the same complete graph.
+or main-path alignment setting. Use direction right or down. Label conflicts do not trigger global spacing retries.
 Use feedback:true to express feedback preference and feedbackRouting:outer for the optional
 AABB exterior route; these do not create layout batches.
 
@@ -93,7 +121,7 @@ schema validation does not insert them into JSON.
 
 | Field                 | Accepted values                                    | Default        |
 | --------------------- | -------------------------------------------------- | -------------- |
-| `direction`           | `"right"`, `"down"`, `"left"`                      | `"right"`      |
+| `direction`           | `"right"`, `"down"`                                | `"right"`      |
 | `routing`             | `"orthogonal"` only                                | `"orthogonal"` |
 | `placement`           | `"default"`, `"relaxed"`, `"simple"`               | `"default"`    |
 | `feedbackRouting`     | `"elk"`, `"outer"`                                 | `"elk"`        |
@@ -102,6 +130,8 @@ schema validation does not insert them into JSON.
 | `feedbackLaneSpacing` | Positive finite number                             | `12`           |
 | `moduleSpacing`       | Positive finite number                             | `50`           |
 | `layerSpacing`        | Positive finite number                             | `80`           |
+| `portAdjustment`      | `fixed` or `reduce-bends`                          | `reduce-bends` |
+| `maxPortShift`        | Finite non-negative logical SVG distance           | `40`           |
 
 Prefer `default` or `relaxed` placement; `simple` remains available for compatibility.
 `feedbackRouting: "outer"` requires `direction: "right"` or `"down"`; the library rejects `left`
@@ -308,9 +338,7 @@ Every real width, driver and boundary check runs before projection, even for hid
 The shared visual anchor has no width. Edges retain separate identities, labels and styles;
 coincident paths can overlap. See [the 16-instance example](../examples/collection-instances.json).
 
-Canonical types are `container` (default), `boundary`, `collection`. Legacy `portMode`
-works when type is absent; if both exist they must agree (Boundary = boundary,
-Container/Collection = direct). Only Boundary ports are real endpoints.
+Canonical types are `container` (default), `boundary`, `collection`. The old `portMode` field is rejected. Only Boundary ports are real endpoints.
 
 ### Group views are layout options
 
@@ -337,3 +365,140 @@ Down exterior routing uses `feedbackSide: "auto"`, `"left"` or `"right"`; use `t
 only for horizontal flow. The editor maps sides when its Flow select changes axes; raw JSON
 must already be consistent. Scoped/boundary/terminal and blocked-access fallbacks still
 apply. See [vertical-flow.json](../examples/vertical-flow.json).
+
+## Grid and overview additions
+
+Root `layout` and group `layout` support `type: "auto"` (default) or `"grid"`. Grid requires
+rectangular `cells`, containing any subset of direct members, at most once each, with null for blank cells.
+Root direct members exclude grouped items and Terminals. Rows/columns are screen-space,
+independent of Flow. Optional non-negative `rowGap` and `columnGap` default to 50 and 80.
+Cell sizes are measured, contents centered, and all connections rerouted orthogonally around
+obstacles. Increase gaps/change sides when access is obstructed. Nested grids and scoped
+group views retain IDs; collapse never rewrites stored cells. Unlisted members stay Auto.
+The selected Grid is measured first and placed as one temporary rectangle among Auto
+neighbors using real placement-affecting connections. Auto never enters the Grid rectangle,
+including its empty tracks. No group or fake signal is added to JSON. An all-null Grid
+reserves no rectangle and leaves every member automatic. New/moved-in members stay Auto;
+removed members leave nulls. See [partial-grid.json](../examples/partial-grid.json).
+
+Grid `expandGroups` optionally lists nonempty direct Container IDs. Replace those parent
+IDs in `cells` with all of their direct children, exactly once each; no parent/child double
+placement. Descendants beyond that one level stay inside their own atomic group. Boundary
+and Collection cannot be expanded. Each Container's children must span a rectangular region
+containing only its children or null; expanded regions cannot overlap even in empty cells.
+Track gutters reserve headers/borders and minimum group sizes while all cells in a row or
+column retain shared centers. Fit real Container frames after placement, then reroute.
+Group membership, Port identity and real signals are unchanged. The ancestor Grid controls
+positions while expanded; the Container's saved `layout` is retained for standalone group
+views. All scopes remain validated. Adding an expanded Container member requires placing
+it before exporting; ordinary unselected direct members remain Auto.
+See [processor-cross-group-grid.json](../examples/processor-cross-group-grid.json).
+
+Ordinary blocks may omit `ports` or use `[]`; Concat keeps its port-count/sum rules.
+Port `side` optionally fixes left/right/top/bottom; omission follows Flow. Input/output roles
+are independent of side. `direction: "inout"` supports ordinary modules and Boundary ports,
+with common/individual text styles and a right/bottom default side. Concat rejects inout.
+When all Port names are hidden, block sizing uses its title and appearance plus minimum
+connection-slot spacing, without invisible text lanes or extra Port rows. More Ports may
+still enlarge the block; explicit width/height minima remain effective. Showing names
+restores text-aware sizing. This applies to default and explicit sides in either Flow.
+Connection `direction: "both"` requires inout at both ends and represents two directed paths,
+validating both receiving faces. `forward` is default. Both defaults to triangle arrows at
+each end; `style.startArrow` and `style.endArrow` can override independently.
+`constraint: false` removes only placement participation; the real edge remains validated
+and rendered after layout. Its drivers, widths and boundary checks are unchanged.
+
+`diagram.caption` supplies a multiline footer; `diagram.style.caption` is a direct portable
+text style, including hidden. It participates in image bounds and scoped exports.
+See [Processor cluster overview](../examples/processor-overview.json), which demonstrates nested
+Grids, a transparent layout-only Container, isolated portless blocks, an upper-side
+non-constraining bidirectional link, styles and a caption.
+
+## Rounded groups and signal-only nodes
+
+Group `style.borderRadius` is a non-negative logical SVG radius, default 0. Expanded
+Container/Boundary/Collection frames and collapsed group faces/backing cards use it;
+the renderer clamps it to half the inset rectangle width/height. This is a visual style:
+group size, text positions, Port anchors and routing keep their existing geometry.
+Block styles do not accept this property. The GUI edits it under Group Style > Corner radius.
+
+For signal-only DOT nodes, contract the path into a labeled Connection, preserving
+fan-out, each distinct input Port and auxiliary/control/feedback direction. If any
+contracted segment is non-constraining, keep the contracted edge non-constraining.
+Use abstract concat for actual signal collections; omit widths when xN means signal or
+instance count. External endpoints can use hidden Terminals and visible edge labels.
+Keep global collections outside their original group so scoped views retain the boundary.
+See [processor-components.json](../examples/processor-components.json): 13 physical blocks, three
+abstract concats, nine rounded Containers, five Terminals, 20 Nets and 34 receiving branches.
+It uses nested Auto layout without Grid. External interfaces use visible Terminals without duplicate Connection labels. Processor/ALU
+repetition is documented by labels/caption rather than duplicating hardware instances.
+
+## Port adjustment
+
+By default, `layout.portAdjustment: "reduce-bends"` slides rectangular/stacked Block Ports
+after placement without resizing or moving Blocks. `layout.maxPortShift` bounds movement
+from each initial anchor (default 40 logical units); zero keeps them fixed. Sides, same-side
+order, minimum 24-unit anchor gaps and text clearance remain constraints. Port names follow
+their anchor. Concat, other appearances, Group Ports and feedback anchors stay fixed.
+Terminal anchors and names move together perpendicular to flow, within the same shift limit.
+Their order and spacing are preserved, and moves overlapping Blocks, Groups or other
+Terminals are rejected. Terminal adjustment also rejects changes that increase
+connection-label clearance warnings. Source signal nodes may slide with their source within the existing wrapper.
+All affected Net branches participate in the comparison; crossing/obstacle counts cannot
+increase. A deterministic search (four passes, 128 trials maximum) accepts improvements in
+bends, length, then displacement. Final Callouts/arrows follow adjustment. This applies to
+Auto, Grid and group views; saved JSON contains settings, never adjusted coordinates.
+Set `layout.portAdjustment: "fixed"` to disable sliding. An obstacle or disjoint ranges can require bends even with adjustment.
+Use examples/port-adjustment.json for a six-interface reference.
+
+## Single-source Nets and source signal nodes
+
+Prefer a Connection with a stable `id`, one `from` and a nonempty `to` array. A target is an
+endpoint or an object with `endpoint`, optional `constraint`, `feedback` and line-only `style`.
+Names, text styles and the source arrow are common to the Net; branch styles cannot contain `label` or `startArrow`. A source
+belongs to one Net. Duplicate receivers, a receiver equal to the main endpoint, conflicting
+drivers, inconsistent known widths and boundary violations are rejected. Omit unknown widths.
+Every `to` value must be a nonempty array, including one-to-one Nets.
+
+`direction: "both"` extends a Net to an abstract main/reference endpoint plus multiple peers.
+Every participating Port must be `inout`. Repeated participation of the main endpoint inside
+one Net is legal; occupied receiving faces cannot belong to an unrelated Net. This does not
+simulate commands, arbitration, selected responders, electrical driving or timing. Arrows
+are independent style overrides. Concat continues to be an element with ordinary input/output
+Nets, not a multi-source Net.
+
+A labeled Net compiles to a small virtual signal node in an invisible local source group,
+with text-sized geometry and an 8-unit gap. Enclosing Auto/Grid layout includes its footprint.
+The virtual structures are removed from exported hardware/layout membership and saved JSON.
+One shared Inline name remains near the source; common trunks are drawn once. After final
+routing, `style.label.repeatAtEnd` (`auto`/`always`/`never`, default `auto`) controls receiver
+Callouts. Auto compares routed length against positive `longThreshold` (default 600).
+These end labels never trigger another block layout. Hidden omits the virtual node and labels.
+Source text is Inline. Old label placement/position fields are rejected.
+Compiled branches expose `netId`, `connectionIndex`, `branchIndex` and ordinary endpoint IDs.
+See net-fanout.json and net-bidirectional.json in examples, plus processor-components.json.
+
+### Net label frames
+
+Net `style.label` and `diagram.style.connection.label` additionally support
+`borderColor` (default transparent), `borderWidth` (default 1; zero disables the frame),
+`borderOpacity` (default 1) and `borderRadius` (default 0). Width and radius must be finite
+and non-negative; opacity is in [0, 1]. Frames use a solid stroke and apply to both the
+shared source name and destination Callouts. They are independent of the Net line color.
+Strokes stay inside the reserved text-and-padding bounds; width and radius are clamped to
+fit. Use `padding` for breathing room around text. `hidden` hides text, fill and frame.
+These frame fields belong only to connection labels, not Terminal or Port text styles.
+The editor exposes them in Connection style > Label; blank values inherit defaults.
+
+```text
+{
+  "backgroundColor": "#FFF9E6",
+  "padding": 4,
+  "borderColor": "#B38900",
+  "borderWidth": 0.8,
+  "borderRadius": 4
+}
+```
+
+The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
+complete diagram (Agent Kit users can author the same style directly).

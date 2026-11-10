@@ -2,44 +2,174 @@
   "version": 1,
   "diagram": {
     "name": "Abstract and 16 + 16 bit concatenation",
-    "style": { "connection": { "endArrow": "triangle" } }
+    "style": {
+      "connection": {
+        "endArrow": "triangle"
+      }
+    }
   },
   "modules": [
-    { "id": "Function", "ports": [{ "id": "out", "direction": "output", "width": 16 }] },
-    { "id": "Overlay", "ports": [{ "id": "out", "direction": "output", "width": 16 }] },
+    {
+      "id": "Function",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 16
+        }
+      ]
+    },
+    {
+      "id": "Overlay",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 16
+        }
+      ]
+    },
     {
       "id": "Combine",
       "type": "concat",
       "label": "Concat",
-      "style": { "label": { "hidden": true }, "portLabel": { "hidden": true } },
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
       "ports": [
-        { "id": "high", "direction": "input", "width": 16 },
-        { "id": "low", "direction": "input", "width": 16 },
-        { "id": "out", "direction": "output", "width": 32 }
+        {
+          "id": "high",
+          "direction": "input",
+          "width": 16
+        },
+        {
+          "id": "low",
+          "direction": "input",
+          "width": 16
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 32
+        }
       ]
     },
-    { "id": "Mux", "ports": [{ "id": "in", "direction": "input", "width": 32 }] },
-    { "id": "AbstractA", "ports": [{ "id": "out", "direction": "output" }] },
-    { "id": "AbstractB", "ports": [{ "id": "out", "direction": "output" }] },
+    {
+      "id": "Mux",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "width": 32
+        }
+      ]
+    },
+    {
+      "id": "AbstractA",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "AbstractB",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
     {
       "id": "AbstractConcat",
       "type": "concat",
       "label": "Concat",
-      "style": { "label": { "hidden": true }, "portLabel": { "hidden": true } },
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
       "ports": [
-        { "id": "first", "direction": "input" },
-        { "id": "second", "direction": "input" },
-        { "id": "out", "direction": "output" }
+        {
+          "id": "first",
+          "direction": "input"
+        },
+        {
+          "id": "second",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
       ]
     },
-    { "id": "AbstractSink", "ports": [{ "id": "in", "direction": "input" }] }
+    {
+      "id": "AbstractSink",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        }
+      ]
+    }
   ],
   "connections": [
-    { "from": "Function.out", "to": "Combine.high", "label": "High part" },
-    { "from": "Overlay.out", "to": "Combine.low", "label": "Low part" },
-    { "from": "Combine.out", "to": "Mux.in", "label": "Combined bus" },
-    { "from": "AbstractA.out", "to": "AbstractConcat.first" },
-    { "from": "AbstractB.out", "to": "AbstractConcat.second" },
-    { "from": "AbstractConcat.out", "to": "AbstractSink.in", "label": "Abstract composition" }
+    {
+      "from": "Function.out",
+      "to": [
+        "Combine.high"
+      ],
+      "label": "High part",
+      "id": "net_1"
+    },
+    {
+      "from": "Overlay.out",
+      "to": [
+        "Combine.low"
+      ],
+      "label": "Low part",
+      "id": "net_2"
+    },
+    {
+      "from": "Combine.out",
+      "to": [
+        "Mux.in"
+      ],
+      "label": "Combined bus",
+      "id": "net_3"
+    },
+    {
+      "from": "AbstractA.out",
+      "to": [
+        "AbstractConcat.first"
+      ],
+      "id": "net_4"
+    },
+    {
+      "from": "AbstractB.out",
+      "to": [
+        "AbstractConcat.second"
+      ],
+      "id": "net_5"
+    },
+    {
+      "from": "AbstractConcat.out",
+      "to": [
+        "AbstractSink.in"
+      ],
+      "label": "Abstract composition",
+      "id": "net_6"
+    }
   ]
 }

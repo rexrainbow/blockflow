@@ -73,7 +73,7 @@ External terminals appear in `layout.terminals` as text-only targets. Use
 Activating one emits `terminalclick` with `id`, `key`, `data` and the normal originalEvent.
 Terminal layout records carry geometric width/height, signal `bitWidth`, `anchor` and text
 bounds/style. Connection keys use `@terminal:ID` for terminal ends, such as
-`@terminal:OverlayIn->TGEN.overlay_in`, and remain stable across array reordering.
+`@terminal:DataIn->Processor.data_in`, and remain stable across array reordering.
 These keys are view identities, not raw JSON references. Group views omit root terminal
 targets; selection/state pruning follows normal setLayout behavior.
 
@@ -220,3 +220,19 @@ anchors, left-to-right port order and horizontal Concat bars. The viewer uses th
 bodies, labels and routes directly. Port/connection keys and event payload identities do not
 change when relaying out another direction. Use `setLayout(nextLayout, {fit: true})` to fit
 a new axis explicitly. See `examples/vertical-flow.json`.
+
+## Repeated connection labels
+
+The viewer uses every `labelInstances` entry for label hits, including Start/End labels.
+Inline gaps and Callout leaders share the static SVG/PNG renderer. DOM validation checks
+instance positions, bounds, placement and leader coordinates before replacing the old view.
+Each live view has separate mask IDs. A shared source label is drawn once; each connection
+retains its own route, target label, state and identity.
+
+## Net branch identity
+
+Array-target Nets compile to ordinary routed branches. Connection events/selection include
+`netId` and `branchIndex`, retaining the existing endpoint-pair key for each branch. This lets
+hosts group signals without losing receiver identity. Shared source names are drawn once;
+long branches can repeat the name as end Callouts. Synthetic signal nodes/source wrappers
+are absent from public modules/groups and hardware hits. JSON documents retain one Net.

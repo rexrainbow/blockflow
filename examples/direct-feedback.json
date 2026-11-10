@@ -28,7 +28,13 @@
   "connections": [
     {
       "from": "counter.value",
-      "to": "counter.feedback"
+      "to": [
+        "counter.feedback"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ]
 }

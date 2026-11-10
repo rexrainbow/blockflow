@@ -8,7 +8,13 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { createDiagramModel } from '../../src/lib/model.js';
-import { TEXT_STYLE, BLOCK_STYLE, connectionStyle } from '../../src/lib/styles.js';
+import {
+  TEXT_STYLE,
+  CONNECTION_LABEL_STYLE,
+  BLOCK_STYLE,
+  GROUP_STYLE,
+  connectionStyle,
+} from '../../src/lib/styles.js';
 
 const root = new URL('../../', import.meta.url);
 const schema = JSON.parse(await readFile(new URL('schema/blockflow.schema.json', root), 'utf8'));
@@ -16,6 +22,37 @@ const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 const minimal = JSON.parse(await readFile(new URL('examples/agent-minimal.json', root), 'utf8'));
 const run = promisify(execFile);
 const cli = fileURLToPath(new URL('scripts/validate-diagram.js', root));
+
+test('Net schema accepts common labels and per-target line options, rejects malformed targets and repeat controls', async () => {
+  const raw = JSON.parse(await readFile(new URL('examples/net-fanout.json', root), 'utf8'));
+  assert.equal(validate(raw), true, JSON.stringify(validate.errors));
+  const invalid = [
+    (d) => {
+      d.connections[0].to = [];
+    },
+    (d) => {
+      Reflect.set(d.connections[0], 'to', 'ALU.in');
+    },
+    (d) => {
+      d.connections[0].to[0] = { endpoint: 'ALU.in', style: { label: { hidden: true } } };
+    },
+    (d) => {
+      d.connections[0].to[0] = { endpoint: 'ALU.in', style: { startArrow: 'triangle' } };
+    },
+    (d) => {
+      d.connections[0].style = { label: { repeatAtEnd: 'sometimes' } };
+    },
+    (d) => {
+      d.connections[0].style = { label: { longThreshold: 0 } };
+    },
+  ];
+  for (const change of invalid) {
+    const d = structuredClone(raw);
+    change(d);
+    assert.equal(validate(d), false, JSON.stringify(d.connections[0]));
+    assert.throws(() => createDiagramModel(d));
+  }
+});
 
 test('every JSON example satisfies the schema and authoritative model without mutation', async () => {
   const files = (await readdir(new URL('examples/', root))).filter((file) => file.endsWith('.json'));
@@ -42,11 +79,40 @@ test('guide JSON is executable and matches the copyable minimal example', async 
 test('schema style keys cover exactly the portable library style surface', () => {
   const keys = (definition) => Object.keys(schema.$defs[definition].properties).sort();
   assert.deepEqual(keys('textStyle'), Object.keys(TEXT_STYLE).sort());
+  assert.deepEqual(keys('connectionLabelStyle'), Object.keys(CONNECTION_LABEL_STYLE).sort());
   assert.deepEqual(keys('connectionStyle'), [...Object.keys(connectionStyle(1)), 'label'].sort());
   assert.deepEqual(
     keys('moduleStyle'),
     [...Object.keys(BLOCK_STYLE), 'label', 'portLabel', 'inputPortLabel', 'outputPortLabel'].sort(),
   );
+  assert.deepEqual(
+    keys('groupStyle'),
+    [...Object.keys(GROUP_STYLE), 'label', 'portLabel', 'inputPortLabel', 'outputPortLabel'].sort(),
+  );
+});
+
+test('connection-only label enums agree between schema and model, including inherited defaults', () => {
+  for (const repeatAtEnd of ['auto', 'always', 'never']) {
+    const d = structuredClone(minimal);
+    d.diagram.style = { connection: { label: { repeatAtEnd } } };
+    assert.equal(validate(d), true, JSON.stringify(validate.errors));
+    createDiagramModel(d);
+  }
+  for (const label of [
+    { placement: 'auto' },
+    { position: 'middle' },
+    { position: null },
+    { placement: false },
+  ]) {
+    const d = structuredClone(minimal);
+    d.connections[0].style = { label };
+    assert.equal(validate(d), false);
+    assert.throws(() => createDiagramModel(d));
+  }
+  const d = structuredClone(minimal);
+  d.modules[0].style = { label: { position: 'both' } };
+  assert.equal(validate(d), false);
+  assert.throws(() => createDiagramModel(d));
 });
 
 test('schema and library reject malformed fields, unknown properties and unsupported styles', () => {
@@ -64,7 +130,7 @@ test('schema and library reject malformed fields, unknown properties and unsuppo
       d.modules = [];
     },
     (d) => {
-      d.modules[0].ports = [];
+      d.modules[0].ports = null;
     },
     (d) => {
       d.modules[0].id = 'Source\n';
@@ -94,7 +160,7 @@ test('schema and library reject malformed fields, unknown properties and unsuppo
       d.modules[0].ports[0].width = 9007199254740992;
     },
     (d) => {
-      d.modules[0].ports[0].direction = 'inout';
+      d.modules[0].ports[0].direction = 'duplex';
     },
     (d) => {
       d.modules[0].ports[0].label = 'bad\tlabel';
@@ -174,7 +240,7 @@ test('cross-object mistakes pass structural schema but fail authoritative model 
       d.modules[0].ports.push({ ...d.modules[0].ports[0] });
     },
     (d) => {
-      d.connections[0].to = 'Missing.data';
+      d.connections[0].to = ['Missing.data'];
     },
     (d) => {
       d.connections[0].from = 'Sink.data';
@@ -184,15 +250,11 @@ test('cross-object mistakes pass structural schema but fail authoritative model 
     },
     (d) => {
       d.modules[0].ports.push({ id: 'other', direction: 'output' });
-      d.connections.push({ from: 'Source.other', to: 'Sink.data' });
+      d.connections.push({ from: 'Source.other', to: ['Sink.data'] });
     },
     (d) => {
       d.modules[0].ports[0].width = 8;
       d.modules[1].ports[0].width = 16;
-    },
-    (d) => {
-      d.layout.direction = 'left';
-      d.layout.feedbackRouting = 'outer';
     },
   ];
   for (const [index, mutate] of mutations.entries()) {
@@ -216,11 +278,11 @@ test('CLI validates batches read-only, renders SVG, and protects input on errors
   assert.match(await readFile(output, 'utf8'), /<svg\b/);
   assert.equal(await readFile(source, 'utf8'), original);
   const input = structuredClone(minimal);
-  input.connections[0].to = 'Missing.data';
+  input.connections[0].to = ['Missing.data'];
   await writeFile(invalid, JSON.stringify(input));
   await assert.rejects(run(process.execPath, [cli, invalid, source]), (error) => {
     assert.equal(error.code, 1);
-    assert.match(error.stderr, /validation: connections\[0\]\.to: Unknown port/);
+    assert.match(error.stderr, /validation: connections\[0\]\.to\[0\]: Unknown port/);
     assert.match(error.stdout, /OK .*input with spaces/);
     return true;
   });

@@ -57,7 +57,7 @@ test('margin and independent lanes apply to multiple feedback routes', async () 
   const input = fixture();
   input.modules[0].ports.push({ id: 'i2', direction: 'input' });
   input.modules[1].ports.push({ id: 'o2', direction: 'output' });
-  input.connections.push({ from: 'b.o', to: 'a.i',feedback:true }, { from: 'b.o2', to: 'a.i2',feedback:true });
+  input.connections.push({ from: 'b.o', to: ['a.i'],feedback:true }, { from: 'b.o2', to: ['a.i2'],feedback:true });
   input.layout = { feedbackRouting: 'outer', feedbackMargin: 30, feedbackLaneSpacing: 18 };
   const model = createDiagramModel(input), layout = await layoutDiagram(model);
   checkLayout(model, layout);

@@ -22,7 +22,7 @@ test('normalize defaults, same-side order, bus names; no input references', () =
 });
 
 test('optional connections and partial layout defaults', () => {
-  const input = fixture(); delete input.connections; input.layout = { direction: 'left' };
+  const input = fixture(); delete input.connections; input.layout = { direction: 'down' };
   const model = createDiagramModel(input);
   assert.deepEqual(model.connections, []);
   assert.equal(model.layout.layerSpacing, 80);
@@ -37,9 +37,10 @@ for (const placement of ['default', 'relaxed', 'simple']) test(`accept placement
 
 test('fan-out, direct and cross-block feedback are valid', () => {
   const input = fixture();
-  input.connections.push({ from: 'a.o', to: 'a.i' });
+  input.connections[0].to.push('a.i');
   assert.equal(createDiagramModel(input).connections.length, 2);
-  input.connections[1] = { from: 'b.o', to: 'a.i' };
+  input.connections[0].to.pop();
+  input.connections.push({ from: 'b.o', to: ['a.i'] });
   assert.equal(createDiagramModel(input).connections.length, 2);
 });
 
@@ -51,26 +52,26 @@ const invalid = [
   ['lone surrogate', v => v.modules[0].label = '\ud800', 'modules[0].label'],
   ['null label', v => v.modules[0].label = null, 'modules[0].label'],
   ['empty modules', v => v.modules = [], 'modules'],
-  ['empty ports', v => v.modules[0].ports = [], 'modules[0].ports'],
+  ['null ports', v => v.modules[0].ports = null, 'modules[0].ports'],
   ['duplicate modules', v => v.modules.push(structuredClone(v.modules[0])), 'modules[2].id'],
   ['invalid module ID', v => v.modules[0].id = 'x.y', 'modules[0].id'],
   ['invalid port ID', v => v.modules[0].ports[0].id = 'x.y', 'modules[0].ports[0].id'],
   ['ID trailing newline', v => v.modules[0].id = 'a\n', 'modules[0].id'],
   ['duplicate ports', v => v.modules[0].ports.push({ ...v.modules[0].ports[0] }), 'modules[0].ports[2].id'],
-  ['inout', v => v.modules[0].ports[0].direction = 'inout', 'modules[0].ports[0].direction'],
+  ['invalid port direction', v => v.modules[0].ports[0].direction = 'duplex', 'modules[0].ports[0].direction'],
   ['zero width', v => v.modules[0].ports[0].width = 0, 'modules[0].ports[0].width'],
   ['unsafe width', v => v.modules[0].ports[0].width = 2 ** 53, 'modules[0].ports[0].width'],
   ['null width', v => v.modules[0].ports[0].width = null, 'modules[0].ports[0].width'],
-  ['unknown port', v => v.connections[0].to = 'b.nope', 'connections[0].to'],
-  ['invalid endpoint', v => v.connections[0].to = 'b.i.x', 'connections[0].to'],
-  ['endpoint trailing newline', v => v.connections[0].to = 'b.i\n', 'connections[0].to'],
+  ['unknown port', v => v.connections[0].to = ['b.nope'], 'connections[0].to[0]'],
+  ['invalid endpoint', v => v.connections[0].to = ['b.i.x'], 'connections[0].to[0]'],
+  ['endpoint trailing newline', v => v.connections[0].to = ['b.i\n'], 'connections[0].to[0]'],
   ['input source', v => v.connections[0].from = 'a.i', 'connections[0].from'],
-  ['output target', v => v.connections[0].to = 'b.o', 'connections[0].to'],
+  ['output target', v => v.connections[0].to = ['b.o'], 'connections[0].to[0]'],
   ['width mismatch', v => { v.modules[0].ports[1].width = 8; v.modules[1].ports[0].width = 1; }, 'connections[0].to'],
-  ['duplicate connection', v => v.connections.push({ ...v.connections[0] }), 'connections[1]'],
-  ['multiple drivers', v => v.connections.push({ from: 'b.o', to: 'b.i' }), 'connections[1].to'],
+  ['duplicate connection', v => v.connections.push({ ...v.connections[0] }), 'connections[1].to[0]'],
+  ['multiple drivers', v => v.connections.push({ from: 'b.o', to: ['b.i'] }), 'connections[1].to[0]'],
   ['unknown root property', v => v.theme = {}, 'theme'],
-  ['unknown nested property', v => v.modules[0].ports[0].side = 'left', 'modules[0].ports[0].side'],
+  ['unknown nested property', v => v.modules[0].ports[0].unsupported = 'left', 'modules[0].ports[0].unsupported'],
   ['null layout', v => v.layout = null, 'layout'],
   ['bad direction', v => v.layout = { direction: 'up' }, 'layout.direction'],
   ['bad routing', v => v.layout = { routing: 'spline' }, 'layout.routing'],

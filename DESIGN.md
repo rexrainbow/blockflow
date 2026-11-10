@@ -38,11 +38,26 @@ components:
 
 Connection text uses an optional Label field in each connection row and the creation dialog.
 Reuse the shared field adapter and Style modal; connection styles have Line and Label tabs.
-Keep diagram text horizontal beside its route, with the existing portable text styles.
+Keep diagram text horizontal, Inline on its route by default, with the portable text styles.
 Labels in the preview select their owning connection; export contains no interaction overlays.
 Unresolved label clearance uses the existing preview message surface without blocking export.
 
+Connection style > Label owns Net frame color, width, opacity and corner radius through
+the existing Style grid. Fill and frame are independent of line color. Diagram palette
+choices remain authored JSON rather than changes to editor chrome or global defaults.
+
 ## Overview
+
+Terminal adjustment reuses Reduce bends and Maximum shift; anchors and names move together
+perpendicular to flow without adding controls or drag handles.
+Layout exposes Port adjustment (Fixed / Reduce bends) and Maximum shift using existing
+native controls and field helpers. Reuse the same adapter in Layout settings. Keep these
+global immediate controls visually separated from the scoped Grid draft, and explain that
+Block placement and size stay fixed. Computed Port motion has no new diagram decoration.
+
+Block and Group Style include a Size section in their first tab, beside appearance controls
+for Blocks. Reuse native number fields, the Style grid and the transactional modal. Explain
+Auto and relative minima; keep geometry stored on the object rather than in its style.
 
 JSON file drops use the existing Open JSON workflow and notification/replacement dialog
 surfaces. Accept one file across the editor with a copy cursor, without adding a second
@@ -112,8 +127,7 @@ Preview cycle button expands either area without changing document state, tab or
 Hidden previews defer drawing until visible. Selected tabs use the existing cobalt accent
 on drafting-paper gray; typography, colors and exported diagram styles retain their owners.
 Never disable keyboard zoom for narrow users. The GUI, library and CLI use once layout.
-On old editor import/restore, retire connection order/alignment and layout.orderMode metadata
-without changing graph content or unrelated settings.
+Import and restore validate the current schema directly. Retired fields are rejected without migration.
 
 ## Shapes and elevation
 
@@ -345,6 +359,25 @@ export the current view; Save JSON retains the full project. No new visual token
 
 ## Block appearances and signal notation
 
+The Layout workspace tab reuses native field/select/button primitives and settings-grid
+spacing. Its Grid table has explicit cell labels, an overflow container and Apply/Reset
+transactional controls. Keep controls readable on narrow screens without squeezing many
+columns. Rows/Columns are native numeric fields; Auto arranged reports unselected members.
+Only chosen members use Grid. Empty cells stay reserved and shrinking returns removed
+members to Auto. Reuse existing help, error, count and Undo patterns. The Layout panel fills the available workspace width; its form children retain
+their natural height inside the shared panel scroller, and wide grids scroll horizontally.
+Port Side and Both directions use existing editor controls and validation/status
+surfaces. Caption is a regular multiline field. No new visual tokens or separate modal.
+Hidden Port names remove text lanes and phantom rows from block geometry. Keep distinct
+connection slots, explicit size minima and shape safety; title sizing governs otherwise.
+Group Style's Corner radius reuses the numeric style field, validation and transactional
+modal. Default square corners preserve existing diagrams; rounded frames use the same
+shared SVG renderer in Preview, exports and DOM, without new tokens or layout variants.
+Cross-group Grid uses the same Layout panel, with native checkboxes under Expand containers
+for layout. Show child choices with a Container path and missing children in Needs Grid
+placement. Reuse help, counts and field errors; no new modal or visual tokens. Shared track
+gutters reserve Container headers/frames without sacrificing cross-group row alignment.
+
 Preview's Flow is a native select beside View using the same preview-view-control styling.
 Keep Left to right / Top to bottom readable and allow the header to wrap on narrow screens.
 Layout settings shares the value and shows axis-appropriate exterior feedback sides. Reuse
@@ -364,3 +397,24 @@ Hidden text and End arrow use explicit inheritance selects; Layout settings owns
 visibility/arrow defaults and Auto/Top/Bottom exterior feedback side. Preserve existing
 spacing, tokens and responsive dialog scrolling. Draw trusted shape primitives and arrow
 triangles through shared SVG geometry, with no editor-only controls in image exports.
+
+## Connection label placement and repetition
+
+Extend the canonical Style dialog's Connection Label tab with native Label placement and
+Label position selects, sharing field typography, inheritance, validation and modal history.
+Inline/Middle are defaults; Both ends supports long signal traces. Inline opens a gap only
+in its own stroke, preserving transparent backgrounds and group fills. Callout leaders mark
+the route attachment when no clear Inline segment fits. All instances select the same owning
+connection; common-source shared labels select their representative route. Preserve individual
+route selection, responsive dialog scrolling and SVG/PNG parity. No new UI tokens or panels.
+
+## Net editing and source signal labels
+
+Keep the engineering workbench palette, shared field/native select/checkbox/button adapters,
+transactional Style/Add dialogs and existing scroll owners. Connection creation offers Net
+and Concat, with Bidirectional as a Net checkbox. A Net row has a quiet vertical target list;
+the selected receiver uses the existing primary border/background tokens. Avoid separate
+hardware-looking cards for virtual signal names. Source labels participate in local layout
+with text-only dimensions and a small gap; only the name and routed wire are exported.
+Destination Callouts retain clear attachment. Shared Net selection highlights all branches.
+No new tokens or application navigation are required. Owners and behaviors are in UX-CONTRACT.

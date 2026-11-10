@@ -16,7 +16,7 @@ test('valid XML, escapes text, correct geometry and rendering order, determinist
   input.modules[0].label = '硬體 <A&B> "test\'s"';
   input.modules[0].ports.push({ id: 'bus', direction: 'output', width: 8 });
   input.modules[1].ports.push({ id: 'bus', direction: 'input', width: 8 });
-  input.connections.push({ from: 'a.bus', to: 'b.bus' });
+  input.connections.push({ from: 'a.bus', to: ['b.bus'] });
   const layout = await layoutDiagram(createDiagramModel(input));
   const before = structuredClone(layout);
   const svg = renderSvg(freeze(layout));

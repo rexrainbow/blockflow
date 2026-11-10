@@ -1,6 +1,7 @@
 import { TEXT_STYLE, BLOCK_STYLE } from './styles.js';
 import { appearanceGeometry } from './appearances.js';
 import { verticalModuleGeometry } from './vertical-geometry.js';
+import {needsSides,sidedGeometry} from './port-sides.js';
 
 // Shared logical unit: the original plain single-row block, independent of content/style.
 export const BLOCK_SIZE_UNIT = Object.freeze({ width: 140, height: 84 });
@@ -28,7 +29,12 @@ export function textBounds(value, position, style) {
 }
 
 /** Size all ports before once layout. Bounds include the inward border. */
-export function moduleGeometry(module, direction = 'right') {
+export function moduleGeometry(module, direction = 'right', standard = false) {
+  if(module._signalSize) {
+    const {width,height}=module._signalSize,down=direction==='down',left=direction==='left';
+    return {width,height,titleX:width/2,titleY:height/2,portInset:0,portPoints:Object.fromEntries(module.ports.map((port,i)=>[port.id,{x:down?width/2:left?(i?0:width):(i?width:0),y:down?(i?height:0):height/2}]))};
+  }
+  if(!standard&&(needsSides(module,direction)||(module.ports.length>0&&module.ports.every(p=>p.style.hidden))))return sidedGeometry(module,direction,proxy=>moduleGeometry(proxy,direction,true),textSize,BLOCK_SIZE_UNIT);
   if(direction==='down') return verticalModuleGeometry(module,textSize,BLOCK_SIZE_UNIT);
   const appearance=module.appearance ?? (module.type==='concat'?{type:'bar'}:undefined);
   const compact=appearance?.type==='bar';
@@ -61,6 +67,7 @@ export function moduleGeometry(module, direction = 'right') {
   const measure=port=>{const style=port.style??TEXT_STYLE;return {...port,width:!style.hidden?textSize(port.displayName,style).width+2*style.padding:0,height:Math.max(24,!style.hidden?textSize(port.displayName,style).height+2*style.padding:0)};};
   const result=appearanceGeometry(appearance,{width,height,titleX:width/2,titleY:border+titleHeight/2,rowCenters,portInset:10+border},
     {stroke:module.style?.borderWidth??1,border,titleWidth:titleSize.width+2*titlePadding,titleHeight:titleSize.height+2*titlePadding,inputs:inputs.map(measure),outputs:outputs.map(measure)});
+  if(!module.ports.length)result.titleY=(result.height-(module.appearance?.type==='stacked'?module.appearance.layers*6:0))/2;
   if (![result.width, result.height, result.titleX,result.titleY,...Object.values(result.portPoints).flatMap(p=>[p.x,p.y])].every(Number.isFinite)) throw new Error(`Non-finite module dimensions: ${module.id}`);
   return result;
 }

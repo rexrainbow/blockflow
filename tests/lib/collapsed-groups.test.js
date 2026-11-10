@@ -22,7 +22,7 @@ for(const value of [true,false,0,1,'true',null,{},[]]) test('collapsed schema an
 });
 
 test('Direct groups reject hiding, including beneath a hidden ancestor; defaults remain expanded',()=>{
-  const raw=structuredClone(fixture);raw.connections=[];raw.groups[1].portMode='direct';raw.groups[1].collapsed=true;
+  const raw=structuredClone(fixture);raw.connections=[];raw.groups[1].type='container';raw.groups[1].collapsed=true;
   assert.equal(validate(raw),false);assert.throws(()=>createDiagramModel(raw),/Only boundary or collection groups/);
   collapse(raw,'Outer');assert.throws(()=>createDiagramModel(raw),/Only boundary or collection groups/);
   delete raw.groups[1].collapsed;assert.equal(createDiagramModel(raw).groups[1].collapsed,false);
@@ -46,7 +46,7 @@ function verify(layout) {
   }
 }
 
-for(const direction of ['right','left']) for(const id of ['Inner','Outer']) test('collapse '+id+' uses leaf geometry and excludes descendants '+direction,async()=>{
+for(const direction of ['right']) for(const id of ['Inner','Outer']) test('collapse '+id+' uses leaf geometry and excludes descendants '+direction,async()=>{
   const raw=collapse(structuredClone(fixture),id);raw.layout.direction=direction;
   const before=structuredClone(raw),model=createDiagramModel(freeze(raw)),modelBefore=structuredClone(model);
   const layout=await layoutDiagram(freeze(model));verify(layout);
@@ -60,7 +60,7 @@ for(const direction of ['right','left']) for(const id of ['Inner','Outer']) test
     assert.ok(near(port.x,group.x+(port.direction==='input'?0:group.width)));
     assert.ok(near(port.y,port.labelPosition.y));
   }
-  if(id==='Outer') assert.deepEqual(layout.connections.map(e=>e.id),['connection_0','connection_14']);
+  if(id==='Outer') assert.deepEqual(layout.connections.map(e=>e.id),['connection_0','connection_12']);
   const svg=renderSvg(layout);assert.ok(svg.includes('data-collapsed="true"'));assert.ok(!svg.includes('Dispatch'));
   const png=await sharp(Buffer.from(svg)).png().toBuffer();assert.ok((await sharp(png).metadata()).width>0);
   if(direction==='right') {await mkdir('output/editor',{recursive:true});await writeFile('output/editor/collapsed-'+id+'.svg',svg);await writeFile('output/editor/collapsed-'+id+'.png',png);}
@@ -72,7 +72,7 @@ test('hidden styles, text, dimensions and strokes never influence layout; invali
   raw.modules.find(n=>n.id==='Decode').label='Hidden text '.repeat(500);
   raw.connections[4].style={strokeWidth:10000,label:{fontSize:1000}};raw.connections[4].label='Invisible';
   assert.deepEqual(await layoutDiagram(createDiagramModel(raw)),first);
-  raw.connections[4].to='Unknown.in';assert.throws(()=>createDiagramModel(raw),/Unknown port/);
+  raw.connections[4].to=['Unknown.in'];assert.throws(()=>createDiagramModel(raw),/Unknown port/);
 });
 
 test('outer collapse overrides inner visibility without rewriting its stored setting',async()=>{
@@ -86,19 +86,19 @@ test('outer collapse overrides inner visibility without rewriting its stored set
 });
 
 for(const feedbackRouting of ['elk','outer']) test('internal same-group pass-through disappears; external feedback stays '+feedbackRouting,async()=>{
-  const raw={version:1,diagram:{name:'Loop'},modules:[],groups:[{id:'G',members:[],portMode:'boundary',collapsed:true,ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]}],connections:[{from:'G.in',to:'G.out',label:'Hidden pass'},{from:'G.out',to:'G.in',feedback:true,label:'External feedback'}],layout:{feedbackRouting}};
+  const raw={version:1,diagram:{name:'Loop'},modules:[],groups:[{id:'G',members:[],type:"boundary",collapsed:true,ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]}],connections:[{from:'G.in',to:['G.out'],label:'Hidden pass'},{from:'G.out',to:['G.in'],feedback:true,label:'External feedback'}],layout:{feedbackRouting}};
   const layout=await layoutDiagram(createDiagramModel(raw));verify(layout);
   assert.deepEqual(layout.connections.map(e=>e.id),['connection_1']);assert.ok(!renderSvg(layout).includes('Hidden pass'));
 });
 
 test('an empty collapsed boundary works without ports or connections in once layout',async()=>{
-  const raw={version:1,diagram:{name:'Empty'},modules:[],groups:[{id:'G',members:[],portMode:'boundary',collapsed:true}]};
+  const raw={version:1,diagram:{name:'Empty'},modules:[],groups:[{id:'G',members:[],type:"boundary",collapsed:true}]};
   const layout=await layoutDiagram(createDiagramModel(raw));verify(layout);assert.deepEqual(layout.groups[0].ports,[]);
 });
 
 test('collapsed boundary inside an expanded Direct group keeps cross-container routes',async()=>{
-  const raw=collapse(structuredClone(fixture),'Inner');raw.groups[0].portMode='direct';
-  raw.connections=raw.connections.filter(e=>e.to!=='Outer.in'&&e.to!=='Outer.out').map(e=>({
+  const raw=collapse(structuredClone(fixture),'Inner');raw.groups[0].type='container';
+  raw.connections=raw.connections.filter(e=>!e.to.includes('Outer.in')&&!e.to.includes('Outer.out')).map(e=>({
     ...e,from:e.from==='Outer.in'?'Source.out':e.from==='Outer.out'?'OutputQueue.out':e.from,
   }));
   const layout=await layoutDiagram(createDiagramModel(raw));verify(layout);

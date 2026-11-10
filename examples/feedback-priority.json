@@ -51,16 +51,34 @@
   "connections": [
     {
       "from": "InputA.aout",
-      "to": "Mux.a"
+      "to": [
+        "Mux.a"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "InputB.bout",
-      "to": "Mux.b"
+      "to": [
+        "Mux.b"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Mux.c",
-      "to": "InputA.ain",
-      "feedback": true
+      "to": [
+        "InputA.ain"
+      ],
+      "feedback": true,
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ],
   "layout": {

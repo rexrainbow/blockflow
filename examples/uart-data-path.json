@@ -83,15 +83,33 @@
   "connections": [
     {
       "from": "uart_rx.data",
-      "to": "fifo.data"
+      "to": [
+        "fifo.data"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "uart_rx.valid",
-      "to": "fifo.write"
+      "to": [
+        "fifo.write"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "fifo.data_out",
-      "to": "processor.data"
+      "to": [
+        "processor.data"
+      ],
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ],
   "layout": {

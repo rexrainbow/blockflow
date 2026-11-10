@@ -1,6 +1,6 @@
 # Blockflow Agent Kit
 
-Build: `blockflow-agent-kit-276611c518c6280b4ca7`
+Build: `blockflow-agent-kit-4c2fe4f88690126d2ff2`
 
 Use this kit to turn a screenshot or a text description into editable Blockflow JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -79,13 +79,39 @@ Save this as `diagram.json`, then run the first two commands above:
 ```json
 {
   "version": 1,
-  "diagram": { "name": "Source to Sink" },
+  "diagram": {
+    "name": "Source to Sink"
+  },
   "modules": [
-    { "id": "Source", "ports": [{ "id": "out", "direction": "output" }] },
-    { "id": "Sink", "ports": [{ "id": "in", "direction": "input" }] }
+    {
+      "id": "Source",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Sink",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        }
+      ]
+    }
   ],
-  "connections": [{ "from": "Source.out", "to": "Sink.in", "label": "Data" }],
-  "layout": { "direction": "right" }
+  "connections": [
+    {
+      "from": "Source.out",
+      "to": ["Sink.in"],
+      "label": "Data"
+    }
+  ],
+  "layout": {
+    "direction": "right"
+  }
 }
 ```
 
@@ -95,7 +121,7 @@ Save this as `diagram.json`, then run the first two commands above:
   Optional: `connections`, `groups`, `terminals`, `layout`. Unknown properties are rejected;
   do not add `$schema` inside a diagram. Configure schema association outside the document.
 - At least one module or group is required. `modules: []` is valid for group-only diagrams.
-  A real module needs at least one port. Unconnected ports and empty groups are allowed.
+  Ordinary modules may omit ports or use an empty array. Concat still requires input/output ports. Unconnected ports and empty groups are allowed.
 - IDs match `[A-Za-z_][A-Za-z0-9_]*`. Block, group and terminal IDs share one unique namespace;
   port IDs are unique within their owner across input/output directions.
 - Optional `label` is display text; omit it to use the ID for blocks, groups, ports and
@@ -118,7 +144,7 @@ Save this as `diagram.json`, then run the first two commands above:
 ## Flow, appearance and labels
 
 Use `layout.direction: "right"` for Left to right or `"down"` for Top to bottom.
-Legacy `"left"` is accepted with fixed left/right port sides and may need detours.
+Only `right` and `down` flow are accepted.
 Input/output ports use left/right for horizontal flow and top/bottom for Down. Port array
 order is top-to-bottom horizontally and left-to-right in Down. Text remains horizontal.
 Relative width/height stay screen dimensions. Module and connection array order does not
@@ -156,21 +182,41 @@ There are no automatic bit-range labels. This standalone example is abstract; ad
 ```json
 {
   "version": 1,
-  "diagram": { "name": "Abstract composition" },
+  "diagram": {
+    "name": "Abstract composition"
+  },
   "modules": [
     {
       "id": "Combine",
       "type": "concat",
       "label": "Concat",
-      "style": { "label": { "hidden": true }, "portLabel": { "hidden": true } },
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
       "ports": [
-        { "id": "first", "direction": "input" },
-        { "id": "second", "direction": "input" },
-        { "id": "out", "direction": "output" }
+        {
+          "id": "first",
+          "direction": "input"
+        },
+        {
+          "id": "second",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
       ]
     }
   ],
-  "layout": { "direction": "down" }
+  "layout": {
+    "direction": "down"
+  }
 }
 ```
 
@@ -188,23 +234,51 @@ They appear left/right or top/bottom for the selected flow.
 ```json
 {
   "version": 1,
-  "diagram": { "name": "External interfaces" },
+  "diagram": {
+    "name": "External interfaces"
+  },
   "terminals": [
-    { "id": "ExternalInput", "label": "Input", "direction": "input" },
-    { "id": "ExternalOutput", "label": "Output", "direction": "output" }
+    {
+      "id": "ExternalInput",
+      "label": "Input",
+      "direction": "input"
+    },
+    {
+      "id": "ExternalOutput",
+      "label": "Output",
+      "direction": "output"
+    }
   ],
   "modules": [
     {
       "id": "Logic",
       "ports": [
-        { "id": "in", "direction": "input" },
-        { "id": "out", "direction": "output" }
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
       ]
     }
   ],
   "connections": [
-    { "from": { "terminal": "ExternalInput" }, "to": "Logic.in" },
-    { "from": "Logic.out", "to": { "terminal": "ExternalOutput" } }
+    {
+      "from": {
+        "terminal": "ExternalInput"
+      },
+      "to": ["Logic.in"]
+    },
+    {
+      "from": "Logic.out",
+      "to": [
+        {
+          "terminal": "ExternalOutput"
+        }
+      ]
+    }
   ]
 }
 ```
@@ -213,7 +287,7 @@ They appear left/right or top/bottom for the selected flow.
 
 Keep modules and connections flat. Root `groups` entries require `id` and `members`
 (module or group IDs); optional fields include `label`, `type`, `style`, `width`, `height`,
-`ports`, `collapsed` and the legacy `portMode`. An object has at most one parent. No duplicate
+`ports` and `collapsed`. An object has at most one parent. No duplicate
 members, unknown members, self/indirect cycles or terminal members. Unlisted items stay root.
 
 | Group type            | Connectivity                                                             | Collapse                                                |
@@ -234,8 +308,7 @@ definitions and original edges. Full validation still runs for hidden data. Cont
 rejects true. Ancestor collapse wins. Collection uses virtual Input/Output anchors only
 in layout; never author them in JSON or rewrite original endpoints. Crossing edges retain
 separate identities and styles, even when visually coincident. Grouping does not impose
-same-rank alignment or fixed positions. `portMode` is legacy (`direct`/`boundary`); when
-combined with `type`, they must agree. Prefer the canonical `type`.
+same-rank alignment or fixed positions. The old `portMode` field is rejected.
 
 ## Portable styles and hiding text
 
@@ -246,7 +319,7 @@ Use exact keys from the schema, never CSS, HTML, URLs, font-family strings or sc
 - Module/group border/fill: `borderColor`, `borderWidth`, `borderStyle`, `borderOpacity`,
   `fillColor`, `fillOpacity`; text subgroups: `label`, `portLabel`, `inputPortLabel`,
   `outputPortLabel`.
-- Connection: `strokeColor`, `strokeWidth`, `lineStyle`, `opacity`, `endArrow` (`none` default
+- Connection: `strokeColor`, `strokeWidth`, `lineStyle`, `opacity`, `startArrow` / `endArrow` (`none` default
   or `triangle` at the destination), and `label` text style. Arrows follow the final route
   and share line color/opacity. Bit width does not force a user-specified stroke width.
 - Text: `color`, `fontSize`, `backgroundColor`, `padding`, `opacity`, `backgroundOpacity`,
@@ -265,10 +338,34 @@ inherited true. Hidden text, backgrounds and bus notation reserve no text space;
 the original name and owning object, anchors and connections. Omission still uses ID fallback
 where supported. Empty labels remain invalid. `showPortLabels` is not supported.
 
-Connection labels are automatically placed beside routes, with bounded spacing retries.
-Never author `xlabel`, label positions or rotations. Text stays horizontal in Down flow.
+Source labels reserve a virtual node near their source. Receiver Callouts are placed after routing, controlled by `repeatAtEnd` and `longThreshold`.
+Never author `xlabel`, manual label coordinates or rotations.
 SVG uses monospace text with conservative width estimates; actual font appearance depends
 on the viewer. Inspect the rendered result when long or non-Latin names are important.
+
+## Nets and virtual signal labels
+
+For new authoring, prefer array-target Connections such as
+`{"id":"data","from":"ALU.result","to":["Register.data","Comparator.data"],"label":"Result"}`.
+Each target may instead be an object with `endpoint`, optional `constraint`, `feedback` and
+line-only `style`; label styles and `startArrow` belong to the whole Net. A source has one Net. Targets cannot
+repeat, equal the main endpoint or conflict with another driver. All known shared widths
+must agree. Unknown widths remain valid. Boundary-port face rules are unchanged.
+
+Set `direction: "both"` for one main/reference endpoint plus N abstract bidirectional peers;
+all Ports must be `inout`. The main endpoint may participate in every branch of the same Net.
+Unrelated Nets cannot claim occupied faces. This describes connectivity without arbitration,
+responder selection, electrical or timing simulation. Arrow style overrides remain cosmetic.
+Concat remains a real element joining separate input Nets into its output Net.
+
+A labeled Net reserves one small source-adjacent virtual signal node, with measured text and
+an 8-unit local gap. Its source footprint participates in hierarchical Auto/Grid placement.
+Virtual nodes/groups never enter saved JSON or exported hardware. A common Inline name stays
+near the source. Final branch routing is followed by optional same-name destination Callouts:
+`style.label.repeatAtEnd` is `auto` (default), `always` or `never`; positive `longThreshold`
+defaults to 600 logical units. Auto tests actual routed source-to-target length. End labels do
+not trigger global relayout. Hidden removes all labels and the virtual node. Label conflicts
+still produce warnings. Scalar targets and retired fields are rejected without automatic migration.
 
 ## Layout and exterior feedback
 
@@ -277,11 +374,13 @@ layout options are:
 
 | Field                 | Values / default                                               |
 | --------------------- | -------------------------------------------------------------- |
-| `direction`           | `right` default, `down`, legacy `left`                         |
+| `direction`           | `right` default, `down`                                        |
 | `routing`             | `orthogonal` only                                              |
-| `placement`           | `default` default, `relaxed`, legacy `simple`                  |
+| `placement`           | `default` default, `relaxed`, `simple`                         |
 | `moduleSpacing`       | Positive finite number, default 50                             |
 | `layerSpacing`        | Positive finite number, default 80                             |
+| `portAdjustment`      | `reduce-bends` default, or `fixed`                             |
+| `maxPortShift`        | Finite non-negative logical SVG distance, default 40           |
 | `feedbackRouting`     | `elk` default or `outer`                                       |
 | `feedbackSide`        | `auto` default; horizontal `top`/`bottom`, Down `left`/`right` |
 | `feedbackMargin`      | Positive finite number, default 20                             |
@@ -289,7 +388,7 @@ layout options are:
 
 An incompatible side is invalid even when Outer is disabled. When changing JSON flow axes,
 map Top ↔ Left and Bottom ↔ Right yourself; the converter does not rewrite settings.
-`outer` supports Right and Down, not legacy Left. It attempts routes outside the visible
+`outer` supports Right and Down. It attempts routes outside the visible
 bounding rectangles. A blocked requested side keeps the ELK route without switching sides.
 Terminal edges, boundary-scoped edges and group views retain their ELK routing fallbacks.
 
@@ -297,6 +396,22 @@ Connection `feedback: true` lowers its direction priority during cycle breaking.
 not itself enable Outer, force backward routing, align blocks or remove ranking constraints.
 Omit it or use false for normal priority. Unused ports, cycles, long labels and groups can
 change the arrangement; reproduce intent instead of promising exact screenshot geometry.
+
+## Port adjustment
+
+By default, `layout.portAdjustment: "reduce-bends"` enables a bounded post-placement pass that may slide
+rectangular/stacked Block Ports along their existing side. It preserves Block positions and
+sizes, Port order, at least 24-unit anchor spacing and label/title clearance. Names move with
+anchors; source signal nodes move only within their reserved wrapper. Concat, other shapes,
+Group Ports and feedback anchors remain fixed. Terminal anchors and names move together
+perpendicular to flow with the same shift limit; order and separation are preserved, and
+moves overlapping Blocks, Groups or other Terminals are rejected. Terminal adjustment also rejects changes that increase
+connection-label clearance warnings. `maxPortShift` limits movement
+from the initial anchor (default 40); zero or `portAdjustment: "fixed"` disables it. All affected Net branches are checked together.
+Obstacle-hit and foreign-Net crossing counts cannot increase; accepted changes improve
+bends, length, then displacement. Search is deterministic and bounded to four passes/128
+trials, with no global optimum guarantee. Final Callouts/arrows follow this pass. Auto/Grid,
+group views and the editor share this pipeline. JSON export preserves configuration only.
 
 ## Importable JavaScript API
 
@@ -324,6 +439,99 @@ conversion uses the bundled authoritative validator and does not fetch external 
 
 Project maintainers regenerate all three artifacts with `npm run build:agent-kit` in the
 source checkout. Kit consumers never need that checkout or the build toolchain.
+
+## Grid and overview diagrams
+
+Use `layout.type: "grid"` and rectangular `layout.cells` at the root, or put the same
+configuration in a group's `layout`. Omission or `type: "auto"` keeps automatic placement.
+Each non-null cell is a direct member ID, used at most once; null reserves an empty slot.
+Choose any subset; unlisted direct members remain automatic. Root members exclude items already
+in a group and exclude Terminals. Rows run top to bottom and columns left to right,
+independently of Flow. Cells share measured row heights/column widths and center their
+contents. Optional non-negative `rowGap` / `columnGap` default to 50 / 80. Empty tracks use
+140-by-84 logical minimum space. Container nesting can express layout-only columns: hide
+its title, border and fill when no frame should appear. Grid does not imply electrical links.
+
+The selected Grid is measured first and acts as one temporary rectangle in automatic
+placement among unlisted members, using the real constraint-enabled signals. Empty tracks
+remain reserved: Auto cannot fill the rectangle. This never changes JSON groups or real
+connections. An all-null Grid leaves every member automatic and reserves no rectangle.
+Rows/columns are implied by cells, without separate dimension fields. New members stay Auto.
+Auto neighbors may move or their routes may lengthen when the Grid changes.
+
+To align across Containers, set Grid `expandGroups` to an array of nonempty direct
+Container IDs, e.g. `["ComputeCluster"]`. Their IDs are replaced by their direct children as eligible
+cell values; every such child must occur exactly once. Do not also put the Container ID
+in a cell. Boundary and Collection remain whole participants. Each expanded Container
+must occupy a disjoint rectangular cell region with no outside members (null is allowed).
+Shared tracks reserve group header/frame gutters and minimum dimensions, then fit the
+real frames around those regions. The controlling Grid suspends each expanded Container's
+own saved layout, while standalone group views use that saved layout again. Membership,
+Ports and signals never change. Other direct members may remain Auto; expanded members
+may not. New members need Grid placement before export. Expansion is one level per scope;
+child groups remain whole participants and can use their own layouts internally.
+
+Grid uses fixed placements followed by obstacle-aware orthogonal routing. Increase gaps or
+change port sides if the router reports obstructed access. Auto parents preserve their
+layout where possible and move overlapping siblings after a nested Grid grows. Collapse
+keeps saved grids; group views use the selected subtree's grids, not the root grid.
+
+Port `side` optionally chooses `left`, `right`, `top` or `bottom`, independently of direction.
+Omit it to follow Flow. Explicit physical sides stay fixed when changing Flow. Ordinary
+modules and Boundary interfaces accept `direction: "inout"`; its default side is right
+(or bottom for Down). Shared Port text styles apply to inout ports; input/output-specific
+text defaults do not. Concat does not accept inout.
+
+Group `style.borderRadius` optionally sets a non-negative logical SVG corner radius,
+default 0. Values such as 12 round expanded group frames and collapsed faces/cards;
+values exceeding half the inset rectangle dimensions are clamped. Group geometry and
+Port/routing positions are unchanged. This is a group-only style, not a Block appearance.
+
+When a source diagram uses nodes only to name signals, prefer labeled connections and
+abstract concat collections. Preserve separate input roles, fan-out, feedback/control
+styles and non-constraining edges; do not infer Port widths from signal/instance counts.
+Hidden Terminals can anchor external labeled wires. Keep cross-group/global collection
+concats in their original scope, and omit wrappers left empty after removing signal nodes.
+When every Port name is hidden, the block reserves only connection-slot spacing around
+its title/appearance, without text lanes or phantom Port rows. Port count may still grow
+the block; explicit width/height minima are retained. Visible names use text-aware sizing.
+
+Connection `direction: "both"` requires two inout ports and represents two directed paths.
+Both receiving faces participate in driver validation; known widths must match. It defaults
+to triangle arrows at both ends, with shared/local startArrow/endArrow style overrides.
+Ordinary `forward` connections may also use inout ports. `constraint: false` leaves all
+reference, width, boundary and driver checks enabled, but removes the edge from placement
+and routes it afterward. It does not create an invisible fake signal.
+
+Use `diagram.caption` for a non-blank multiline footer. Its direct text style is
+`diagram.style.caption`; hidden removes text, background and reserved space. Caption bounds
+are included in SVG/PNG/DOM and scoped SVG exports. Ordinary blocks can now have zero ports
+(including omitted ports); Concat retains its at-least-one-input/exactly-one-output rule.
+
+### Net label frames
+
+Net `style.label` and `diagram.style.connection.label` additionally support
+`borderColor` (default transparent), `borderWidth` (default 1; zero disables the frame),
+`borderOpacity` (default 1) and `borderRadius` (default 0). Width and radius must be finite
+and non-negative; opacity is in [0, 1]. Frames use a solid stroke and apply to both the
+shared source name and destination Callouts. They are independent of the Net line color.
+Strokes stay inside the reserved text-and-padding bounds; width and radius are clamped to
+fit. Use `padding` for breathing room around text. `hidden` hides text, fill and frame.
+These frame fields belong only to connection labels, not Terminal or Port text styles.
+The editor exposes them in Connection style > Label; blank values inherit defaults.
+
+```text
+{
+  "backgroundColor": "#FFF9E6",
+  "padding": 4,
+  "borderColor": "#B38900",
+  "borderWidth": 0.8,
+  "borderRadius": 4
+}
+```
+
+The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
+complete diagram (Agent Kit users can author the same style directly).
 
 
 ## Bundled elkjs license

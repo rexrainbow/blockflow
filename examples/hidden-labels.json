@@ -2,7 +2,13 @@
   "version": 1,
   "diagram": {
     "name": "Hidden label styles",
-    "style": { "module": { "portLabel": { "hidden": true } } }
+    "style": {
+      "module": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    }
   },
   "terminals": [
     {
@@ -10,29 +16,85 @@
       "label": "Hidden external input",
       "direction": "input",
       "width": 8,
-      "style": { "hidden": true }
+      "style": {
+        "hidden": true
+      }
     },
-    { "id": "ExternalOutput", "direction": "output", "width": 8 }
+    {
+      "id": "ExternalOutput",
+      "direction": "output",
+      "width": 8
+    }
   ],
   "modules": [
     {
       "id": "Processor",
       "label": "Hidden processor name",
-      "style": { "label": { "hidden": true } },
+      "style": {
+        "label": {
+          "hidden": true
+        }
+      },
       "ports": [
-        { "id": "in", "direction": "input", "width": 8 },
-        { "id": "out", "direction": "output", "width": 8, "style": { "hidden": false } }
+        {
+          "id": "in",
+          "direction": "input",
+          "width": 8
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 8,
+          "style": {
+            "hidden": false
+          }
+        }
       ]
     }
   ],
-  "groups": [{ "id": "Frame", "members": ["Processor"], "style": { "label": { "hidden": true } } }],
+  "groups": [
+    {
+      "id": "Frame",
+      "members": [
+        "Processor"
+      ],
+      "style": {
+        "label": {
+          "hidden": true
+        }
+      },
+      "type": "container"
+    }
+  ],
   "connections": [
     {
-      "from": { "terminal": "ExternalInput" },
-      "to": "Processor.in",
+      "from": {
+        "terminal": "ExternalInput"
+      },
+      "to": [
+        "Processor.in"
+      ],
       "label": "Hidden connection name",
-      "style": { "label": { "hidden": true } }
+      "style": {
+        "label": {
+          "hidden": true
+        },
+        "endArrow": "none"
+      },
+      "id": "net_1"
     },
-    { "from": "Processor.out", "to": { "terminal": "ExternalOutput" }, "label": "Visible output" }
+    {
+      "from": "Processor.out",
+      "to": [
+        {
+          "terminal": "ExternalOutput"
+        }
+      ],
+      "label": "Visible output",
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
+    }
   ]
 }

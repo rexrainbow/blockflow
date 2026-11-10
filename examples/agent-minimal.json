@@ -26,7 +26,13 @@
   "connections": [
     {
       "from": "Source.data",
-      "to": "Sink.data"
+      "to": [
+        "Sink.data"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ],
   "layout": {

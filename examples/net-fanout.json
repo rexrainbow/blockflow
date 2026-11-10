@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Processor result Net",
+    "caption": "One source name is shared by all receivers. Long branches repeat the name near the destination.",
+    "style": {
+      "module": {
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "endArrow": "triangle",
+        "label": {
+          "color": "#243B53",
+          "padding": 3,
+          "longThreshold": 300
+        }
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "Processor",
+      "ports": [
+        {
+          "id": "result",
+          "direction": "output",
+          "width": 32
+        }
+      ]
+    },
+    {
+      "id": "ALU",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 32
+        }
+      ]
+    },
+    {
+      "id": "Register",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 32
+        }
+      ]
+    },
+    {
+      "id": "Monitor",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 32
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "result_bus",
+      "from": "Processor.result",
+      "to": [
+        "ALU.data",
+        "Register.data",
+        {
+          "endpoint": "Monitor.data",
+          "constraint": false
+        }
+      ],
+      "label": "Result data\n32 bits"
+    }
+  ],
+  "layout": {
+    "direction": "right",
+    "layerSpacing": 180
+  }
+}

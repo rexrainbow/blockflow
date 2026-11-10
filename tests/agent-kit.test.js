@@ -56,6 +56,46 @@ function run(args, input) {
   );
 }
 
+test('isolated kit renders Net label frames with the shared SVG renderer', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/connection-labels.json', import.meta.url), 'utf8'),
+  );
+  const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  assert.match(result.stdout, /stroke="#b38900"/);
+  assert.match(result.stdout, /rx="4" ry="4"/);
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+});
+
+test('isolated kit exports adjusted Terminal names and matching endpoints', async () => {
+  const input = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
+  input.layout = { ...input.layout, maxPortShift: 120 };
+  const layout = await layoutDiagram(createDiagramModel(input));
+  const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, renderSvg(layout) + '\n');
+  assert.ok(layout.connections.every((e) => e.sections.length === 1 && e.sections[0].points.length === 2));
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+});
+
+test('isolated kit uses the same Port adjustment and preserves authoring JSON without coordinates', async () => {
+  const document = JSON.parse(
+    await readFile(new URL('../examples/port-adjustment.json', import.meta.url), 'utf8'),
+  );
+  await writeFile(join(directory, 'ports.json'), JSON.stringify(document));
+  const svg = run(['ports.json', '--output', '-', '--format', 'svg']);
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout.trimEnd(), renderSvg(await layoutDiagram(createDiagramModel(document))));
+  const json = run(['ports.json', '--output', '-', '--format', 'json']);
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), document);
+});
+
 test('three matched artifacts are reproducible, current and contain no extra runtime files', async () => {
   assert.deepEqual((await readdir(kit)).sort(), names);
   for (const name of names)
@@ -113,6 +153,19 @@ test('stdin/stdout are clean for both formats and UTF-8 BOM input is accepted', 
   }
 });
 
+test('isolated CLI preserves and renders ComputeCluster Grid, sides, double arrows and caption', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/processor-overview.json', import.meta.url), 'utf8'),
+  );
+  const saved = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(saved.status, 0, saved.stderr);
+  assert.deepEqual(JSON.parse(saved.stdout), input);
+  const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  assert.equal((result.stdout.match(/data-role="connection-start-arrow"/g) ?? []).length, 3);
+});
+
 test('scoped SVG validates the full graph and exports only the selected group', async () => {
   const result = run(['diagram.json', '--output', 'scope.svg', '--view', 'Stage', '--diagnostics', 'json']);
   assert.equal(result.status, 0, result.stderr);
@@ -121,6 +174,16 @@ test('scoped SVG validates the full graph and exports only the selected group', 
   assert.ok(svg.includes('Mux'));
   assert.ok(!svg.includes('Input processing'));
   assert.equal(svg, renderSvg(await layoutDiagram(createDiagramModel(raw), { rootGroupId: 'Stage' })) + '\n');
+});
+
+test('isolated CLI renders partial Grids with automatic neighbors without rewriting the graph', async () => {
+  const input = JSON.parse(await readFile(new URL('../examples/partial-grid.json', import.meta.url), 'utf8'));
+  for (const format of ['json', 'svg']) {
+    const result = run(['-', '--output', '-', '--format', format], JSON.stringify(input));
+    assert.equal(result.status, 0, result.stderr);
+    if (format === 'json') assert.deepEqual(JSON.parse(result.stdout), input);
+    else assert.equal(result.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  }
 });
 
 test('semantic and syntax errors have actionable stages/paths and preserve existing output', async () => {
@@ -144,6 +207,49 @@ test('semantic and syntax errors have actionable stages/paths and preserve exist
   assert.equal(result.status, 1);
   assert.equal(JSON.parse(result.stderr).stage, 'layout');
   assert.equal(await readFile(join(directory, 'existing.svg'), 'utf8'), 'keep');
+});
+
+test('isolated kit renders rounded components and preserves signal/concat authoring', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/processor-components.json', import.meta.url), 'utf8'),
+  );
+  const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  assert.equal((result.stdout.match(/rx="12"/g) ?? []).length, 9);
+  const starts = (result.stdout.match(/data-label-position="start"/g) ?? []).length;
+  assert.equal(
+    starts,
+    input.connections.filter((c) => c.label !== undefined).length,
+    'Each labeled Net has one source name',
+  );
+  assert.ok((result.stdout.match(/data-label-position="end"/g) ?? []).length >= 2);
+  assert.match(result.stdout, /data-role="label-leader"/);
+  assert.match(result.stdout, /<mask /);
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+});
+
+test('isolated CLI exports cross-group Grid JSON and aligned SVG with real group identity', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+  );
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+  const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  const scope = run(
+    ['-', '--output', '-', '--format', 'svg', '--view', 'ComputeCluster'],
+    JSON.stringify(input),
+  );
+  assert.equal(scope.status, 0, scope.stderr);
+  assert.equal(
+    scope.stdout,
+    renderSvg(await layoutDiagram(createDiagramModel(input), { rootGroupId: 'ComputeCluster' })) + '\n',
+  );
 });
 
 test('argument failures reject PNG, format mismatches and ambiguous commands; input is protected', async () => {

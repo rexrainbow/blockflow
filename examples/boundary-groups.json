@@ -253,7 +253,6 @@
         "OutputQueue",
         "Monitor"
       ],
-      "portMode": "boundary",
       "ports": [
         {
           "id": "in",
@@ -281,7 +280,8 @@
           "fontSize": 12,
           "color": "#1e40af"
         }
-      }
+      },
+      "type": "boundary"
     },
     {
       "id": "Inner",
@@ -293,7 +293,6 @@
         "Join",
         "Trace"
       ],
-      "portMode": "boundary",
       "ports": [
         {
           "id": "in",
@@ -312,110 +311,185 @@
         "inputPortLabel": {
           "color": "#0f766e"
         }
-      }
+      },
+      "type": "boundary"
     }
   ],
   "connections": [
     {
       "from": "Source.out",
-      "to": "Outer.in",
-      "label": "Request"
+      "to": [
+        "Outer.in"
+      ],
+      "label": "Request",
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Outer.in",
-      "to": "Ingress.in"
+      "to": [
+        "Ingress.in",
+        {
+          "endpoint": "Bypass.in",
+          "style": {
+            "strokeColor": "#64748b"
+          }
+        }
+      ],
+      "label": "Bypass",
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Ingress.out",
-      "to": "Inner.in",
-      "label": "Queued"
+      "to": [
+        "Inner.in"
+      ],
+      "label": "Queued",
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Inner.in",
-      "to": "Decode.in"
+      "to": [
+        "Decode.in"
+      ],
+      "id": "net_4",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Decode.out",
-      "to": "Execute.in",
-      "label": "Dispatch"
-    },
-    {
-      "from": "Decode.out",
-      "to": "Check.in"
+      "to": [
+        "Execute.in",
+        "Check.in"
+      ],
+      "label": "Dispatch",
+      "id": "net_5",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Execute.out",
-      "to": "Join.data"
+      "to": [
+        "Join.data"
+      ],
+      "id": "net_6",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Check.flags",
-      "to": "Join.flags",
-      "label": "Flags"
+      "to": [
+        "Join.flags"
+      ],
+      "label": "Flags",
+      "id": "net_7",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Join.out",
-      "to": "Inner.out"
+      "to": [
+        "Inner.out",
+        "Trace.in"
+      ],
+      "id": "net_8",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Inner.out",
-      "to": "ResultMux.processed",
-      "label": "Processed"
-    },
-    {
-      "from": "Outer.in",
-      "to": "Bypass.in",
-      "label": "Bypass",
+      "to": [
+        "ResultMux.processed"
+      ],
+      "label": "Processed",
+      "id": "net_9",
       "style": {
-        "strokeColor": "#64748b"
+        "endArrow": "none"
       }
     },
     {
       "from": "Bypass.out",
-      "to": "ResultMux.bypass",
+      "to": [
+        "ResultMux.bypass"
+      ],
       "style": {
-        "strokeColor": "#64748b"
-      }
+        "strokeColor": "#64748b",
+        "endArrow": "none"
+      },
+      "id": "net_10"
     },
     {
       "from": "ResultMux.out",
-      "to": "OutputQueue.in"
+      "to": [
+        "OutputQueue.in"
+      ],
+      "id": "net_11",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "OutputQueue.out",
-      "to": "Outer.out"
+      "to": [
+        "Outer.out",
+        "Monitor.in"
+      ],
+      "id": "net_12",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Outer.out",
-      "to": "Sink.in",
-      "label": "Response"
-    },
-    {
-      "from": "Join.out",
-      "to": "Trace.in"
+      "to": [
+        "Sink.in"
+      ],
+      "label": "Response",
+      "id": "net_13",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "Trace.retry",
-      "to": "Decode.retry",
+      "to": [
+        "Decode.retry"
+      ],
       "label": "Retry",
       "style": {
         "strokeColor": "#b45309",
-        "lineStyle": "dashed"
+        "lineStyle": "dashed",
+        "endArrow": "none"
       },
-      "feedback": true
-    },
-    {
-      "from": "OutputQueue.out",
-      "to": "Monitor.in"
+      "feedback": true,
+      "id": "net_14"
     },
     {
       "from": "Monitor.ready",
-      "to": "Ingress.ready",
+      "to": [
+        "Ingress.ready"
+      ],
       "label": "Ready",
       "style": {
         "strokeColor": "#7c3aed",
-        "lineStyle": "dashed"
+        "lineStyle": "dashed",
+        "endArrow": "none"
       },
-      "feedback": true
+      "feedback": true,
+      "id": "net_15"
     }
   ],
   "layout": {

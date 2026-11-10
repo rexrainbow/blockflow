@@ -1,0 +1,242 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Processor cluster overview",
+    "caption": "Arrows show cross-module signal paths.\nDouble-headed edges represent separate paths in both directions.",
+    "style": {
+      "module": {
+        "borderColor": "#52606D",
+        "borderWidth": 1.1,
+        "label": {
+          "fontSize": 10
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "strokeColor": "#334E68",
+        "strokeWidth": 1.2,
+        "endArrow": "triangle"
+      },
+      "caption": {
+        "fontSize": 10,
+        "color": "#334E68"
+      }
+    }
+  },
+  "layout": {
+    "direction": "right",
+    "type": "grid",
+    "cells": [
+      [
+        "Sources",
+        "ComputeCluster"
+      ]
+    ],
+    "columnGap": 60
+  },
+  "modules": [
+    {
+      "id": "Clock",
+      "style": {
+        "fillColor": "#F1F5F9"
+      },
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output",
+          "side": "right"
+        }
+      ]
+    },
+    {
+      "id": "Controller",
+      "style": {
+        "fillColor": "#F1F5F9"
+      },
+      "ports": [
+        {
+          "id": "alu1",
+          "direction": "inout",
+          "side": "right"
+        },
+        {
+          "id": "alu2",
+          "direction": "inout",
+          "side": "top"
+        }
+      ]
+    },
+    {
+      "id": "ALU0",
+      "label": "ALU0\nPrivate - Core 0",
+      "style": {
+        "fillColor": "#EAF2FF"
+      },
+      "ports": [
+        {
+          "id": "clock",
+          "direction": "input",
+          "side": "left"
+        }
+      ]
+    },
+    {
+      "id": "ALU1",
+      "label": "ALU1\nPrivate - Core 1",
+      "style": {
+        "fillColor": "#EAF2FF"
+      },
+      "ports": [
+        {
+          "id": "controller",
+          "direction": "inout",
+          "side": "left"
+        },
+        {
+          "id": "alu2",
+          "direction": "inout",
+          "side": "right"
+        }
+      ]
+    },
+    {
+      "id": "ALU4",
+      "label": "ALU4\nPrivate - Core 3",
+      "style": {
+        "fillColor": "#EAF2FF"
+      }
+    },
+    {
+      "id": "ALU2",
+      "label": "ALU2\nShared - Main core / Core 0 / Core 1 / Core 2",
+      "style": {
+        "fillColor": "#FFF4D6"
+      },
+      "ports": [
+        {
+          "id": "controller",
+          "direction": "inout",
+          "side": "top"
+        },
+        {
+          "id": "alu1",
+          "direction": "inout",
+          "side": "left"
+        }
+      ]
+    },
+    {
+      "id": "ALU3",
+      "label": "ALU3\nShared - Main core / Core 0 / Core 1 / Core 2",
+      "style": {
+        "fillColor": "#FFF4D6"
+      },
+      "ports": []
+    }
+  ],
+  "groups": [
+    {
+      "id": "Sources",
+      "members": [
+        "Clock",
+        "Controller"
+      ],
+      "style": {
+        "borderOpacity": 0,
+        "fillOpacity": 0,
+        "label": {
+          "hidden": true
+        }
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [
+          [
+            "Clock"
+          ],
+          [
+            null
+          ],
+          [
+            "Controller"
+          ]
+        ]
+      },
+      "type": "container"
+    },
+    {
+      "id": "ComputeCluster",
+      "label": "Compute cluster",
+      "members": [
+        "ALU0",
+        "ALU1",
+        "ALU2",
+        "ALU3",
+        "ALU4"
+      ],
+      "style": {
+        "borderStyle": "dashed",
+        "borderColor": "#7A9BBE",
+        "fillColor": "transparent",
+        "label": {
+          "fontSize": 10,
+          "color": "#334E68"
+        }
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [
+          [
+            "ALU0",
+            null
+          ],
+          [
+            "ALU4",
+            "ALU3"
+          ],
+          [
+            "ALU1",
+            "ALU2"
+          ]
+        ]
+      },
+      "type": "container"
+    }
+  ],
+  "connections": [
+    {
+      "from": "Clock.out",
+      "to": [
+        "ALU0.clock"
+      ],
+      "id": "net_1"
+    },
+    {
+      "from": "Controller.alu1",
+      "to": [
+        "ALU1.controller"
+      ],
+      "direction": "both",
+      "id": "net_2"
+    },
+    {
+      "from": "Controller.alu2",
+      "to": [
+        "ALU2.controller"
+      ],
+      "direction": "both",
+      "constraint": false,
+      "id": "net_3"
+    },
+    {
+      "from": "ALU1.alu2",
+      "to": [
+        "ALU2.alu1"
+      ],
+      "direction": "both",
+      "id": "net_4"
+    }
+  ]
+}

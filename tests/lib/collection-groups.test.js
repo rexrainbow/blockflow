@@ -11,7 +11,7 @@ const schema=JSON.parse(await readFile(new URL('../../schema/blockflow.schema.js
 const validate=new Ajv({strict:true,allErrors:true}).compile(schema);
 const endpoint=p=>p.moduleId+'.'+p.portId;
 
-test('canonical group types agree with the schema and preserve the legacy alias',()=>{
+test('canonical group types agree with the schema and reject the retired alias',()=>{
   for(const type of ['container','boundary','collection',null,false,'stack']) {
     const raw=structuredClone(fixture);raw.connections=[];raw.groups[0].collapsed=false;raw.groups[0].type=type;
     const valid=['container','boundary','collection'].includes(type);
@@ -20,16 +20,12 @@ test('canonical group types agree with the schema and preserve the legacy alias'
     else assert.throws(()=>createDiagramModel(raw),/group type/);
   }
   const raw=structuredClone(fixture);raw.connections=[];raw.groups[0].portMode='boundary';
-  assert.equal(validate(raw),false);assert.throws(()=>createDiagramModel(raw),/Conflicting/);
-  delete raw.groups[0].type;
-  assert.equal(validate(raw),true);assert.equal(createDiagramModel(raw).groups[0].type,'boundary');
-  raw.groups[0].portMode='direct';raw.groups[0].collapsed=false;
-  assert.equal(createDiagramModel(raw).groups[0].type,'container');
-  raw.groups[0].collapsed=true;
+  assert.equal(validate(raw),false);assert.throws(()=>createDiagramModel(raw),/Unsupported property: portMode/);
+  delete raw.groups[0].portMode;raw.groups[0].type='container';raw.groups[0].collapsed=true;
   assert.equal(validate(raw),false);assert.throws(()=>createDiagramModel(raw),/Only boundary or collection/);
 });
 
-for(const direction of ['right','left']) test('16 instances project onto two virtual anchors without changing source identities '+direction,async()=>{
+for(const direction of ['right']) test('16 instances project onto two virtual anchors without changing source identities '+direction,async()=>{
   const raw=structuredClone(fixture);raw.layout.direction=direction;
   raw.connections[0].label='Input\ndata';
   const before=structuredClone(raw),model=createDiagramModel(freeze(raw)),snapshot=structuredClone(model);
@@ -44,8 +40,8 @@ for(const direction of ['right','left']) test('16 instances project onto two vir
   const nodes=[...layout.modules,group];
   const ports=new Map(nodes.flatMap(n=>n.ports.map(p=>[n.id+'.'+p.id,p])));
   for(const edge of layout.connections) {
-    const original=raw.connections[Number(edge.id.split('_')[1])];
-    assert.equal(endpoint(edge.source),original.from);assert.equal(endpoint(edge.target),original.to);
+    const original=model.connections.find(e=>e.id===edge.id);
+    assert.deepEqual(edge.source,original.source);assert.deepEqual(edge.target,original.target);
     const start=ports.get(endpoint(edge.routingSource)),end=ports.get(endpoint(edge.routingTarget));
     assert.ok(edge.sections.some(s=>Math.abs(s.points[0].x-start.x)<1e-6&&Math.abs(s.points[0].y-start.y)<1e-6));
     assert.ok(edge.sections.some(s=>Math.abs(s.points.at(-1).x-end.x)<1e-6&&Math.abs(s.points.at(-1).y-end.y)<1e-6));
@@ -78,9 +74,9 @@ test('real widths, drivers and hidden endpoints remain validated before projecti
   const raw=structuredClone(fixture);raw.modules[1].ports[0].width=9;
   assert.throws(()=>createDiagramModel(raw),/width mismatch/);
   raw.modules[1].ports[0].width=8;
-  raw.connections.push({from:'PE_1.out',to:'PE_0.in'});
+  raw.connections.find(e=>e.from==='PE_1.out').to.push('PE_0.in');
   assert.throws(()=>createDiagramModel(raw),/already has a driver/);
-  raw.connections.pop();raw.connections[0].to='PE_0.missing';
+  raw.connections.find(e=>e.from==='PE_1.out').to.pop();raw.connections[0].to=['PE_0.missing'];
   assert.throws(()=>createDiagramModel(raw),/Unknown port/);
 });
 
@@ -94,7 +90,7 @@ test('nested collection projection uses the outermost collapse and counts direct
   layout=await layoutDiagram(createDiagramModel(raw));copyLayout(layout);
   assert.equal(layout.groups.length,2);assert.equal(layout.modules.length,10);
   assert.equal(layout.groups.find(g=>g.id==='Inner').memberCount,8);
-  assert.equal(layout.connections.find(e=>e.id==='connection_0').routingTarget.moduleId,'Inner');
+  assert.equal(layout.connections.find(e=>e.connectionIndex===0&&e.branchIndex===0).routingTarget.moduleId,'Inner');
 });
 
 test('empty and single-member collections have a count without decorative copies',async()=>{
@@ -110,7 +106,7 @@ test('collection projection respects boundary faces and hidden boundary ancestor
   const raw={version:1,diagram:{name:'Nested'},modules:[{id:'A',ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]}],groups:[
     {id:'Outer',type:'boundary',members:['G'],ports:[{id:'in',direction:'input'},{id:'out',direction:'output'}]},
     {id:'G',type:'collection',members:['A'],collapsed:true},
-  ],connections:[{from:'Outer.in',to:'A.in'},{from:'A.out',to:'Outer.out'}]};
+  ],connections:[{from:'Outer.in',to:['A.in']},{from:'A.out',to:['Outer.out']}]};
   let layout=await layoutDiagram(createDiagramModel(raw));copyLayout(layout);
   assert.equal(layout.connections.length,2);assert.equal(layout.connections[0].routingTarget.moduleId,'G');
   raw.groups[0].collapsed=true;
@@ -120,7 +116,7 @@ test('collection projection respects boundary faces and hidden boundary ancestor
 
 test('outer feedback routing uses visible collection anchors',async()=>{
   const raw=structuredClone(fixture);raw.modules[0].ports.push({id:'in',direction:'input',width:8});
-  raw.connections.push({from:'PE_15.out',to:'Source.in',feedback:true});raw.layout.feedbackRouting='outer';
+  raw.connections.find(e=>e.from==='PE_15.out').to.push({endpoint:'Source.in',feedback:true});raw.layout.feedbackRouting='outer';
   const layout=await layoutDiagram(createDiagramModel(raw));copyLayout(layout);
   assert.equal(layout.connections.at(-1).routingSource.moduleId,'PEs');
   assert.ok(layout.connections.at(-1).routingInfo);

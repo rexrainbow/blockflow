@@ -469,191 +469,203 @@
   "connections": [
     {
       "from": "Source.out",
-      "to": "PE_0.in"
+      "to": [
+        "PE_0.in",
+        "PE_1.in",
+        "PE_2.in",
+        "PE_3.in",
+        "PE_4.in",
+        "PE_5.in",
+        "PE_6.in",
+        "PE_7.in",
+        "PE_8.in",
+        "PE_9.in",
+        "PE_10.in",
+        "PE_11.in",
+        "PE_12.in",
+        "PE_13.in",
+        "PE_14.in",
+        "PE_15.in"
+      ],
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_0.out",
-      "to": "Sink.in_0"
-    },
-    {
-      "from": "PE_0.out",
-      "to": "PE_1.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_1.in"
-    },
-    {
-      "from": "PE_1.out",
-      "to": "Sink.in_1"
+      "to": [
+        "Sink.in_0",
+        "PE_1.next"
+      ],
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_1.out",
-      "to": "PE_2.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_2.in"
+      "to": [
+        "Sink.in_1",
+        "PE_2.next"
+      ],
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_2.out",
-      "to": "Sink.in_2"
-    },
-    {
-      "from": "PE_2.out",
-      "to": "PE_3.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_3.in"
-    },
-    {
-      "from": "PE_3.out",
-      "to": "Sink.in_3"
+      "to": [
+        "Sink.in_2",
+        "PE_3.next"
+      ],
+      "id": "net_4",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_3.out",
-      "to": "PE_4.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_4.in"
+      "to": [
+        "Sink.in_3",
+        "PE_4.next"
+      ],
+      "id": "net_5",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_4.out",
-      "to": "Sink.in_4"
-    },
-    {
-      "from": "PE_4.out",
-      "to": "PE_5.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_5.in"
-    },
-    {
-      "from": "PE_5.out",
-      "to": "Sink.in_5"
+      "to": [
+        "Sink.in_4",
+        "PE_5.next"
+      ],
+      "id": "net_6",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_5.out",
-      "to": "PE_6.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_6.in"
+      "to": [
+        "Sink.in_5",
+        "PE_6.next"
+      ],
+      "id": "net_7",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_6.out",
-      "to": "Sink.in_6"
-    },
-    {
-      "from": "PE_6.out",
-      "to": "PE_7.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_7.in"
-    },
-    {
-      "from": "PE_7.out",
-      "to": "Sink.in_7"
+      "to": [
+        "Sink.in_6",
+        "PE_7.next"
+      ],
+      "id": "net_8",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_7.out",
-      "to": "PE_8.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_8.in"
+      "to": [
+        "Sink.in_7",
+        "PE_8.next"
+      ],
+      "id": "net_9",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_8.out",
-      "to": "Sink.in_8"
-    },
-    {
-      "from": "PE_8.out",
-      "to": "PE_9.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_9.in"
-    },
-    {
-      "from": "PE_9.out",
-      "to": "Sink.in_9"
+      "to": [
+        "Sink.in_8",
+        "PE_9.next"
+      ],
+      "id": "net_10",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_9.out",
-      "to": "PE_10.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_10.in"
+      "to": [
+        "Sink.in_9",
+        "PE_10.next"
+      ],
+      "id": "net_11",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_10.out",
-      "to": "Sink.in_10"
-    },
-    {
-      "from": "PE_10.out",
-      "to": "PE_11.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_11.in"
-    },
-    {
-      "from": "PE_11.out",
-      "to": "Sink.in_11"
+      "to": [
+        "Sink.in_10",
+        "PE_11.next"
+      ],
+      "id": "net_12",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_11.out",
-      "to": "PE_12.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_12.in"
+      "to": [
+        "Sink.in_11",
+        "PE_12.next"
+      ],
+      "id": "net_13",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_12.out",
-      "to": "Sink.in_12"
-    },
-    {
-      "from": "PE_12.out",
-      "to": "PE_13.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_13.in"
-    },
-    {
-      "from": "PE_13.out",
-      "to": "Sink.in_13"
+      "to": [
+        "Sink.in_12",
+        "PE_13.next"
+      ],
+      "id": "net_14",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_13.out",
-      "to": "PE_14.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_14.in"
+      "to": [
+        "Sink.in_13",
+        "PE_14.next"
+      ],
+      "id": "net_15",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_14.out",
-      "to": "Sink.in_14"
-    },
-    {
-      "from": "PE_14.out",
-      "to": "PE_15.next"
-    },
-    {
-      "from": "Source.out",
-      "to": "PE_15.in"
+      "to": [
+        "Sink.in_14",
+        "PE_15.next"
+      ],
+      "id": "net_16",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "PE_15.out",
-      "to": "Sink.in_15"
+      "to": [
+        "Sink.in_15"
+      ],
+      "id": "net_17",
+      "style": {
+        "endArrow": "none"
+      }
     }
   ],
   "layout": {

@@ -203,58 +203,92 @@
   "connections": [
     {
       "from": "A.b_out",
-      "to": "B.b_in",
-      "label": "data bus\n8 bits"
+      "to": [
+        "B.b_in"
+      ],
+      "label": "data bus\n8 bits",
+      "id": "net_1",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "B.c_out",
-      "to": "C.c_in",
-      "label": "valid"
+      "to": [
+        "C.c_in"
+      ],
+      "label": "valid",
+      "id": "net_2",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "C.d_out",
-      "to": "D.c_in",
-      "label": "ready"
+      "to": [
+        "D.c_in"
+      ],
+      "label": "ready",
+      "id": "net_3",
+      "style": {
+        "endArrow": "none"
+      }
     },
     {
       "from": "A.e_out",
-      "to": "E.e_in",
+      "to": [
+        "E.e_in"
+      ],
       "style": {
         "strokeColor": "#d97706",
         "lineStyle": "dashed",
-        "strokeWidth": 2
+        "strokeWidth": 2,
+        "endArrow": "none"
       },
-      "label": "select"
+      "label": "select",
+      "id": "net_4"
     },
     {
       "from": "E.d_out",
-      "to": "D.e_in",
+      "to": [
+        "D.e_in"
+      ],
       "style": {
         "strokeColor": "#d97706",
         "lineStyle": "dashed",
-        "strokeWidth": 2
+        "strokeWidth": 2,
+        "endArrow": "none"
       },
-      "label": "status"
+      "label": "status",
+      "id": "net_5"
     },
     {
       "from": "F.d_out",
-      "to": "D.f_in",
+      "to": [
+        "D.f_in"
+      ],
       "style": {
         "strokeColor": "#7c3aed",
         "lineStyle": "dotted",
-        "opacity": 0.75
+        "opacity": 0.75,
+        "endArrow": "none"
       },
-      "label": "feedback"
+      "label": "feedback",
+      "id": "net_6"
     },
     {
       "from": "D.feedback",
-      "to": "A.feedback",
+      "to": [
+        "A.feedback"
+      ],
       "style": {
         "strokeColor": "#dc2626",
         "strokeWidth": 4,
-        "lineStyle": "dashed"
+        "lineStyle": "dashed",
+        "endArrow": "none"
       },
-      "label": "feedback\nreturn path"
+      "label": "feedback\nreturn path",
+      "id": "net_7"
     }
   ],
   "layout": {
@@ -276,7 +310,8 @@
           "color": "#2457d6",
           "fontSize": 16
         }
-      }
+      },
+      "type": "container"
     },
     {
       "id": "auxiliary",
@@ -284,7 +319,8 @@
       "members": [
         "E",
         "F"
-      ]
+      ],
+      "type": "container"
     },
     {
       "id": "core",
@@ -292,14 +328,16 @@
       "members": [
         "pipeline",
         "auxiliary"
-      ]
+      ],
+      "type": "container"
     },
     {
       "id": "system",
       "label": "System\nTop level",
       "members": [
         "core"
-      ]
+      ],
+      "type": "container"
     }
   ]
 }
