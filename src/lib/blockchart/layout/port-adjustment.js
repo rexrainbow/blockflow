@@ -1,3 +1,4 @@
+import { translateNode, translatePort } from './translate.js';
 import { routeFixed } from './fixed.js';
 import { finishSignals } from './signals.js';
 import { placeEdgeLabels } from './edge-labels.js';
@@ -290,25 +291,27 @@ function search(result, model, includeTerminals) {
   function slide(r, g, value) {
     const p = getPort(r, g),
       delta = value - p[g.axis];
+    const dx = g.axis === 'x' ? delta : 0,
+      dy = g.axis === 'y' ? delta : 0;
     if (g.terminal !== undefined) {
-      const terminal = r.terminals.find((t) => t.id === g.terminal);
-      for (const item of [terminal, terminal.anchor, terminal.labelPosition, terminal.labelBounds])
-        item[g.axis] += delta;
-      if (g.wrapper) {
-        const wrapper = r.groups.find((n) => n.id === g.wrapper);
-        for (const item of [wrapper, wrapper.labelPosition, wrapper.labelBounds]) item[g.axis] += delta;
-      }
-    } else for (const item of [p, p.labelPosition, p.labelBounds]) item[g.axis] += delta;
-    for (const id of g.helpers) {
-      const n = r.modules.find((n) => n.id === id);
-      for (const item of [
-        n,
-        n.labelPosition,
-        n.labelBounds,
-        ...n.ports.flatMap((p) => [p, p.labelPosition, p.labelBounds]),
-      ])
-        item[g.axis] += delta;
-    }
+      translateNode(
+        r.terminals.find((t) => t.id === g.terminal),
+        dx,
+        dy,
+      );
+      if (g.wrapper)
+        translateNode(
+          r.groups.find((n) => n.id === g.wrapper),
+          dx,
+          dy,
+        );
+    } else translatePort(p, dx, dy);
+    for (const id of g.helpers)
+      translateNode(
+        r.modules.find((n) => n.id === id),
+        dx,
+        dy,
+      );
   }
   function valid(r, groups) {
     for (const g of groups) {

@@ -1,3 +1,4 @@
+import { translateNode } from './translate.js';
 import { routeFixed } from './fixed.js';
 
 const EPS = 1e-6;
@@ -41,19 +42,7 @@ export function alignTerminals(result, model) {
     boxes = [];
   function translate(unit, dn, dt) {
     if (Math.abs(dn) < EPS && Math.abs(dt) < EPS) return;
-    for (const node of unit.parts) {
-      const points = [
-        node,
-        node.labelPosition,
-        node.labelBounds,
-        ...(node.anchor ? [node.anchor] : []),
-        ...(node.ports ?? []).flatMap((p) => [p, p.labelPosition, p.labelBounds]),
-      ];
-      for (const p of points) {
-        p[normal] += dn;
-        p[tangent] += dt;
-      }
-    }
+    for (const node of unit.parts) translateNode(node, normal === 'x' ? dn : dt, normal === 'x' ? dt : dn);
     moved.add(unit.terminal.id);
     for (const node of unit.nodes) moved.add(node.id);
     boxes.push(unit.terminal, ...unit.nodes);

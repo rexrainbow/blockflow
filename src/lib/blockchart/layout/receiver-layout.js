@@ -1,3 +1,4 @@
+import { translateNode } from './translate.js';
 import { routeFixed } from './fixed.js';
 import { ancestors, parentOf } from '../hierarchy.js';
 
@@ -77,15 +78,7 @@ export function alignReceivers(result, model) {
       moved = trial.modules.find((n) => n.id === node.id),
       dx = box.x - node.x,
       dy = box.y - node.y;
-    for (const item of [
-      moved,
-      moved.labelPosition,
-      moved.labelBounds,
-      ...moved.ports.flatMap((p) => [p, p.labelPosition, p.labelBounds]),
-    ]) {
-      item.x += dx;
-      item.y += dy;
-    }
+    translateNode(moved, dx, dy);
     const selected = new Set(
       model.connections
         .filter((e) => e.source.moduleId === node.id || e.target.moduleId === node.id)

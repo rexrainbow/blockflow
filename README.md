@@ -972,3 +972,10 @@ artifacts are named `blockchart-convert.mjs` and `blockchart.schema.json`; the s
 is `schema/blockchart.schema.json`. Standalone Flowchart artifacts
 are `flowchart-convert.mjs` and `flowchart.schema.json` in the same `agent-kit` directory.
 The existing Flowchart CLI remains available through `npm run flowchart`.
+
+
+## Blockchart layout maintenance
+
+See [the layout pipeline and stage contracts](docs/blockchart-layout.md) for runtime
+responsibilities, coordinate ownership, test selection and generated artifacts. Start with
+`src/lib/blockchart/layout/index.js` when changing layout behavior.

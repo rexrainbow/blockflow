@@ -15,7 +15,7 @@ Move this folder to any location. Either converter can run independently; its Sc
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-cba1186b795d6ce649d2`
+- Blockchart build: `blockchart-agent-kit-aa0595fd1abc831afc8e`
 - Flowchart build: `flowchart-agent-kit-8564411ef430ee2d4b6c`
 
 ## Quick start
@@ -47,7 +47,7 @@ license attribution; its full license appears at the end of this README.
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-cba1186b795d6ce649d2`
+Build: `blockchart-agent-kit-aa0595fd1abc831afc8e`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
