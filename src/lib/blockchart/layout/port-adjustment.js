@@ -1,3 +1,4 @@
+import { LAYOUT_DEFAULTS } from '../layout-defaults.js';
 import { translateNode, translatePort } from './translate.js';
 import { routeFixed } from './fixed.js';
 import { finishSignals } from './signals.js';
@@ -69,7 +70,13 @@ function quality(result, model, records) {
       length += Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
       for (const node of [...result.modules, ...result.groups]) {
         if (!exempt.has(node.id) && crossesBox(a, b, node)) hits++;
-        if (node.members && !node.style.label.hidden && crossesBox(a, b, node.labelBounds)) hits++;
+        if (
+          node.members &&
+          (node.collapsed || node.portMode === 'boundary') &&
+          !node.style.label.hidden &&
+          crossesBox(a, b, node.labelBounds)
+        )
+          hits++;
       }
       for (const terminal of result.terminals ?? [])
         if (
@@ -108,12 +115,13 @@ function quality(result, model, records) {
   }
   return { hits, crossings, bends, length, shift };
 }
+// Equal-bend routes keep their original anchors before optimizing wire length.
 const better = (a, b) =>
   a.hits <= b.hits &&
   a.crossings <= b.crossings &&
   (a.bends < b.bends ||
     (a.bends === b.bends &&
-      (a.length < b.length - EPS || (Math.abs(a.length - b.length) < EPS && a.shift < b.shift - EPS))));
+      (a.shift < b.shift - EPS || (Math.abs(a.shift - b.shift) < EPS && a.length < b.length - EPS))));
 
 // Terminal moves can affect reserved receiver nodes. Check on
 // a disposable finalized layout; routing-only signal nodes must not reach label placement.
@@ -276,9 +284,16 @@ function search(result, model, includeTerminals) {
       i = ports.findIndex((t) => t.id === p.id);
     const half = (t) =>
       Math.max(t.style.hidden ? 0 : t.labelBounds[extent] / 2, ink.get(g.owner + '.' + t.id) ?? 4);
-    if (i) low = Math.max(low, ports[i - 1][axis] + Math.max(24, half(ports[i - 1]) + half(p) + 6));
+    if (i)
+      low = Math.max(
+        low,
+        ports[i - 1][axis] + Math.max(LAYOUT_DEFAULTS.portPitch, half(ports[i - 1]) + half(p) + 6),
+      );
     if (i < ports.length - 1)
-      high = Math.min(high, ports[i + 1][axis] - Math.max(24, half(ports[i + 1]) + half(p) + 6));
+      high = Math.min(
+        high,
+        ports[i + 1][axis] - Math.max(LAYOUT_DEFAULTS.portPitch, half(ports[i + 1]) + half(p) + 6),
+      );
     if (!p.style.hidden) {
       low = Math.max(low, node[axis] + face[axis] + 2 - (p.labelBounds[axis] - p[axis]));
       high = Math.min(
@@ -415,7 +430,20 @@ function search(result, model, includeTerminals) {
         high = Math.min(ar[1], br[1]),
         candidates = [];
       if (low <= high + EPS) {
-        for (const x of [b.p[axis], a.p[axis], (a.p[axis] + b.p[axis]) / 2, low, high])
+        const facePorts = (end) => {
+          if (!end.group) return 0;
+          if (end.group.terminal !== undefined) return 1;
+          return result.modules
+            .find((node) => node.id === end.group.owner)
+            .ports.filter(
+              (port) => (port.side ?? defaultSide(port, model.layout.direction)) === end.group.side,
+            ).length;
+        };
+        // First try keeping the less-populated face at its current anchor. A
+        // centered single-Port interface need not slide to meet a movable bus.
+        // It remains eligible if that alignment is blocked or outside the range.
+        const anchors = facePorts(a) < facePorts(b) ? [a.p[axis], b.p[axis]] : [b.p[axis], a.p[axis]];
+        for (const x of [...anchors, (a.p[axis] + b.p[axis]) / 2, low, high])
           if (x >= low - EPS && x <= high + EPS) candidates.push([x, x]);
       } else
         candidates.push([

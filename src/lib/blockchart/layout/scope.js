@@ -1,5 +1,6 @@
 import { descendants } from '../hierarchy.js';
 import { createConnectionContext } from '../connectivity.js';
+import { resolveLayoutSpacing } from '../layout-spacing.js';
 
 /** A view of a validated model. Source JSON, identity and collapse flags stay intact. */
 export function scopeModel(model, rootGroupId) {
@@ -34,6 +35,7 @@ export function scopeModel(model, rootGroupId) {
   });
   return {
     ...model,
+    layout: { ...model.layout, ...resolveLayoutSpacing(model, rootGroupId) },
     rootGroupId,
     modules,
     groups,

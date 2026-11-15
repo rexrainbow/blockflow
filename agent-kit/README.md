@@ -15,8 +15,8 @@ Move this folder to any location. Either converter can run independently; its Sc
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-b4d061dd9e6a2c1ac0f3`
-- Flowchart build: `flowchart-agent-kit-8564411ef430ee2d4b6c`
+- Blockchart build: `blockchart-agent-kit-c9c32e029712c82a08f0`
+- Flowchart build: `flowchart-agent-kit-f8623c400a643a618d81`
 
 ## Quick start
 
@@ -47,7 +47,7 @@ license attribution; its full license appears at the end of this README.
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-b4d061dd9e6a2c1ac0f3`
+Build: `blockchart-agent-kit-c9c32e029712c82a08f0`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -78,8 +78,12 @@ Only JSON and SVG output are supported. PNG is not included.
 4. Run `--check`, fix the reported semantic error, and repeat until valid.
 5. Export SVG. Inspect the image and any label-placement warnings, then adjust names,
    grouping, relative sizes, styles or spacing and render again.
-6. Deliver the JSON and/or SVG. Open the JSON with the Blockflow editor's Open JSON command
-   or drop it into the editor to continue editing.
+6. Deliver the JSON and/or SVG. The JSON remains editable authoring data.
+
+Open or edit the JSON in blockflow Studio. For GUI usage, see the
+[Studio editing guide](https://github.com/rexrainbow/blockflow/blob/main/docs/studio.md).
+This kit documents the JSON contract and converter APIs; the optional GUI guide is
+external to the standalone kit.
 
 Schema validation alone cannot check references, driver conflicts, hierarchy, boundary
 crossings or Concat sums. The converter's model validator is authoritative. It does not
@@ -213,7 +217,7 @@ Optional module `appearance` is an object with one of these exact profiles:
 
 Appearance controls title, port placement and the full occupied bounds. Routing avoids a
 conservative rectangular footprint. Groups do not accept module `appearance`; their
-collapsed behavior is controlled by group type. Appearance never changes Concat semantics.
+collapsed behavior is controlled by group type. Concat only permits Bar (or omitted appearance); ordinary Block appearances do not change connectivity.
 
 ### Concat: optional widths and ordered composition
 
@@ -221,6 +225,23 @@ Use module `type: "concat"` for multiple ordered input ports and exactly one out
 Ordinary modules omit `type` or use `"block"`. First input is the high part for bit-level
 concatenation, independently of where source blocks are placed. Do not simulate this by
 giving one input multiple drivers. Each input keeps its own endpoint.
+
+Concat always uses a thin Flow-aligned Bar. Down: inputs top, output bottom, horizontal
+bar. Right (also the default): inputs left, output right, vertical bar. Omit Port `side`
+to follow Flow; an explicit conflicting side is rejected, including on feedback inputs.
+Concat only accepts omitted `appearance` or `{ "type": "bar" }`. Ordinary Block Bar
+appearance retains its general-purpose behavior and side choices.
+
+Input order determines anchor order; the output is centered between the outer inputs.
+The filled body thickness is 12 logical units plus border-width allowance, independent
+of label sizes. Names, visible Port text and receiving Net labels reserve external
+layout space or lengthen the bar. Width/height minima apply to the layout envelope;
+they do not thicken its body. JSON retains only authoring values, never these calculated
+positions or label reservations.
+Physical input/output anchors and arrow tips stay on the bar edges, including with
+multiline titles, visible Port names and explicit size minimums. The engine restores
+bar anchors after ELK and repairs affected routes in Auto, Grid and scoped views.
+The reserved text envelope remains available for placement and obstacle avoidance.
 
 - No widths: abstract composition, no sum check.
 - Partial widths: preserve annotations; skip the sum check.
@@ -441,8 +462,8 @@ layout options are:
 | `direction`           | `right` default, `down`                                        |
 | `routing`             | `orthogonal` only                                              |
 | `placement`           | `default` default, `relaxed`, `simple`                         |
-| `moduleSpacing`       | Positive finite number, default 50                             |
-| `layerSpacing`        | Positive finite number, default 80                             |
+| `moduleSpacing`       | Positive finite number, default 20                             |
+| `layerSpacing`        | Positive finite number, default 30                             |
 | `portAdjustment`      | `reduce-bends` default, or `fixed`                             |
 | `maxPortShift`        | Finite non-negative logical SVG distance, default 40           |
 | `feedbackRouting`     | `elk` default or `outer`                                       |
@@ -455,6 +476,9 @@ map Top ↔ Left and Bottom ↔ Right yourself; the converter does not rewrite s
 `outer` supports Right and Down. It attempts routes outside the visible
 bounding rectangles. A blocked requested side keeps the ELK route without switching sides.
 Terminal edges, boundary-scoped edges and group views retain their ELK routing fallbacks.
+Endpoint access may pass through an ordinary Container heading in Right or Down flow.
+Real hardware and reserved signal labels still block access; Boundary headings and
+collapsed frames keep their existing protection. A genuinely blocked side falls back.
 
 Connection `feedback: true` lowers its direction priority during cycle breaking. It does
 not itself enable Outer, force backward routing, align blocks or remove ranking constraints.
@@ -463,9 +487,15 @@ change the arrangement; reproduce intent instead of promising exact screenshot g
 
 ### Port adjustment
 
+Fixed orthogonal routing scores the complete path, including turns between endpoint
+escape segments and the searched middle path. Equal-length clear candidates therefore
+prefer fewer total bends. Departure/arrival directions stay fixed, immediate reversals
+over escape segments are rejected, and obstacle/scope constraints remain intact. This
+changes wire selection without moving Blocks or Ports and adds no authoring option.
+
 By default, `layout.portAdjustment: "reduce-bends"` enables a bounded post-placement pass that may slide
 rectangular/stacked Block Ports along their existing side. It preserves Block positions and
-sizes, Port order, at least 24-unit anchor spacing and label/title clearance. Names move with
+sizes, Port order, at least 16-unit anchor spacing and label/title clearance. Names move with
 anchors; source signal nodes move only within their reserved wrapper. Concat, other shapes,
 Group Ports and feedback anchors remain fixed. Terminal anchors and names move together
 perpendicular to flow with the same shift limit; order and separation are preserved, and
@@ -473,9 +503,19 @@ moves overlapping Blocks, Groups or other Terminals are rejected. Terminal adjus
 connection-label clearance warnings. `maxPortShift` limits movement
 from the initial anchor (default 40); zero or `portAdjustment: "fixed"` disables it. All affected Net branches are checked together.
 Obstacle-hit and foreign-Net crossing counts cannot increase; accepted changes improve
-bends, length, then displacement. Search is deterministic and bounded to four passes/128
+bends, displacement, then length. Search is deterministic and bounded to four passes/128
 trials, with no global optimum guarantee. Reserved Inline names follow their Ports; final arrows follow this pass. Auto/Grid,
 group views and the editor share this pipeline. JSON export preserves configuration only.
+
+Reduce-bends prioritizes fewer bends, then less total displacement from initial
+Port/Terminal anchors, then shorter routed length. It does not move an initially
+fixed anchor solely to shorten a route with the same bend count. Real bend reduction
+can still justify movement within the existing bounds and safety constraints.
+
+Reduce-bends first tries aligning at the current Port position of the less-populated
+face when both endpoints can move. This keeps a centered single-Port interface stable
+when the multi-Port peer can make the alignment. Sparse faces remain movable if that
+choice is blocked or out of range; existing bounds/safety/quality checks still apply.
 
 ### Importable JavaScript API
 
@@ -506,6 +546,30 @@ source checkout. Kit consumers never need that checkout or the build toolchain.
 
 ### Grid and overview diagrams
 
+Groups can override `layout.moduleSpacing` and `layout.layerSpacing` with finite
+positive numbers. Each omitted property inherits the nearest ancestor override, then
+root/default. Null/zero are invalid. These are interior Auto spacing budgets; the
+parent controls the group's external spacing. Grid row/column gaps stay independent,
+but Auto neighbors of a partial Grid use local spacing. Collapsed groups retain
+inactive settings, and group views retain inherited values. Saved JSON preserves
+omissions rather than copying effective defaults onto every group. For example,
+`"layout": { "layerSpacing": 60 }` keeps Auto mode and inherits module spacing.
+
+Grid gaps are minima: Down reserves horizontal routing tracks between source rows;
+Right reserves vertical tracks between source columns. Only crowded gaps expand.
+One Net shares its fan-out track, disjoint spans may reuse a track and different Nets
+reserve separate ink space. Physical/synthetic labels and scoped obstacle rules still
+apply. Blocked access keeps the previous path; perpendicular crossings can remain.
+This is automatic runtime behavior with no additional authoring fields. Eligible
+ordinary Auto Containers also reserve tracks between adjacent geometric flow bands.
+Only congested forward facing-Port links within one Container participate. Local or
+inherited layerSpacing provides the initial budget; only missing space is added.
+Transverse positions/order stay fixed while later layers and enclosing frames may
+move/grow. Root/cross-Container traffic, skipped layers, feedback, bidirectional and
+side-facing links keep general routing. Grid-controlled and Boundary/Collection
+subtrees retain their existing behavior. Safe-access failure retains a general route;
+arbitrary diagrams are not promised to be crossing/overlap-free.
+
 Use `layout.type: "grid"` and rectangular `layout.cells` at the root, or put the same
 configuration in a group's `layout`. Omission or `type: "auto"` keeps automatic placement.
 Each non-null cell is a direct member ID, used at most once; null reserves an empty slot.
@@ -523,10 +587,10 @@ connections. An all-null Grid leaves every member automatic and reserves no rect
 Rows/columns are implied by cells, without separate dimension fields. New members stay Auto.
 Auto neighbors may move or their routes may lengthen when the Grid changes.
 
-To align across Containers, set Grid `expandGroups` to an array of nonempty direct
-Container IDs, e.g. `["ComputeCluster"]`. Their IDs are replaced by their direct children as eligible
-cell values; every such child must occur exactly once. Do not also put the Container ID
-in a cell. Boundary and Collection remain whole participants. Each expanded Container
+To align across Containers, put the direct children of a nonempty direct Container
+(e.g. ComputeCluster) in `cells` instead of its ID. Expansion is inferred from the cells;
+every such child must occur exactly once. Do not also put the Container ID in a cell.
+Omitting both keeps the Container automatic. The obsolete `expandGroups` field is rejected. Boundary and Collection remain whole participants. Each expanded Container
 must occupy a disjoint rectangular cell region with no outside members (null is allowed).
 Shared tracks reserve group header/frame gutters and minimum dimensions, then fit the
 real frames around those regions. The controlling Grid suspends each expanded Container's
@@ -582,7 +646,7 @@ shared source name and destination Inline labels. They are independent of the Ne
 Strokes stay inside the reserved text-and-padding bounds; width and radius are clamped to
 fit. Use `padding` for breathing room around text. `hidden` hides text, fill and frame.
 These frame fields belong only to connection labels, not Terminal or Port text styles.
-The editor exposes them in Connection style > Label; blank values inherit defaults.
+Omit individual fields to inherit diagram defaults or built-in values.
 
 ```text
 {
@@ -599,17 +663,30 @@ complete diagram (Agent Kit users can author the same style directly).
 
 ### Diagram domain
 
+Blockchart uses one layout configuration with module/layer spacing defaults of 20/30.
+The retired `layout.density` field is rejected, including `"standard"` and `"compact"`;
+remove it from existing JSON. Explicit spacing, Grid gaps and physical size minimums
+keep their contracts. No derived geometry or internal mode is serialized.
+
+The engine uses body-stroke channel spacing, endpoint-local arrows, obstacle-aware
+routing and same-side Terminal rails near content. Eligible Auto Container regions
+credit existing gutters against layer spacing. Ordinary Container titles reserve a
+top band and minimum frame width. Wires overlap headings directly, without a Container
+title mask; conservative text bounds are only layout/hit geometry. Explicit text
+backgrounds still paint normally. Transparent and nested frames are not repainted.
+
+Blocks without visible Port names use title-driven Auto faces (minimum 64 x 36),
+with text clearance 12/8 per side plus label padding and border allowance. Port counts,
+receiver names and shapes may enlarge them. Visible Port names keep text-aware geometry.
+Explicit width/height units remain 140 x 84. Concat retains thin-bar geometry and actual
+per-Port receiver-name reservations. Smaller Blocks can reflow the layout; fewer bends
+or smaller total area are not guaranteed.
+
 This converter accepts Blockchart (hardware diagram) JSON. Use `flowchart-convert.mjs`
 with `flowchart.schema.json` for process diagrams. The two formats are independent.
 Source relocation into `src/lib/blockchart` preserves the Blockchart API and formats.
 
 ### Diagram style defaults
-
-The editor's **Defaults** workspace page edits the current document, using Text, Blocks,
-Groups, Connections, Terminals and Caption categories. Apply validates every category and
-commits one Undo step; Discard removes only unapplied edits. Category/page changes preserve
-raw drafts; local recovery also restores them. Save JSON and image export require applying
-or discarding the draft. Preview reflects committed styles.
 
 `diagram.style.text` is a common portable text base. `module`, `group`, `connection`,
 `terminal` and `caption` provide type-specific defaults. Module/Group names and Net names use
@@ -622,15 +699,15 @@ Group All ports/direction for Group interfaces, owner All ports/direction, then 
 This keeps diagram module Port defaults shared with Group interfaces, while Group defaults
 can specialize them. Collapsed Collection virtual Ports use the same resolution.
 
-Individual Style dialogs show the inherited value and its source. Blank controls remain
-blank; placeholders and help are informative, never authored values. Defaults also show
-the next inherited value, ending at the built-in style. Diagram styling does not change
-editor chrome or application preferences. The repository's examples/default-styles.json demonstrates these settings.
+Inheritance is resolved when validating and rendering; JSON export preserves the
+authored values and omissions without inserting computed defaults. These fields style
+the diagram, independently of Studio theme or application preferences. The repository's
+examples/default-styles.json demonstrates these settings.
 
 
 ## Flowchart Agent Kit
 
-Build: `flowchart-agent-kit-8564411ef430ee2d4b6c`
+Build: `flowchart-agent-kit-f8623c400a643a618d81`
 
 Use `flowchart-convert.mjs` for process diagrams. `flowchart.schema.json` is the standalone
 JSON Schema Draft 2020-12; it has no dependency on the Blockchart Schema. The validator

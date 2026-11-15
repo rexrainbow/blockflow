@@ -1,10 +1,23 @@
 import { translateNode } from './translate.js';
 import { groupGeometry } from './groups.js';
 import { defaultSide } from '../port-sides.js';
-import { gridRegions } from '../grid.js';
+import { createGridPlan, directGridMembers } from '../grid.js';
+import { routingSpacing } from './routing-spacing.js';
+import { planGridChannels } from './grid-channels.js';
+import { resolveLayoutSpacing } from '../layout-spacing.js';
 
 /** Arrange existing node envelopes; callers must reroute connections afterwards. */
 export async function arrangeGrids(result, model, elk) {
+  result._gridChannels = [];
+  // Derive against semantic members before signal wrappers replace cell IDs.
+  // Plans live only for this pass and are never added to config or model.
+  const semantic = model._signalOriginal ?? model,
+    plans = new Map();
+  if (!model.rootGroupId && semantic.layout.type === 'grid')
+    plans.set('', createGridPlan(semantic.layout.cells, directGridMembers(semantic), semantic.groups));
+  for (const group of semantic.groups)
+    if (!group.collapsed && group.layout?.type === 'grid')
+      plans.set(group.id, createGridPlan(group.layout.cells, group.members, semantic.groups));
   const all = [...result.modules, ...result.groups],
     nodes = new Map(all.map((n) => [n.id, n])),
     refs = new Map([...model.modules, ...model.groups].map((n) => [n.id, n]));
@@ -18,11 +31,13 @@ export async function arrangeGrids(result, model, elk) {
       }
   }
   const zero = { top: 0, left: 0, right: 0, bottom: 0 };
-  async function place(children, config, origin, pad) {
+  const extraStroke = routingSpacing(model.connections).extra;
+  async function place(children, config, origin, pad, plan, scope = '') {
+    const spacing = resolveLayoutSpacing(model, scope);
     if (config?.type === 'grid') {
-      const frames = (config.expandGroups ?? []).map((id) => nodes.get(id));
+      const frames = plan.expandedContainers.map((id) => nodes.get(id));
       children = children.flatMap((n) =>
-        config.expandGroups?.includes(n.id) ? n.members.map((id) => nodes.get(id)).filter(Boolean) : [n],
+        plan.expandedContainers.includes(n.id) ? n.members.map((id) => nodes.get(id)).filter(Boolean) : [n],
       );
       const selected = new Set(config.cells.flat().filter((id) => id !== null));
       const fixed = children.filter((n) => selected.has(n.id));
@@ -30,7 +45,7 @@ export async function arrangeGrids(result, model, elk) {
       if (fixed.length && automatic.length) {
         // A layout-only rectangle reserves the entire Grid, including empty tracks.
         // Its causal edges are projections of real signals; it never enters the model.
-        const size = await place(fixed, config, { x: 0, y: 0 }, zero);
+        const size = await place(fixed, config, { x: 0, y: 0 }, zero, plan, scope);
         const proxy = { id: '@grid', ...size };
         const owner = new Map();
         function register(n, id) {
@@ -64,9 +79,9 @@ export async function arrangeGrids(result, model, elk) {
             'elk.algorithm': 'layered',
             'elk.direction': model.layout.direction.toUpperCase(),
             'elk.padding': '[top=0,left=0,bottom=0,right=0]',
-            'elk.spacing.nodeNode': String(model.layout.moduleSpacing),
-            'elk.spacing.componentComponent': String(model.layout.moduleSpacing),
-            'elk.layered.spacing.nodeNodeBetweenLayers': String(model.layout.layerSpacing),
+            'elk.spacing.nodeNode': String(spacing.moduleSpacing + extraStroke),
+            'elk.spacing.componentComponent': String(spacing.moduleSpacing + extraStroke),
+            'elk.layered.spacing.nodeNodeBetweenLayers': String(spacing.layerSpacing + extraStroke),
             'elk.randomSeed': '1',
             ...(model.layout.placement === 'simple'
               ? { 'elk.layered.nodePlacement.strategy': 'SIMPLE' }
@@ -91,7 +106,7 @@ export async function arrangeGrids(result, model, elk) {
         }
         return { width: pad.left + layout.width + pad.right, height: pad.top + layout.height + pad.bottom };
       }
-      if (!fixed.length) return place(children, undefined, origin, pad);
+      if (!fixed.length) return place(children, undefined, origin, pad, undefined, scope);
       const rows = config.cells,
         cols = rows[0].length,
         cw = Array(cols).fill(0),
@@ -100,9 +115,9 @@ export async function arrangeGrids(result, model, elk) {
         right = Array(cols).fill(0),
         top = Array(rows.length).fill(0),
         bottom = Array(rows.length).fill(0),
-        regions = gridRegions(rows, config.expandGroups ?? [], model.groups).map((region) => ({
+        regions = plan.regions.map((region) => ({
           ...region,
-          pad: groupGeometry(refs.get(region.id), model.layout.direction),
+          pad: groupGeometry(refs.get(region.id), model.layout.direction, model),
         }));
       rows.forEach((row, r) =>
         row.forEach((id, c) => {
@@ -127,6 +142,16 @@ export async function arrangeGrids(result, model, elk) {
       }
       const sum = (values, first = 0, last = values.length - 1) =>
         values.slice(first, last + 1).reduce((a, b) => a + b, 0);
+      const rowGaps = Array(Math.max(0, rows.length - 1)).fill(config.rowGap);
+      const columnGaps = Array(Math.max(0, cols - 1)).fill(config.columnGap);
+      const channels = planGridChannels(rows, nodes, children, model.connections, model.layout.direction);
+      for (const channel of channels) {
+        const gaps = channel.axis === 'y' ? rowGaps : columnGaps;
+        gaps[channel.index] = Math.max(gaps[channel.index], channel.required);
+        channel.gap = gaps[channel.index];
+        channel.inset = channel.axis === 'y' ? bottom[channel.index] : right[channel.index];
+      }
+      result._gridChannels.push(...channels);
       for (const r of regions) {
         const width =
             sum(cw, r.firstColumn, r.lastColumn) +
@@ -134,7 +159,7 @@ export async function arrangeGrids(result, model, elk) {
             left[r.firstColumn] +
             sum(right, r.firstColumn, r.lastColumn) -
             right[r.lastColumn] +
-            config.columnGap * (r.lastColumn - r.firstColumn) +
+            sum(columnGaps, r.firstColumn, r.lastColumn - 1) +
             r.pad.left +
             r.pad.right,
           height =
@@ -143,16 +168,14 @@ export async function arrangeGrids(result, model, elk) {
             top[r.firstRow] +
             sum(bottom, r.firstRow, r.lastRow) -
             bottom[r.lastRow] +
-            config.rowGap * (r.lastRow - r.firstRow) +
+            sum(rowGaps, r.firstRow, r.lastRow - 1) +
             r.pad.top +
             r.pad.bottom;
         cw[r.lastColumn] += Math.max(0, r.pad.width - width);
         rh[r.lastRow] += Math.max(0, r.pad.height - height);
       }
-      const totalWidth =
-          pad.left + pad.right + sum(cw) + sum(left) + sum(right) + config.columnGap * (cols - 1),
-        totalHeight =
-          pad.top + pad.bottom + sum(rh) + sum(top) + sum(bottom) + config.rowGap * (rows.length - 1);
+      const totalWidth = pad.left + pad.right + sum(cw) + sum(left) + sum(right) + sum(columnGaps),
+        totalHeight = pad.top + pad.bottom + sum(rh) + sum(top) + sum(bottom) + sum(rowGaps);
       if (![totalWidth, totalHeight].every(Number.isFinite)) throw new Error('Non-finite Grid dimensions');
       const xs = [],
         ys = [];
@@ -167,9 +190,9 @@ export async function arrangeGrids(result, model, elk) {
           const n = nodes.get(id);
           if (n && children.includes(n))
             shift(n, x + (cw[c] - n.width) / 2 - n.x, y + (rh[r] - n.height) / 2 - n.y);
-          x += cw[c] + right[c] + config.columnGap;
+          x += cw[c] + right[c] + (columnGaps[c] ?? 0);
         });
-        y += rh[r] + bottom[r] + config.rowGap;
+        y += rh[r] + bottom[r] + (rowGaps[r] ?? 0);
       });
       for (const r of regions) {
         const frame = nodes.get(r.id),
@@ -193,7 +216,7 @@ export async function arrangeGrids(result, model, elk) {
           b.y < a.y + a.height + 20 &&
           b.y + b.height + 20 > a.y
         ) {
-          const delta = a[axis] + a[axis === 'x' ? 'width' : 'height'] + model.layout.moduleSpacing - b[axis];
+          const delta = a[axis] + a[axis === 'x' ? 'width' : 'height'] + spacing.moduleSpacing - b[axis];
           shift(b, axis === 'x' ? delta : 0, axis === 'y' ? delta : 0);
         }
       }
@@ -226,9 +249,9 @@ export async function arrangeGrids(result, model, elk) {
     }
     if (externallyArranged.has(id)) return;
     const ref = refs.get(id),
-      pad = groupGeometry(ref, model.layout.direction),
+      pad = groupGeometry(ref, model.layout.direction, model),
       children = node.members.map((id) => nodes.get(id)).filter(Boolean),
-      size = await place(children, ref.layout, node, pad);
+      size = await place(children, ref.layout, node, pad, plans.get(id), id);
     node.width = Math.max(pad.width, size.width);
     node.height = Math.max(pad.height, size.height);
     for (const side of ['left', 'right', 'top', 'bottom']) {
@@ -256,24 +279,26 @@ export async function arrangeGrids(result, model, elk) {
   const contained = new Set(result.groups.flatMap((g) => g.members ?? [])),
     roots = all.filter((n) => !contained.has(n.id) && !n._signalTerminal),
     externallyArranged = new Set();
-  function prepare(children, config) {
-    const expanded = config?.type === 'grid' ? (config.expandGroups ?? []) : [];
+  function prepare(children, config, scope) {
+    const expanded = config?.type === 'grid' ? plans.get(scope).expandedContainers : [];
     for (const child of children)
       if (child.members && !child.collapsed) {
         if (expanded.includes(child.id)) externallyArranged.add(child.id);
         prepare(
           child.members.map((id) => nodes.get(id)).filter(Boolean),
           expanded.includes(child.id) ? undefined : refs.get(child.id).layout,
+          child.id,
         );
       }
   }
-  prepare(roots, model.rootGroupId ? undefined : model.layout);
+  prepare(roots, model.rootGroupId ? undefined : model.layout, '');
   for (const n of roots) await group(n.id);
   await place(
     roots,
     model.rootGroupId ? undefined : model.layout,
     { x: Math.min(0, ...roots.map((n) => n.x)), y: Math.min(0, ...roots.map((n) => n.y)) },
     zero,
+    plans.get(''),
   );
   if (result.terminals?.length) {
     const left = Math.min(...roots.map((n) => n.x)),

@@ -5,15 +5,16 @@
     "caption": "Processor structure is shown once for two identical cores.\nALUs represent 24 instances per core.",
     "style": {
       "module": {
-        "borderColor": "#52606D",
-        "fillColor": "#EAF2FF",
+        "borderColor": "#3E5C82",
+        "fillColor": "#E3ECFA",
         "label": {
-          "color": "#243B53",
+          "color": "#1F2933",
           "fontSize": 12
         },
         "portLabel": {
           "hidden": true
-        }
+        },
+        "borderWidth": 1.25
       },
       "connection": {
         "strokeColor": "#34495E",
@@ -28,9 +29,7 @@
     }
   },
   "layout": {
-    "direction": "down",
-    "moduleSpacing": 180,
-    "layerSpacing": 70
+    "direction": "down"
   },
   "modules": [
     {
@@ -433,12 +432,13 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#7A9BBE",
+        "borderColor": "#9AA5B1",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1.25,
+        "fillColor": "#EDF0F4",
         "label": {
-          "color": "#4A5668",
-          "fontSize": 12
+          "color": "#323F4B",
+          "fontSize": 13
         }
       }
     },
@@ -452,11 +452,12 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#B0B8C5",
+        "borderColor": "#B6C0CC",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1,
+        "fillColor": "#FFFFFF",
         "label": {
-          "color": "#4A5668",
+          "color": "#52606D",
           "fontSize": 12
         }
       }
@@ -474,12 +475,13 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#7A9BBE",
+        "borderColor": "#9AA5B1",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1.25,
+        "fillColor": "#EDF0F4",
         "label": {
-          "color": "#4A5668",
-          "fontSize": 12
+          "color": "#323F4B",
+          "fontSize": 13
         }
       }
     },
@@ -494,11 +496,12 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#B0B8C5",
+        "borderColor": "#B6C0CC",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1,
+        "fillColor": "#FFFFFF",
         "label": {
-          "color": "#4A5668",
+          "color": "#52606D",
           "fontSize": 12
         }
       }
@@ -513,11 +516,12 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#B0B8C5",
+        "borderColor": "#B6C0CC",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1,
+        "fillColor": "#FFFFFF",
         "label": {
-          "color": "#4A5668",
+          "color": "#52606D",
           "fontSize": 12
         }
       }
@@ -531,14 +535,14 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#1F5FBF",
+        "borderColor": "#2457D6",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 2,
+        "fillColor": "#F4F7FE",
         "label": {
-          "fontSize": 12,
-          "color": "#1F4E8C"
-        },
-        "borderWidth": 2.2
+          "color": "#1F4E8C",
+          "fontSize": 12
+        }
       }
     },
     {
@@ -551,11 +555,12 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#B0B8C5",
+        "borderColor": "#B6C0CC",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1,
+        "fillColor": "#FFFFFF",
         "label": {
-          "color": "#4A5668",
+          "color": "#52606D",
           "fontSize": 12
         }
       }
@@ -569,11 +574,12 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#B0B8C5",
+        "borderColor": "#B6C0CC",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1,
+        "fillColor": "#FFFFFF",
         "label": {
-          "color": "#4A5668",
+          "color": "#52606D",
           "fontSize": 12
         }
       }
@@ -588,12 +594,13 @@
       ],
       "style": {
         "borderRadius": 12,
-        "borderColor": "#7A9BBE",
+        "borderColor": "#9AA5B1",
         "borderStyle": "solid",
-        "fillColor": "#F5F7FA",
+        "borderWidth": 1.25,
+        "fillColor": "#EDF0F4",
         "label": {
-          "color": "#4A5668",
-          "fontSize": 12
+          "color": "#323F4B",
+          "fontSize": 13
         }
       }
     }
@@ -648,7 +655,7 @@
           "endpoint": "InputLogic.filtered",
           "constraint": false,
           "style": {
-            "strokeColor": "#6b7280",
+            "strokeColor": "#4B5563",
             "strokeWidth": 1.5
           }
         },
@@ -675,21 +682,21 @@
         {
           "endpoint": "InputMux.combined",
           "style": {
-            "strokeColor": "#6b7280"
+            "strokeColor": "#4B5563"
           }
         },
         {
           "endpoint": "InputLogic.feedback",
           "feedback": true,
           "style": {
-            "strokeColor": "#6b7280"
+            "strokeColor": "#4B5563"
           }
         }
       ],
       "label": "Combined data\ninputs x4",
       "constraint": false,
       "style": {
-        "strokeColor": "#6B7280",
+        "strokeColor": "#4B5563",
         "strokeWidth": 1.5
       },
       "id": "net_InputLogic_combined"
@@ -735,7 +742,8 @@
           "endpoint": "InstructionMux.inputs",
           "style": {
             "strokeColor": "#34495e"
-          }
+          },
+          "constraint": false
         },
         {
           "endpoint": "Decoder.inputs",
@@ -799,7 +807,7 @@
           "endpoint": "ResultLogic.decoded",
           "constraint": false,
           "style": {
-            "strokeColor": "#6b7280",
+            "strokeColor": "#4B5563",
             "strokeWidth": 1.5
           }
         },
@@ -993,7 +1001,7 @@
         {
           "endpoint": "InterruptBus.bite",
           "style": {
-            "strokeColor": "#6b7280"
+            "strokeColor": "#4B5563"
           }
         },
         {
@@ -1007,7 +1015,7 @@
       "label": "Bite",
       "constraint": false,
       "style": {
-        "strokeColor": "#6B7280",
+        "strokeColor": "#4B5563",
         "strokeWidth": 1.5,
         "label": {
           "repeatAtEnd": "always"

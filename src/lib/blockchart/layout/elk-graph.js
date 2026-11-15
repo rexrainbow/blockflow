@@ -1,6 +1,8 @@
+import { LAYOUT_DEFAULTS } from '../layout-defaults.js';
+import { routingSpacing } from './routing-spacing.js';
 import { applyGroups } from './groups.js';
+import { budgetContainerSpacing } from './container-spacing.js';
 import { moduleGeometry, textSize } from '../geometry.js';
-import { connectionStyle } from '../styles.js';
 import { portSide } from '../direction.js';
 
 export const terminalNodeId = (id) => `@terminal:${id}`;
@@ -30,14 +32,10 @@ export function buildElkGraph(model) {
   const geometry = new Map(
     model.modules.map((module) => [module.id, moduleGeometry(module, model.layout.direction)]),
   );
-  const styleWidth = (s) =>
-    s.endArrow === 'triangle' || s.startArrow === 'triangle' ? Math.max(8, s.strokeWidth * 3) : s.strokeWidth;
-  const visualWidth = (c) => Math.max(styleWidth(c.style), c.netStyle ? styleWidth(c.netStyle) : 0);
-  const strokeWidth = Math.max(0, ...model.connections.map(visualWidth));
-  const extraStroke = Math.max(
-    0,
-    ...model.connections.map((c) => visualWidth(c) - connectionStyle(c.width).strokeWidth),
-  );
+  const spacing = routingSpacing(model.connections),
+    strokeWidth = spacing.stroke,
+    extraStroke = spacing.extra,
+    profile = LAYOUT_DEFAULTS;
   const graph = {
     id: '@root',
     layoutOptions: {
@@ -50,14 +48,10 @@ export function buildElkGraph(model) {
       'elk.layered.mergeEdges': 'false',
       'elk.randomSeed': '1',
       ...PLACEMENT_OPTIONS[model.layout.placement ?? 'default'],
-      ...(extraStroke > 0
-        ? {
-            'elk.spacing.edgeNode': String(10 + strokeWidth / 2),
-            'elk.layered.spacing.edgeNodeBetweenLayers': String(10 + strokeWidth / 2),
-            'elk.spacing.edgeEdge': String(10 + strokeWidth),
-            'elk.layered.spacing.edgeEdgeBetweenLayers': String(10 + strokeWidth),
-          }
-        : {}),
+      'elk.spacing.edgeNode': String(profile.edgeNode + strokeWidth / 2),
+      'elk.layered.spacing.edgeNodeBetweenLayers': String(profile.edgeNode + strokeWidth / 2),
+      'elk.spacing.edgeEdge': String(profile.edgeEdge + strokeWidth),
+      'elk.layered.spacing.edgeEdgeBetweenLayers': String(profile.edgeEdge + strokeWidth),
     },
     children: model.modules.map((module) => {
       const { width, height, portPoints } = geometry.get(module.id);
@@ -121,5 +115,6 @@ export function buildElkGraph(model) {
     }
   }
   applyGroups(graph, model);
+  budgetContainerSpacing(graph, model);
   return graph;
 }

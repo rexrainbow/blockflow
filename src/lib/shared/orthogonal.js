@@ -1,4 +1,7 @@
 const eps = 1e-6;
+const heading = (v) => (!v ? 0 : v.x < 0 ? 1 : v.x > 0 ? 2 : v.y < 0 ? 3 : v.y > 0 ? 4 : 0);
+const axis = (dir) => (dir <= 2 ? 1 : 2);
+const opposite = (a, b) => a && b && a !== b && axis(a) === axis(b);
 const crosses = (a, b, r) =>
   Math.abs(a.y - b.y) < eps
     ? a.y > r.y + eps &&
@@ -12,7 +15,21 @@ const crosses = (a, b, r) =>
 const inside = (p, r) =>
   p.x > r.x + eps && p.x < r.x + r.width - eps && p.y > r.y + eps && p.y < r.y + r.height - eps;
 
-export function routeOrthogonal(start, end, obstacles, bounds, clearance, avoid = []) {
+/** Endpoint directions describe travel before start and after end, not outward target normals. */
+export function routeOrthogonal(
+  start,
+  end,
+  obstacles,
+  bounds,
+  clearance,
+  avoid = [],
+  { startDirection, endDirection } = {},
+) {
+  const startHeading = heading(startDirection),
+    endHeading = heading(endDirection);
+  // Calls without endpoint headings retain the original axis-state search.
+  const oriented = Boolean(startHeading || endHeading),
+    stride = oriented ? 5 : 3;
   const xs = new Set([start.x, end.x]),
     ys = new Set([start.y, end.y]);
   for (const r of obstacles) {
@@ -86,30 +103,36 @@ export function routeOrthogonal(start, end, obstacles, bounds, clearance, avoid 
     }
     return first;
   };
-  const initial = from * 3;
-  dist.set(initial, 0);
-  push(initial, 0);
+  const initial = from * stride + startHeading;
+  const initialCost =
+    from === to && startHeading && endHeading && axis(startHeading) !== axis(endHeading) ? 20 : 0;
+  dist.set(initial, initialCost);
+  push(initial, initialCost);
   let finish;
   while (heap.length) {
     const current = pop();
     if (current.cost !== dist.get(current.key)) continue;
-    const id = Math.floor(current.key / 3),
-      dir = current.key % 3;
-    if (id === to) {
+    const id = Math.floor(current.key / stride),
+      dir = current.key % stride;
+    if (id === to && !opposite(dir, endHeading)) {
       finish = current.key;
       break;
     }
     const x = id % width,
       y = Math.floor(id / width),
       a = point(id);
-    for (const [nx, ny, nextDir] of [
+    for (const [nx, ny, nextHeading] of [
       [x - 1, y, 1],
-      [x + 1, y, 1],
-      [x, y - 1, 2],
-      [x, y + 1, 2],
+      [x + 1, y, 2],
+      [x, y - 1, 3],
+      [x, y + 1, 4],
     ]) {
       if (nx < 0 || ny < 0 || nx >= X.length || ny >= Y.length) continue;
       const next = ny * width + nx;
+      const nextDir = oriented ? nextHeading : axis(nextHeading);
+      // Do not reverse back over an endpoint stub (or immediately retrace a segment).
+      if (oriented && opposite(dir, nextHeading)) continue;
+      if (next === to && opposite(nextHeading, endHeading)) continue;
       if (!allowed(next)) continue;
       const b = point(next);
       if (obstacles.some((r) => crosses(a, b, r))) continue;
@@ -137,8 +160,9 @@ export function routeOrthogonal(start, end, obstacles, bounds, clearance, avoid 
           Math.abs(a.x - b.x) +
           Math.abs(a.y - b.y) +
           parallelCost +
-          (dir && dir !== nextDir ? 20 : 0),
-        key = next * 3 + nextDir;
+          (dir && dir !== nextDir ? 20 : 0) +
+          (next === to && endHeading && nextDir !== endHeading ? 20 : 0),
+        key = next * stride + nextDir;
       if (cost < (dist.get(key) ?? Infinity)) {
         dist.set(key, cost);
         previous.set(key, current.key);
@@ -149,6 +173,6 @@ export function routeOrthogonal(start, end, obstacles, bounds, clearance, avoid 
   if (finish === undefined)
     throw new Error('No clear orthogonal route exists. Increase spacing or change attachment sides.');
   const points = [];
-  for (let k = finish; k !== undefined; k = previous.get(k)) points.push(point(Math.floor(k / 3)));
+  for (let k = finish; k !== undefined; k = previous.get(k)) points.push(point(Math.floor(k / stride)));
   return points.reverse();
 }

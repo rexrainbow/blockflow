@@ -5,7 +5,7 @@ export const defaultSide = (p, flow) =>
 export const needsSides = (node, flow) =>
   node.ports.some((p) => p.direction === 'inout' || p.side !== defaultSide(p, flow));
 
-export function sidedGeometry(node, flow, baseGeometry, textSize, unit) {
+export function sidedGeometry(node, flow, baseGeometry, textSize, unit, pitch = 24, corner = 12) {
   const counts = { input: 0, output: 0 },
     padding = 14 + node.style.borderWidth;
   const sizes = new Map(
@@ -22,7 +22,7 @@ export function sidedGeometry(node, flow, baseGeometry, textSize, unit) {
   });
   const sidePorts = (side) => node.ports.filter((p) => (p.side ?? defaultSide(p, flow)) === side);
   const extent = (side, axis) =>
-    sidePorts(side).reduce((n, p) => n + Math.max(24, sizes.get(p.id)[axis] + 12), 0) + 2 * padding;
+    sidePorts(side).reduce((n, p) => n + Math.max(pitch, sizes.get(p.id)[axis] + 12), 0) + 2 * padding;
   const largest = (sides, axis) =>
     Math.max(0, ...node.ports.filter((p) => sides.includes(p.side)).map((p) => sizes.get(p.id)[axis]));
   const title = textSize(node.label, node.style.label),
@@ -34,7 +34,7 @@ export function sidedGeometry(node, flow, baseGeometry, textSize, unit) {
   // Hidden labels need connection slots, but no text lanes or proxy port rows.
   const anchorExtent = (side) => {
     const count = sidePorts(side).length;
-    return count ? count * 24 + 2 * (12 + Math.max(0, node.style.borderWidth - 1)) : 0;
+    return count ? count * pitch + 2 * (corner + Math.max(0, node.style.borderWidth - 1)) : 0;
   };
   const w = hidden
     ? Math.max(
@@ -81,12 +81,12 @@ export function sidedGeometry(node, flow, baseGeometry, textSize, unit) {
           : 0
       : 0;
     const span = (horizontal ? W : H) - 2 * start,
-      total = list.reduce((n, p) => n + Math.max(24, sizes.get(p.id)[axis] + 12), 0),
+      total = list.reduce((n, p) => n + Math.max(pitch, sizes.get(p.id)[axis] + 12), 0),
       gap = (span - total) / (list.length + 1);
     let cursor = start + gap;
     for (const p of list) {
       const s = sizes.get(p.id),
-        size = Math.max(24, s[axis] + 12),
+        size = Math.max(pitch, s[axis] + 12),
         along = cursor + size / 2;
       cursor += size + gap;
       let x = side === 'left' ? 0 : side === 'right' ? result.width : along,

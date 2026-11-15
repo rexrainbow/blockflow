@@ -76,6 +76,54 @@ test('isolated kit renders Net label frames with the shared SVG renderer', async
   assert.deepEqual(JSON.parse(json.stdout), input);
 });
 
+test('isolated kit renders default layout and preserves authored settings without runtime slots', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/compact-layout.json', import.meta.url), 'utf8'),
+  );
+  const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+  assert.ok(!result.stdout.includes('_receiverSlots'));
+  input.layout.density = 'compact';
+  const invalid = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /density/);
+});
+
+test('isolated kit renders compact title-sized Blocks without changing relative size units or authoring JSON', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/compact-labels.json', import.meta.url), 'utf8'),
+  );
+  const layout = await layoutDiagram(createDiagramModel(input));
+  assert.equal(layout.modules.find((n) => n.id === 'ALU').width, 64);
+  assert.equal(layout.modules.find((n) => n.id === 'ALU').height, 36);
+  const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, renderSvg(layout) + '\n');
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+});
+
+test('isolated kit infers cross-Container Grids without persisting runtime plans or accepting old fields', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+  );
+  const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+  input.layout.expandGroups = ['ComputeCluster'];
+  const invalid = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /expandGroups/);
+});
+
 test('isolated kit resolves shared Text, Group and Terminal defaults without authoring normalized values', async () => {
   const input = JSON.parse(
     await readFile(new URL('../examples/default-styles.json', import.meta.url), 'utf8'),
@@ -235,6 +283,47 @@ test('semantic and syntax errors have actionable stages/paths and preserve exist
   assert.equal(result.status, 1);
   assert.equal(JSON.parse(result.stderr).stage, 'layout');
   assert.equal(await readFile(join(directory, 'existing.svg'), 'utf8'), 'keep');
+});
+
+test('isolated kit preserves Container-local overrides, inherited omissions and scoped SVG', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/local-layout-spacing.json', import.meta.url), 'utf8'),
+  );
+  const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  const saved = JSON.parse(json.stdout);
+  assert.deepEqual(saved, input);
+  assert.equal(Object.hasOwn(saved.groups.find((g) => g.id === 'Inner').layout, 'layerSpacing'), false);
+  const scoped = run(['-', '--output', '-', '--format', 'svg', '--view', 'Inner'], JSON.stringify(input));
+  assert.equal(scoped.status, 0, scoped.stderr);
+  assert.equal(
+    scoped.stdout,
+    renderSvg(await layoutDiagram(createDiagramModel(input), { rootGroupId: 'Inner' })) + '\n',
+  );
+});
+
+test('isolated kit renders adjacent Auto Container channels with local spacing and scoped names', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/auto-routing-channels.json', import.meta.url), 'utf8'),
+  );
+  for (const direction of ['down', 'right']) {
+    input.layout.direction = direction;
+    const actual = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+    assert.equal(actual.status, 0, actual.stderr);
+    assert.equal(actual.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  }
+  const scoped = run(['-', '--output', '-', '--format', 'svg', '--view', 'Fabric'], JSON.stringify(input));
+  assert.equal(scoped.status, 0, scoped.stderr);
+  assert.equal(
+    scoped.stdout,
+    renderSvg(await layoutDiagram(createDiagramModel(input), { rootGroupId: 'Fabric' })) + '\n',
+  );
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
 });
 
 test('isolated kit renders rounded components and preserves signal/concat authoring', async () => {

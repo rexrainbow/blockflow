@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
-import { reconcileGrids } from '../../src/lib/blockchart/grid.js';
+import { reconcileGrids, createGridPlan, directGridMembers } from '../../src/lib/blockchart/grid.js';
 import { renameModule, removeModule, removeGroup } from '../../src/editor/state/commands.js';
 const source = JSON.parse(
   await readFile(new URL('../../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
@@ -120,10 +120,9 @@ test('ancestor Grid suspends saved child layouts while group views use them', as
   assert.equal(scoped.modules.length, 5);
   assert.equal(scoped.connections.length, 1);
 });
-test('validation rejects partial Containers, outside cells, duplicate expansions and non-Containers', () => {
+test('validation rejects partial Containers, outside cells, obsolete expansion flags and non-Containers', () => {
   const cases = [
     (d) => (d.layout.cells[2][1] = null),
-    (d) => d.layout.expandGroups.push('ComputeCluster'),
     (d) => (d.layout.expandGroups = ['Clock']),
     (d) => (d.layout.expandGroups = ['Missing']),
     (d) => (d.layout.expandGroups = 'ComputeCluster'),
@@ -140,7 +139,6 @@ test('validation rejects partial Containers, outside cells, duplicate expansions
     },
     (d) => {
       d.layout.type = 'auto';
-      delete d.layout.cells;
     },
   ];
   for (const change of cases) {
@@ -162,11 +160,13 @@ test('membership edits preserve cross-group references and never auto-fill requi
   assert.doesNotThrow(() => createDiagramModel(raw));
   raw.modules.push({ id: 'New' });
   raw.groups[0].members.push('New');
-  reconcileGrids(raw);
+  assert.throws(() => reconcileGrids(raw), /every direct member/);
   assert.throws(() => createDiagramModel(raw), /every direct member/);
   raw.layout.cells.push([null, 'New', null]);
   assert.doesNotThrow(() => createDiagramModel(raw));
   removeModule(raw, 'New');
+  assert.throws(() => reconcileGrids(raw), /Grid cells/);
+  raw.layout.cells[3][1] = null; // The deletion command must explicitly clean its references.
   reconcileGrids(raw);
   assert.doesNotThrow(() => createDiagramModel(raw));
   removeGroup(raw, 'ComputeCluster');
@@ -192,7 +192,6 @@ test('multiple Container frames reserve headers/minima and reject overlapping em
     ],
     layout: {
       type: 'grid',
-      expandGroups: ['A', 'B'],
       cells: [
         ['A0', 'B0'],
         ['A1', 'B1'],
@@ -222,4 +221,92 @@ test('multiple Container frames reserve headers/minima and reject overlapping em
     [null, 'A1', null],
   ];
   assert.throws(() => createDiagramModel(raw), /regions must not overlap/);
+});
+
+test('cells alone infer runtime Grid plans without adding fields to authoring or normalized configs', () => {
+  const raw = structuredClone(source),
+    before = structuredClone(raw);
+  reconcileGrids(raw);
+  const model = createDiagramModel(raw);
+  const plan = createGridPlan(raw.layout.cells, directGridMembers(raw), raw.groups);
+  assert.deepEqual(plan.expandedContainers, ['ComputeCluster']);
+  assert.equal(plan.regions[0].id, 'ComputeCluster');
+  assert.deepEqual(raw, before);
+  for (const config of [model.layout, ...model.groups.map((g) => g.layout)].filter(Boolean)) {
+    assert.equal(Object.hasOwn(config, 'expandGroups'), false);
+    assert.equal(Object.hasOwn(config, 'expandedContainers'), false);
+    assert.equal(Object.hasOwn(config, 'regions'), false);
+  }
+  raw.layout.cells = [
+    ['Clock', 'ComputeCluster'],
+    ['Controller', null],
+  ];
+  assert.deepEqual(createGridPlan(raw.layout.cells, directGridMembers(raw), raw.groups), {
+    expandedContainers: [],
+    regions: [],
+  });
+  assert.doesNotThrow(() => reconcileGrids(raw));
+  raw.layout.cells = [[null]];
+  assert.deepEqual(createGridPlan(raw.layout.cells, directGridMembers(raw), raw.groups), {
+    expandedContainers: [],
+    regions: [],
+  });
+});
+
+test('reconciliation reports invalid cells at their source and never silently repairs them', () => {
+  const cases = [
+    [(d) => (d.layout.cells[0][0] = 'ComputeCluster'), /and its children/, 'layout.cells[0][0]'],
+    [(d) => (d.layout.cells[0][0] = 'Typo'), /direct members/, 'layout.cells[0][0]'],
+    [(d) => (d.layout.cells[1][0] = 'Clock'), /only once/, 'layout.cells[1][0]'],
+    [(d) => (d.layout.cells[2][1] = null), /missing: ALU4/, 'layout.cells[0][1]'],
+    [(d) => delete d.layout.cells, /at least one/, 'layout.cells'],
+    [(d) => (d.layout.cells[1] = null), /equal column/, 'layout.cells[1]'],
+  ];
+  for (const [edit, pattern, path] of cases) {
+    const raw = structuredClone(source);
+    edit(raw);
+    const before = structuredClone(raw);
+    for (const validate of [reconcileGrids, createDiagramModel])
+      assert.throws(
+        () => validate(raw),
+        (error) => pattern.test(error.message) && error.path === path && !(error instanceof TypeError),
+      );
+    assert.deepEqual(raw, before);
+  }
+});
+
+test('legacy fields are rejected at both root and nested scopes, including Auto', () => {
+  for (const nested of [false, true])
+    for (const auto of [false, true]) {
+      const raw = structuredClone(source);
+      const config = nested ? raw.groups[0].layout : raw.layout;
+      if (auto) {
+        config.type = 'auto';
+        delete config.cells;
+      }
+      config.expandGroups = [];
+      const before = structuredClone(raw);
+      assert.equal(validate(raw), false);
+      for (const check of [reconcileGrids, createDiagramModel])
+        assert.throws(() => check(raw), /Remove expandGroups/);
+      assert.deepEqual(raw, before);
+    }
+});
+
+test('Grid expansion is limited to direct nonempty Containers and one descendant level', () => {
+  const groups = [
+    { id: 'Outer', members: ['Inner'] },
+    { id: 'Inner', members: ['Leaf'] },
+    { id: 'Empty', members: [] },
+    { id: 'Boundary', type: 'boundary', members: ['B'] },
+    { id: 'Collection', type: 'collection', members: ['C'] },
+  ];
+  const members = ['Outer', 'Empty', 'Boundary', 'Collection'];
+  assert.deepEqual(createGridPlan([['Inner']], members, groups).expandedContainers, ['Outer']);
+  assert.deepEqual(
+    createGridPlan([['Empty', 'Boundary', 'Collection']], members, groups).expandedContainers,
+    [],
+  );
+  for (const id of ['Leaf', 'B', 'C'])
+    assert.throws(() => createGridPlan([[id]], members, groups), /direct members/);
 });

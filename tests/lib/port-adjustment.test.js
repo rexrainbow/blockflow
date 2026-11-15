@@ -345,3 +345,79 @@ test('Terminal fan-out, shared signal labels and feedback keep every branch atta
   near(position(locked).y - anchor(locked).y, position(fixed).y - anchor(fixed).y);
   terminalEndpoints(locked);
 });
+
+for (const direction of ['right', 'down'])
+  test(`disjoint fan-out keeps centered inputs when sliding only shortens wires (${direction})`, async () => {
+    const raw = {
+      version: 1,
+      diagram: {
+        name: 'Shared source with two selectors',
+        style: { module: { portLabel: { hidden: true } } },
+      },
+      layout: {
+        direction,
+        type: 'grid',
+        maxPortShift: 600,
+        cells:
+          direction === 'down'
+            ? [
+                [null, 'SourcePool', null],
+                ['SelectA', null, 'SelectB'],
+              ]
+            : [
+                [null, 'SelectA'],
+                ['SourcePool', null],
+                [null, 'SelectB'],
+              ],
+        rowGap: 70,
+        columnGap: 45,
+        portAdjustment: 'fixed',
+      },
+      modules: [
+        {
+          id: 'SourcePool',
+          type: 'concat',
+          style: { label: { hidden: true } },
+          ports: [
+            { id: 'a', direction: 'input' },
+            { id: 'b', direction: 'input' },
+            { id: 'out', direction: 'output' },
+          ],
+        },
+        ...['SelectA', 'SelectB'].map((id) => ({
+          id,
+          label: 'A wide selector title\n36:1 mux',
+          ports: [{ id: 'in', direction: 'input' }],
+        })),
+      ],
+      connections: [
+        {
+          from: 'SourcePool.out',
+          to: ['SelectA.in', 'SelectB.in'],
+          label: 'Shared selectable sources',
+          style: { label: { repeatAtEnd: 'never' } },
+        },
+      ],
+    };
+    assert.equal(validate(raw), true);
+    const fixed = await layoutDiagram(createDiagramModel(raw));
+    raw.layout.portAdjustment = 'reduce-bends';
+    const saved = structuredClone(raw),
+      model = createDiagramModel(freeze(raw)),
+      modelBefore = structuredClone(model);
+    const result = await layoutDiagram(freeze(model));
+    const axis = direction === 'down' ? 'x' : 'y',
+      extent = axis === 'x' ? 'width' : 'height';
+    for (const node of result.modules.filter((n) => n.id.startsWith('Select'))) {
+      const old = fixed.modules.find((n) => n.id === node.id);
+      near(node.ports[0][axis] - node[axis], node[extent] / 2);
+      near(node.ports[0][axis] - node[axis], old.ports[0][axis] - old[axis]);
+    }
+    assert.equal(bends(result), bends(fixed));
+    assert.ok(bends(result) > 0, 'disjoint ranges still require bends');
+    assert.equal(result.warnings, undefined);
+    sameBlocks(fixed, result);
+    assert.deepEqual(raw, saved);
+    assert.deepEqual(model, modelBefore);
+    assert.deepEqual(copyLayout(result), result);
+  });

@@ -267,12 +267,12 @@
         },
         "appearance": {
           "$ref": "#/$defs/appearance",
-          "description": "Optional geometric appearance. Omit for Rectangle on ordinary blocks or Bar on Concat. Appearance does not change module semantics."
+          "description": "Ordinary Block appearance. Concat has a fixed Bar appearance; omit this field or use {\"type\":\"bar\"}."
         },
         "type": {
           "enum": ["block", "concat"],
           "default": "block",
-          "description": "Concat combines inputs in array order, first input at the high end. Requires one or more inputs and exactly one output. Width sum is checked only when every port has an explicit width; widths are never inferred."
+          "description": "Concat combines inputs in array order, first input at the high end. Requires one or more inputs and exactly one output. Width sum is checked only when every port has an explicit width; widths are never inferred. Concat always draws a thin Flow-aligned Bar; port sides must follow Flow (right: input left/output right; down: input top/output bottom)."
         }
       },
       "allOf": [
@@ -324,6 +324,14 @@
                   }
                 },
                 "type": "array"
+              },
+              "appearance": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "const": "bar"
+                  }
+                }
               }
             },
             "required": ["ports"]
@@ -441,11 +449,13 @@
         },
         "moduleSpacing": {
           "$ref": "#/$defs/positive",
-          "default": 50
+          "default": 50,
+          "description": "Explicit node/component spacing; defaults to 20."
         },
         "layerSpacing": {
           "$ref": "#/$defs/positive",
-          "default": 80
+          "default": 80,
+          "description": "Explicit layer spacing; defaults to 30. Eligible Auto Container regions count existing inner gutters toward content separation."
         },
         "portAdjustment": {
           "enum": ["fixed", "reduce-bends"],
@@ -472,16 +482,15 @@
         },
         "rowGap": {
           "type": "number",
+          "description": "Minimum row gap; Down Grid routing expands only crowded gaps to reserve separate Net tracks.",
           "minimum": 0,
           "default": 50
         },
         "columnGap": {
           "type": "number",
+          "description": "Minimum column gap; Right Grid routing expands only crowded gaps to reserve separate Net tracks.",
           "minimum": 0,
           "default": 80
-        },
-        "expandGroups": {
-          "$ref": "#/$defs/gridExpandGroups"
         }
       },
       "allOf": [
@@ -530,20 +539,10 @@
           },
           "else": {
             "not": {
-              "anyOf": [
-                {
-                  "required": ["cells"],
-                  "properties": {
-                    "cells": {}
-                  }
-                },
-                {
-                  "required": ["expandGroups"],
-                  "properties": {
-                    "expandGroups": {}
-                  }
-                }
-              ]
+              "required": ["cells"],
+              "properties": {
+                "cells": {}
+              }
             }
           }
         }
@@ -784,12 +783,20 @@
           ]
         }
       },
-      "description": "Rectangular matrix of eligible IDs or null. Direct members may be omitted for Auto. expandGroups replaces listed Container IDs with their direct children; all such children must be placed. Null cells reserve space. Rows and columns are derived from this matrix."
+      "description": "Rectangular matrix of eligible IDs or null. Direct members may be omitted for Auto. Placing a direct nonempty Container ID keeps it atomic; placing any of its direct children expands it and requires all direct children exactly once. Parent and child IDs cannot coexist. Expanded regions must be disjoint rectangles containing only that Container's children or null. Expansion is one level per scope; Boundary and Collection remain atomic. Null cells reserve space. Rows and columns are derived from this matrix."
     },
     "gridLayout": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "moduleSpacing": {
+          "$ref": "#/$defs/positive",
+          "description": "Optional local Auto node/component spacing. Omit to inherit the nearest ancestor override, then root/default. Grid gaps remain independent."
+        },
+        "layerSpacing": {
+          "$ref": "#/$defs/positive",
+          "description": "Optional local Auto layer-spacing budget. Omit to inherit the nearest ancestor override, then root/default. Does not control the group's external gap or Grid tracks."
+        },
         "type": {
           "enum": ["auto", "grid"],
           "default": "auto"
@@ -799,16 +806,15 @@
         },
         "rowGap": {
           "type": "number",
+          "description": "Minimum row gap; Down Grid routing expands only crowded gaps to reserve separate Net tracks.",
           "minimum": 0,
           "default": 50
         },
         "columnGap": {
           "type": "number",
+          "description": "Minimum column gap; Right Grid routing expands only crowded gaps to reserve separate Net tracks.",
           "minimum": 0,
           "default": 80
-        },
-        "expandGroups": {
-          "$ref": "#/$defs/gridExpandGroups"
         }
       },
       "allOf": [
@@ -831,33 +837,15 @@
           },
           "else": {
             "not": {
-              "anyOf": [
-                {
-                  "required": ["cells"],
-                  "properties": {
-                    "cells": {}
-                  }
-                },
-                {
-                  "required": ["expandGroups"],
-                  "properties": {
-                    "expandGroups": {}
-                  }
-                }
-              ]
+              "required": ["cells"],
+              "properties": {
+                "cells": {}
+              }
             }
           }
         }
       ],
       "description": "One partial Grid per scope. Selected members occupy a reserved rectangle placed among automatic neighbors; hierarchy and signal connections are unchanged."
-    },
-    "gridExpandGroups": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": {
-        "$ref": "#/$defs/id"
-      },
-      "description": "Direct nonempty Container IDs to expand into this Grid. All direct children must occur exactly once; each Container owns a disjoint rectangular cell region containing no outside members. Its own saved layout is suspended in this scope and retained for group views. Boundary and Collection remain atomic."
     },
     "connectionLabelStyle": {
       "type": "object",
@@ -958,6 +946,120 @@
           "description": "Arrow at the branch target, using line color and opacity. Source arrows belong to the common Net style."
         }
       }
+    },
+    "concatSidesRight": {
+      "type": "object",
+      "if": {
+        "properties": {
+          "type": {
+            "const": "concat"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "direction": {
+                        "const": "input"
+                      }
+                    },
+                    "required": ["direction"]
+                  },
+                  "then": {
+                    "properties": {
+                      "side": {
+                        "const": "left"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "direction": {
+                        "const": "output"
+                      }
+                    },
+                    "required": ["direction"]
+                  },
+                  "then": {
+                    "properties": {
+                      "side": {
+                        "const": "right"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "concatSidesDown": {
+      "type": "object",
+      "if": {
+        "properties": {
+          "type": {
+            "const": "concat"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "ports": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "direction": {
+                        "const": "input"
+                      }
+                    },
+                    "required": ["direction"]
+                  },
+                  "then": {
+                    "properties": {
+                      "side": {
+                        "const": "top"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "direction": {
+                        "const": "output"
+                      }
+                    },
+                    "required": ["direction"]
+                  },
+                  "then": {
+                    "properties": {
+                      "side": {
+                        "const": "bottom"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
     }
   },
   "anyOf": [
@@ -975,6 +1077,44 @@
         "groups": {
           "minItems": 1,
           "type": "array"
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "layout": {
+            "type": "object",
+            "properties": {
+              "direction": {
+                "const": "down"
+              }
+            },
+            "required": ["direction"]
+          }
+        },
+        "required": ["layout"]
+      },
+      "then": {
+        "properties": {
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/concatSidesDown"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/concatSidesRight"
+            }
+          }
         }
       }
     }

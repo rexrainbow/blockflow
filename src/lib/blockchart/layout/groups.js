@@ -1,11 +1,46 @@
+import { LAYOUT_DEFAULTS } from '../layout-defaults.js';
+import { resolveLayoutSpacing } from '../layout-spacing.js';
+import { routingSpacing } from './routing-spacing.js';
 import { ancestors, descendants } from '../hierarchy.js';
 import { portSide } from '../direction.js';
 import { needsSides, defaultSide } from '../port-sides.js';
 import { textSize, textBounds, moduleGeometry, BLOCK_SIZE_UNIT } from '../geometry.js';
 
-export function groupGeometry(group, direction = 'right') {
+export function groupGeometry(group, direction = 'right', model) {
   if (group._signalWrapper)
     return { inset: 0, title: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
+  if (group.portMode !== 'boundary') {
+    const profile = LAYOUT_DEFAULTS,
+      inset = profile.inset + group.style.borderWidth;
+    const label = textSize(group.label, group.style.label);
+    const title = group.style.label.hidden
+      ? 0
+      : label.height + 2 * group.style.label.padding + profile.titleGap;
+    const members = model ? descendants(model, group.id) : null;
+    const gutter = model
+      ? routingSpacing(
+          model.connections.filter(
+            (edge) => members.has(edge.source.moduleId) || members.has(edge.target.moduleId),
+          ),
+        ).gutter
+      : 20;
+    return {
+      inset,
+      title,
+      labelOffset: 0,
+      // Reserve the incident routes' endpoint escapes, not a fixed global lane.
+      top: title ? inset + title + gutter : gutter,
+      left: Math.max(inset, gutter),
+      right: Math.max(inset, gutter),
+      bottom: Math.max(inset, gutter),
+      width: Math.max(
+        140,
+        (group.width ?? 0) * BLOCK_SIZE_UNIT.width,
+        label.width + 2 * (group.style.label.hidden ? 0 : group.style.label.padding) + 2 * inset,
+      ),
+      height: Math.max((group.height ?? 0) * BLOCK_SIZE_UNIT.height, title + inset + 2 * gutter + 84),
+    };
+  }
   if (group.portMode === 'boundary' && needsSides(group, direction)) {
     const inset = 18 + group.style.borderWidth,
       t = textSize(group.label, group.style.label),
@@ -139,6 +174,7 @@ export function groupGeometry(group, direction = 'right') {
 
 export function applyGroups(graph, model) {
   if (!model.groups?.length) return;
+  const extraStroke = routingSpacing(model.connections).extra;
   graph.layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
   const nodes = new Map(graph.children.map((node) => [node.id, node]));
   const members = new Set(model.groups.flatMap((group) => group.members));
@@ -168,21 +204,37 @@ export function applyGroups(graph, model) {
       });
       continue;
     }
-    const { top, left, right, bottom, width, height } = groupGeometry(group, model.layout.direction);
+    const { top, left, right, bottom, width, height } = groupGeometry(group, model.layout.direction, model);
+    const spacing = resolveLayoutSpacing(model, group.id);
     nodes.set(group.id, {
       id: group.id,
       width,
       height,
       layoutOptions: {
         'elk.algorithm': 'layered',
+        'elk.randomSeed': graph.layoutOptions['elk.randomSeed'],
         'elk.direction': (group._signalDirection ?? model.layout.direction).toUpperCase(),
         'elk.padding': `[top=${top},left=${left},bottom=${bottom},right=${right}]`,
+        ...Object.fromEntries(
+          [
+            'elk.spacing.edgeNode',
+            'elk.layered.spacing.edgeNodeBetweenLayers',
+            'elk.spacing.edgeEdge',
+            'elk.layered.spacing.edgeEdgeBetweenLayers',
+            'elk.spacing.componentComponent',
+          ].map((key) => [key, graph.layoutOptions[key]]),
+        ),
         'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
-        'elk.nodeSize.minimum': `(${width},${height})`,
-        'elk.spacing.nodeNode': group._signalWrapper ? '8' : graph.layoutOptions['elk.spacing.nodeNode'],
+        ...(!group._signalWrapper
+          ? { 'elk.spacing.componentComponent': String(spacing.moduleSpacing + extraStroke) }
+          : {}),
+        // ELK Layered interprets this minimum in flow-normalized coordinates.
+        'elk.nodeSize.minimum':
+          model.layout.direction === 'down' ? `(${height},${width})` : `(${width},${height})`,
+        'elk.spacing.nodeNode': group._signalWrapper ? '8' : String(spacing.moduleSpacing + extraStroke),
         'elk.layered.spacing.nodeNodeBetweenLayers': group._signalWrapper
           ? '8'
-          : graph.layoutOptions['elk.layered.spacing.nodeNodeBetweenLayers'],
+          : String(spacing.layerSpacing + extraStroke),
       },
       ...(group.portMode === 'boundary'
         ? {
@@ -347,13 +399,22 @@ export function groupResults(model, nodes) {
     .sort((a, b) => ancestors(model, a.id).length - ancestors(model, b.id).length)
     .map((group) => {
       const node = nodes.get(group.id);
-      const { inset, title, inputHeight = 0 } = groupGeometry(group, model.layout.direction);
+      const {
+        inset,
+        title,
+        inputHeight = 0,
+        labelOffset,
+      } = groupGeometry(group, model.layout.direction, model);
       const geometry = group.collapsed ? moduleGeometry(group, model.layout.direction) : null;
       const labelPosition = geometry
         ? { x: node.x + geometry.titleX, y: node.y + geometry.titleY, anchor: 'middle' }
         : {
             x: node.x + inset + (group.style.label.hidden ? 0 : group.style.label.padding),
-            y: node.y + inset + title / 2 + (model.layout.direction === 'down' ? inputHeight + 12 : 0),
+            y:
+              node.y +
+              inset +
+              title / 2 +
+              (labelOffset ?? (model.layout.direction === 'down' ? inputHeight + 12 : 0)),
             anchor: 'start',
           };
       return {

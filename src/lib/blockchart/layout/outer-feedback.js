@@ -163,7 +163,10 @@ export function routeOuterFeedback(result, model) {
                 (i === points.length - 2 &&
                   (node.id === endpoint.target.moduleId ||
                     (node.blockIds ?? node.members)?.includes(endpoint.target.moduleId)));
-              if (terminal && node.members && !node.collapsed)
+              if (terminal && node.members && !node.collapsed) {
+                // Ancestor frames may be crossed at endpoint access. Ordinary
+                // headings do not block routes; child hardware/label nodes still do.
+                if (node.portMode !== 'boundary') return false;
                 return crossesInterior(
                   points[i],
                   b,
@@ -172,6 +175,7 @@ export function routeOuterFeedback(result, model) {
                     height: node.labelBounds.y + node.labelBounds.height - node.y + 8,
                   },
                 );
+              }
               const obstacle =
                 terminal || extraStroke === 0
                   ? node

@@ -76,7 +76,7 @@ test('many hidden ports retain minimum connection spacing and explicit minimum d
       );
       const [n] = (await layoutDiagram(m)).modules,
         axis = ['top', 'bottom'].includes(side) ? 'x' : 'y';
-      for (let i = 1; i < n.ports.length; i++) assert.ok(n.ports[i][axis] - n.ports[i - 1][axis] >= 24);
+      for (let i = 1; i < n.ports.length; i++) assert.ok(n.ports[i][axis] - n.ports[i - 1][axis] >= 16);
     }
   const m = model('right', { type: 'stacked' }, [{ id: 'i', direction: 'input' }], { width: 5, height: 4 });
   const [n, plain] = (await layoutDiagram(m)).modules;

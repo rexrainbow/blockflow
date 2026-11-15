@@ -1,0 +1,153 @@
+/*
+ * blockflow Studio tokens.
+ * Two layers: primitives (--p-*) and semantic tokens. Components use semantic tokens only.
+ * Theme: :root = light; dark applies for prefers-color-scheme unless data-theme="light",
+ * and always for data-theme="dark". The diagram artboard is never themed: it stays the
+ * exported white sheet, placed on a themed canvas.
+ */
+:root {
+  --p-cobalt-50: #eef3fd;
+  --p-cobalt-100: #dfe8fb;
+  --p-cobalt-500: #2457d6;
+  --p-cobalt-600: #1d47b3;
+  --p-cobalt-300: #7ea2ff;
+  --p-slate-0: #ffffff;
+  --p-slate-25: #f7f9fc;
+  --p-slate-50: #eef2f7;
+  --p-slate-100: #e3e9f1;
+  --p-slate-200: #d7dfe9;
+  --p-slate-300: #b4bfce;
+  --p-slate-500: #59677d;
+  --p-slate-700: #33415a;
+  --p-slate-900: #18243b;
+  --p-night-950: #0d121c;
+  --p-night-900: #121926;
+  --p-night-850: #171f2e;
+  --p-night-800: #1d2638;
+  --p-night-700: #283349;
+  --p-night-600: #36435d;
+  --p-night-400: #8a98b2;
+  --p-night-100: #e2e8f2;
+
+  --bg: var(--p-slate-50);
+  --surface: var(--p-slate-0);
+  --surface-2: var(--p-slate-25);
+  --surface-hover: var(--p-slate-50);
+  --ink: var(--p-slate-900);
+  --ink-2: var(--p-slate-700);
+  --muted: var(--p-slate-500);
+  --faint: #8593a8;
+  --border: var(--p-slate-200);
+  --border-strong: var(--p-slate-300);
+  --accent: var(--p-cobalt-500);
+  --accent-hover: var(--p-cobalt-600);
+  --on-accent: #ffffff;
+  --selection: var(--p-cobalt-50);
+  --selection-strong: var(--p-cobalt-100);
+  --focus: var(--p-cobalt-500);
+  --input: #126280;
+  --input-bg: #e3f0f5;
+  --output: #26704a;
+  --output-bg: #e3f3ea;
+  --inout: #6b3fa0;
+  --inout-bg: #efe7f8;
+  --danger: #b42b3d;
+  --danger-bg: #fbe9ec;
+  --warn: #946016;
+  --warn-bg: #fbf1df;
+  --ok: #26704a;
+  --canvas: #e9eef5;
+  --canvas-dot: #c9d2df;
+  --sheet-shadow: 0 1px 2px rgba(24, 36, 59, 0.08), 0 6px 24px rgba(24, 36, 59, 0.08);
+  --pop-shadow: 0 8px 28px rgba(24, 36, 59, 0.16), 0 1px 3px rgba(24, 36, 59, 0.1);
+  --overlay-select: #2457d6;
+  --overlay-hover: rgba(36, 87, 214, 0.55);
+  --overlay-drop: #26704a;
+  --overlay-bad: #b42b3d;
+  --scrim: rgba(13, 18, 28, 0.4);
+
+  --font-ui: 'Segoe UI', 'IBM Plex Sans', system-ui, 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+  --font-mono: 'Cascadia Code', 'IBM Plex Mono', Consolas, ui-monospace, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --row: 28px;
+  --control: 28px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: var(--p-night-950);
+    --surface: var(--p-night-900);
+    --surface-2: var(--p-night-850);
+    --surface-hover: var(--p-night-800);
+    --ink: var(--p-night-100);
+    --ink-2: #c3cbda;
+    --muted: var(--p-night-400);
+    --faint: #6d7a93;
+    --border: var(--p-night-700);
+    --border-strong: var(--p-night-600);
+    --accent: var(--p-cobalt-300);
+    --accent-hover: #a3bdff;
+    --on-accent: #0d1430;
+    --selection: #1b2747;
+    --selection-strong: #233462;
+    --focus: var(--p-cobalt-300);
+    --input: #6cc3df;
+    --input-bg: #11303b;
+    --output: #77d19f;
+    --output-bg: #133224;
+    --inout: #c5a3f0;
+    --inout-bg: #2a1f3d;
+    --danger: #ff8a98;
+    --danger-bg: #3a1d25;
+    --warn: #f0bf6a;
+    --warn-bg: #3a2d17;
+    --ok: #77d19f;
+    --canvas: #0a0e16;
+    --canvas-dot: #1f2838;
+    --sheet-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 10px 30px rgba(0, 0, 0, 0.5);
+    --pop-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --scrim: rgba(0, 0, 0, 0.55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: var(--p-night-950);
+  --surface: var(--p-night-900);
+  --surface-2: var(--p-night-850);
+  --surface-hover: var(--p-night-800);
+  --ink: var(--p-night-100);
+  --ink-2: #c3cbda;
+  --muted: var(--p-night-400);
+  --faint: #6d7a93;
+  --border: var(--p-night-700);
+  --border-strong: var(--p-night-600);
+  --accent: var(--p-cobalt-300);
+  --accent-hover: #a3bdff;
+  --on-accent: #0d1430;
+  --selection: #1b2747;
+  --selection-strong: #233462;
+  --focus: var(--p-cobalt-300);
+  --input: #6cc3df;
+  --input-bg: #11303b;
+  --output: #77d19f;
+  --output-bg: #133224;
+  --inout: #c5a3f0;
+  --inout-bg: #2a1f3d;
+  --danger: #ff8a98;
+  --danger-bg: #3a1d25;
+  --warn: #f0bf6a;
+  --warn-bg: #3a2d17;
+  --ok: #77d19f;
+  --canvas: #0a0e16;
+  --canvas-dot: #1f2838;
+  --sheet-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 10px 30px rgba(0, 0, 0, 0.5);
+  --pop-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --scrim: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}

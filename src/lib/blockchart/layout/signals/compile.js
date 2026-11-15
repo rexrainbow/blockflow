@@ -1,3 +1,5 @@
+import { LAYOUT_DEFAULTS } from '../../layout-defaults.js';
+import { textSize } from '../../geometry.js';
 import { edgeLabelSize } from '../edge-labels.js';
 import { parentOf } from '../../hierarchy.js';
 import { resolveGroupStyle, resolveModuleStyle, TEXT_STYLE } from '../../styles.js';
@@ -240,6 +242,46 @@ export function signalModel(input, receivers = new Set()) {
       const horizontal = side === 'top' || side === 'bottom',
         axis = horizontal ? 'width' : 'height',
         unit = horizontal ? 140 : 84;
+      if (!owner.members && owner.appearance?.type !== 'trapezoid') {
+        // Only real receiver names consume text slots; other Ports keep access pitch.
+        // Fixed Port centers and label alignment use the same per-Port slot widths.
+        const sizes = new Map();
+        for (const signal of model._signals)
+          for (const receiver of signal.receivers) {
+            const tail = model.connections.find((e) => e.id === receiver.tailId);
+            if (tail.target.moduleId !== owner.id) continue;
+            const node = model.modules.find((n) => n.id === receiver.signalId);
+            sizes.set(
+              tail.target.portId,
+              Math.max(sizes.get(tail.target.portId) ?? 0, node._signalSize[axis]),
+            );
+          }
+        const slots = ports.map((port) => {
+          const text = port.style.hidden
+            ? 0
+            : textSize(port.displayName, port.style)[axis] + 2 * port.style.padding;
+          const ink = Math.max(
+            4,
+            ...model.connections
+              .filter(
+                (edge) =>
+                  (edge.source.moduleId === owner.id && edge.source.portId === port.id) ||
+                  (edge.target.moduleId === owner.id && edge.target.portId === port.id),
+              )
+              .map((edge) => Math.max(edge.style.strokeWidth * 3, 8)),
+          );
+          return {
+            id: port.id,
+            size: Math.max(LAYOUT_DEFAULTS.portPitch, text + 12, (sizes.get(port.id) ?? 0) + 2 * ink),
+          };
+        });
+        owner._receiverSlots ??= {};
+        owner._receiverSlots[side] = slots;
+        const required = slots.reduce((sum, slot) => sum + slot.size, 0) + 24;
+        owner[axis] = Math.max(owner[axis] ?? 0, required / unit);
+        continue;
+      }
+
       const slot = Math.max(...labels.map((n) => n._signalSize[axis])) + 24;
       owner[axis] = Math.max(owner[axis] ?? 0, (slot * (ports.length + 1)) / unit);
     }

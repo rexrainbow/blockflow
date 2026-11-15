@@ -1,5 +1,6 @@
 import { translateNode } from './translate.js';
 import { routeFixed } from './fixed.js';
+import { routingSpacing } from './routing-spacing.js';
 
 const EPS = 1e-6;
 const crosses = (a, b, box) =>
@@ -58,10 +59,13 @@ export function alignTerminals(result, model) {
           : unit.terminal.anchor[normal] - Math.min(...unit.parts.map((n) => n[normal])),
       ),
     );
-    // Preserve any existing clearance, and keep the complete label envelope outside hardware.
-    const rail = input
-      ? Math.min(low - 60 - reach, ...side.map((unit) => unit.terminal.anchor[normal]))
-      : Math.max(high + 60 + reach, ...side.map((unit) => unit.terminal.anchor[normal]));
+    const ids = new Set(side.flatMap((unit) => unit.parts.map((part) => part.id)));
+    const incident = model.connections.filter((edge) =>
+      [edge.source, edge.target].some((end) => ids.has(end.terminal ?? end.moduleId)),
+    );
+    // Keep the complete label envelope outside hardware with incident-route clearance.
+    const gap = Math.max(12, routingSpacing(incident).gutter);
+    const rail = input ? low - gap - reach : high + gap + reach;
     side.sort((a, b) => a.terminal.anchor[tangent] - b.terminal.anchor[tangent]);
     let previous = -Infinity;
     for (const unit of side) {

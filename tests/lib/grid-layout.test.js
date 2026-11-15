@@ -282,6 +282,8 @@ test('Grid references survive rename, removal and new members without fake signa
   renameModule(raw, 'ALU4', 'Spare');
   assert.equal(raw.groups[1].layout.cells[1][0], 'Spare');
   removeModule(raw, 'ALU3');
+  assert.throws(() => reconcileGrids(raw), /Grid cells/);
+  raw.groups[1].layout.cells[1][1] = null; // Explicit deletion cleanup, not silent reconciliation.
   reconcileGrids(raw);
   assert.equal(raw.groups[1].layout.cells[1][1], null);
   const cells = structuredClone(raw.groups[1].layout.cells);

@@ -23,10 +23,14 @@ error and disables image export until corrected. Partial Grids occupy one tempor
 rectangle among Auto neighbors, preserving empty tracks and never altering JSON hierarchy
 or signal identity. All-null Grids leave every member Auto and reserve no rectangle.
 
-Expand containers for layout uses native checkboxes in a fieldset. Only nonempty direct
-Containers are eligible, replacing their own cell option with named/path-labelled direct
-children. Every expanded child must be placed; Needs Grid placement lists missing children
-separately from Auto arranged. Empty Containers show a disabled checkbox with an explanation.
+Container expansion has no separate control: it is derived from Cells. Placing any direct
+child of a nonempty, non-collapsed direct Container expands it; placing the Container id keeps
+it one cell. A hint lists each eligible Container with its children and marks expanded ones.
+Typed Cells are never repaired: errors name the row and column and keep the draft. Commands
+that change membership keep Grids valid in the same Undo step: deleted IDs leave empty cells;
+new or moved children of an expanded Container fill its first empty cell, else a new row
+(column in Down flow); moved-out IDs become Auto; a new group takes its first item's cell;
+a Container that stops being expandable folds into one cell; ungrouping keeps children placed.
 Each expanded Container spans a disjoint rectangle containing only its members or null.
 Apply failures retain the draft and focus the relevant checkbox/cell. Unchecking clears
 child cells and returns the whole Container to Auto unless explicitly placed. Membership
@@ -44,7 +48,7 @@ geometry omits text lanes and proxy Port rows, using title/appearance geometry p
 minimum slot extents. Ports and their identity remain intact, explicit minimum dimensions
 are honored, and showing Port names restores text-aware geometry in either Flow.
 Concat keeps its minimum input/one-output rule. Add bidirectional port creates inout; Side selects Follow
-Flow or a physical side. Connections support Both directions (two inout receiving faces)
+Flow or a physical side on ordinary blocks; Concat shows its Flow side as fixed text. Connections support Both directions (two inout receiving faces)
 and Affect placement, preserving all signal validation. Style has Start arrow and End arrow.
 Layout's Diagram caption edits the global multiline footer with normal blur/history behavior.
 Schema, scoped/collapsed layouts, SVG/PNG, DOM, offline and Agent Kit share these rules.
@@ -83,6 +87,14 @@ title/port text. Reuse existing Port rename, width, text style, ordering and del
 disable Add output and reject deletion of the sole output or last input atomically. Show
 composition-order and optional-width guidance in block details. First input is the high part;
 reordering is a real semantic edit with Undo. Ordinary block behavior stays unchanged.
+
+Concat is always a thin Flow-aligned Bar: Down puts inputs on top and the output at the bottom,
+Right puts inputs left and the output right. Its Port rows show that side as fixed text and the
+Shape section is absent, so no control can write a conflicting side or appearance. The block
+toolbar adds the next input; Add output is disabled while the output exists. A Flow change
+(canvas switch or Layout tab) removes explicit Concat sides and a Flow-specific feedback side in
+the same Undo step. Opened files keep their values; conflicting sides or shapes are reported at
+their runtime path and leave the document unchanged. Hit targets use published Port anchors.
 
 Only all-explicit input/output widths trigger the sum check. Mismatches disable accepted
 preview/image export through normal validation and remain recoverable after draft reload.
@@ -295,7 +307,10 @@ the key input. The rename is already applied; Undo restores it and all endpoint 
 
 The desktop toolbar is one 49px row. File is the single owner of New document, Open JSON,
 Save JSON and Load example (the empty preview can also offer its contextual starter).
-Export owns SVG, PNG and the labeled native PNG scale select. Undo/Redo, view cycling and
+Export owns SVG, PNG and the labeled native PNG scale select. Copy JSON (File, Export
+under "Whole diagram source", command palette; no shortcut) copies exactly the Save JSON
+text for the whole document in any view, confirms with block count and size, and falls back
+to execCommand and then a dialog with the text selected when the clipboard is blocked. Undo/Redo, view cycling and
 Layout settings remain directly accessible. There is no workspace caption or global footer.
 The native details disclosures use components/ui.js bindDisclosureMenus, shared with reorder
 controls. Only one opens at a time; outside clicks, focus leaving, scrolling outside and window

@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Adjacent Auto routing channels",
+    "caption": "Fabric uses Auto with local layerSpacing 8. Three shared Nets connect adjacent layers.\nCongested layers reserve separate tracks; Audit and the regular path retain ordinary routing.",
+    "style": {
+      "module": {
+        "fillColor": "#EAF2FF",
+        "borderColor": "#52606D",
+        "portLabel": { "hidden": true },
+        "label": { "fontSize": 12 }
+      },
+      "group": {
+        "fillColor": "#F7F9FC",
+        "borderColor": "#7A9BBE",
+        "borderStyle": "dashed",
+        "label": { "fontSize": 12 }
+      },
+      "connection": {
+        "strokeWidth": 2,
+        "endArrow": "triangle",
+        "label": { "fontSize": 11, "padding": 3, "backgroundColor": "#FFF9E6", "repeatAtEnd": "never" }
+      }
+    }
+  },
+  "layout": { "direction": "down", "moduleSpacing": 20, "layerSpacing": 30 },
+  "groups": [
+    {
+      "id": "Fabric",
+      "type": "container",
+      "label": "Auto fabric: local module 36 / layer 8",
+      "members": ["ProducerA", "ProducerB", "ProducerC", "ConsumerA", "ConsumerB", "ConsumerC", "Audit"],
+      "layout": { "moduleSpacing": 36, "layerSpacing": 8 }
+    },
+    {
+      "id": "Regular",
+      "type": "container",
+      "label": "Regular path: inherited 20 / 30",
+      "members": ["InputBuffer", "OutputBuffer"]
+    }
+  ],
+  "modules": [
+    {
+      "id": "ProducerA",
+      "label": "Producer A",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ProducerB",
+      "label": "Producer B",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ProducerC",
+      "label": "Producer C",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ConsumerA",
+      "label": "Consumer A",
+      "ports": [
+        { "id": "a", "direction": "input", "width": 1 },
+        { "id": "b", "direction": "input", "width": 1 },
+        { "id": "c", "direction": "input", "width": 1 },
+        { "id": "out", "direction": "output", "width": 1 }
+      ]
+    },
+    {
+      "id": "ConsumerB",
+      "label": "Consumer B",
+      "ports": [
+        { "id": "a", "direction": "input", "width": 1 },
+        { "id": "b", "direction": "input", "width": 1 },
+        { "id": "c", "direction": "input", "width": 1 }
+      ]
+    },
+    {
+      "id": "ConsumerC",
+      "label": "Consumer C",
+      "ports": [
+        { "id": "a", "direction": "input", "width": 1 },
+        { "id": "b", "direction": "input", "width": 1 },
+        { "id": "c", "direction": "input", "width": 1 }
+      ]
+    },
+    { "id": "Audit", "ports": [{ "id": "in", "direction": "input", "width": 1 }] },
+    { "id": "InputBuffer", "label": "Input buffer", "ports": [{ "id": "out", "direction": "output" }] },
+    { "id": "OutputBuffer", "label": "Output buffer", "ports": [{ "id": "in", "direction": "input" }] }
+  ],
+  "connections": [
+    {
+      "id": "DataA",
+      "from": "ProducerA.out",
+      "to": ["ConsumerA.a", "ConsumerB.a", "ConsumerC.a"],
+      "label": "Data A",
+      "style": { "strokeColor": "#1565C0" }
+    },
+    {
+      "id": "DataB",
+      "from": "ProducerB.out",
+      "to": ["ConsumerA.b", "ConsumerB.b", "ConsumerC.b"],
+      "label": "Data B",
+      "style": { "strokeColor": "#7B1FA2" }
+    },
+    {
+      "id": "DataC",
+      "from": "ProducerC.out",
+      "to": ["ConsumerA.c", "ConsumerB.c", "ConsumerC.c"],
+      "label": "Data C",
+      "style": { "strokeColor": "#008577" }
+    },
+    { "id": "AuditNet", "from": "ConsumerA.out", "to": ["Audit.in"], "style": { "strokeColor": "#64748B" } },
+    { "from": "InputBuffer.out", "to": ["OutputBuffer.in"], "style": { "strokeColor": "#64748B" } }
+  ]
+}

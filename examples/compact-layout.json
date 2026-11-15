@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Compact processor pipeline",
+    "style": {
+      "module": {
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "label": {
+          "fontSize": 11,
+          "repeatAtEnd": "always"
+        }
+      }
+    }
+  },
+  "layout": {
+    "direction": "down"
+  },
+  "modules": [
+    {
+      "id": "Source",
+      "label": "Processor",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "output"
+        },
+        {
+          "id": "control",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "ALU0",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "ALU1",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Sink",
+      "label": "Result register",
+      "ports": [
+        {
+          "id": "a",
+          "direction": "input"
+        },
+        {
+          "id": "b",
+          "direction": "input"
+        },
+        {
+          "id": "control",
+          "direction": "input"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "Pipeline",
+      "label": "Processing pipeline",
+      "members": [
+        "Source",
+        "Compute",
+        "Sink"
+      ]
+    },
+    {
+      "id": "Compute",
+      "label": "Compute units",
+      "members": [
+        "ALU0",
+        "ALU1"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "Source.data",
+      "to": [
+        "ALU0.in",
+        "ALU1.in"
+      ],
+      "label": "Operand data"
+    },
+    {
+      "from": "ALU0.out",
+      "to": [
+        "Sink.a"
+      ],
+      "label": "Arithmetic result"
+    },
+    {
+      "from": "ALU1.out",
+      "to": [
+        "Sink.b"
+      ],
+      "label": "Status"
+    },
+    {
+      "from": "Source.control",
+      "to": [
+        "Sink.control"
+      ]
+    }
+  ]
+}

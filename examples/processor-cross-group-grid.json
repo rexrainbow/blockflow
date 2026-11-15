@@ -1,7 +1,7 @@
 {
   "version": 1,
   "diagram": {
-    "name": "Processor cluster overview",
+    "name": "Processor cluster: Grid across containers",
     "caption": "Arrows show cross-module signal paths.\nDouble-headed edges represent separate paths in both directions.",
     "style": {
       "module": {
@@ -46,10 +46,7 @@
       ]
     ],
     "rowGap": 50,
-    "columnGap": 80,
-    "expandGroups": [
-      "ComputeCluster"
-    ]
+    "columnGap": 80
   },
   "modules": [
     {

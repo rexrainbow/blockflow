@@ -278,11 +278,13 @@ through the regular Port controls. The sole output and last input cannot be remo
 Concat cannot be converted to a Boundary group. A width mismatch remains editable and
 survives draft reload; correct or clear a width to restore valid export.
 
-Concat defaults to the compact `bar` appearance; input anchors retain their order and the
-output is centered between the first and last row. Add Concat hides title/port text through
-ordinary text styles to produce a thin bar; the stored name is still editable. Use Style to
-show names or choose another appearance. Relative size minima, groups, SVG/PNG, DOM and
-offline editing use the same model and geometry. Automatic bit-range labels are not included.
+Concat has a fixed thin `bar` body: Down flow uses top inputs/bottom output (horizontal),
+and Right flow uses left inputs/right output (vertical). Omit Port `side` to follow Flow;
+conflicting explicit sides are rejected, even for feedback. Only Bar or omitted
+appearance is accepted on Concat; ordinary Block Bar appearance remains configurable.
+Input order is retained and the output is centered between the outer inputs. Visible
+names and Port text reserve external space without thickening the body. Relative size
+minimums apply to the layout envelope. See [the feedback example](examples/concat-feedback.json).
 
 Open [the Concat example](examples/concat.json) for both an abstract path and two 16-bit
 sources combined into a 32-bit Mux input.
@@ -578,7 +580,7 @@ Terminals are rejected. Terminal adjustment also rejects changes that increase
 connection-label clearance warnings.
 Source signal label nodes move with their source Port only inside their reserved wrapper.
 All branches of an affected Net are evaluated together. Accepted results do not increase
-obstacle-hit or foreign-Net crossing counts, and improve bends, length, then displacement.
+obstacle-hit or foreign-Net crossing counts, and improve bends, displacement, then length.
 The search has at most four passes and 128 trials; it does not promise a global optimum or
 remove bends required by obstacles, port order or disjoint movement ranges. Reserved source and receiver names follow their Ports; arrows are placed afterwards. Explicit Fixed preserves the original fixed-port output exactly.
 
@@ -609,7 +611,7 @@ There are at most two layout passes.
 
 Receiver nodes stay in the target's local wrapper or on the inside face of a boundary Group.
 They follow the receiving Port side and order, with a short routed tail to the physical Port;
-the arrow still ends at that Port. Same-side multi-Port targets, including Concat, may grow
+the arrow still ends at that Port. Same-side multi-Port targets, including the length of Concat bars, may grow
 across the flow to leave room for the names. Explicit Block dimensions remain minima.
 Terminal receiver names also participate in placement. These reserved footprints may change
 Block placement and graph dimensions. Names stay horizontal; transparent backgrounds retain
@@ -886,10 +888,12 @@ Sources Container supplies a layout column without a visible frame. The compute 
 ALU0/ALU4/ALU1 in the left column and ALU3/ALU2 in the right column. SVG/PNG, offline, DOM viewer
 and the standalone Agent Kit share validation, placement and rendering.
 
-For shared alignment across Containers, the Layout tab offers **Expand containers for
-layout**. `layout.expandGroups: ["ComputeCluster"]` replaces that direct Container in the cell
-choices with its direct children, shown with their group path. Place every child exactly
-once. Each expanded Container must span a disjoint rectangular cell region containing
+For shared alignment across Containers, write a Container's direct children into the Grid
+**Cells** instead of the Container itself. The runtime derives expansion entirely from
+the cells: a Container is expanded exactly when one of its children is placed, and writing
+the Container's id back makes it one cell again. The obsolete `expandGroups` field is rejected;
+there is one authoring schema, with no derived expansion fields in saved JSON.
+Place every child exactly once. Each expanded Container must span a disjoint rectangular cell region containing
 only its members or empty cells. Boundary and Collection groups stay atomic.
 
 The shared Grid reserves header/frame padding, aligns row/column centers, and fits each
@@ -897,8 +901,7 @@ Container around its region without changing membership or signals. Its own save
 is suspended in the controlling view and used again in group views. Missing members or
 interleaved rectangles block Apply/export with an actionable error; newly added members
 of expanded Containers must also be placed. Other unselected direct members stay Auto.
-Unchecking expansion returns the Container to a whole participant and clears its child
-cells in the draft. See [Processor cross-group Grid](examples/processor-cross-group-grid.json).
+Replacing the children with the Container id returns it to a whole participant. See [Processor cross-group Grid](examples/processor-cross-group-grid.json).
 
 ## Rounded group frames and signal labels
 
@@ -976,9 +979,34 @@ The existing Flowchart CLI remains available through `npm run flowchart`.
 
 ## Blockchart layout maintenance
 
+Blockchart uses one layout configuration, formerly Compact, with module/layer spacing
+defaults of 20/30. Remove `layout.density` from existing JSON: the schema and runtime
+reject the retired field. Explicit spacing, Grid gaps and size minimums keep their
+contracts. Blocks without visible Port names use title-driven Auto faces (minimum
+64 x 36); authored relative-size units remain 140 x 84.
+
+Routing uses stroke-aware orthogonal clearance, local arrows, near-content Terminal
+rails and eligible Container gap budgets. Wires may cross ordinary Container titles;
+heading text overlaps continuous wires without a Container title mask. See
+[layout defaults and routing](docs/layout-defaults.md) and
+[the layout example](examples/compact-layout.json). Generate current spacing and A4-fit
+reports with `node scripts/measure-layout.js`.
+
 See [the layout pipeline and stage contracts](docs/blockchart-layout.md) for runtime
 responsibilities, coordinate ownership, test selection and generated artifacts. Start with
 `src/lib/blockchart/layout/index.js` when changing layout behavior.
+
+## Agent collaboration
+
+Codex owns schema, engine/runtime, converters and their validation; Claude owns GUI
+implementation, UI/UX, GUI tests and GUI acceptance. Read [the collaboration protocol](docs/agent-collaboration.md)
+for file ownership. Root [issues.md](issues.md) and [gui-integration.md](gui-integration.md)
+are temporary mailboxes for current requests and handoffs; resolved entries are removed,
+not retained as change history. Agent entry instructions are in [AGENTS.md](AGENTS.md) and
+[CLAUDE.md](CLAUDE.md).
+
+Both agents complete their work locally. GitHub uploads and publication are performed
+by the user; agents do not push, manage remote pull requests, release or deploy.
 
 
 ## Diagram style defaults

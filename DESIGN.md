@@ -355,7 +355,7 @@ The root frame, label, styles and real ports retain identity. Reuse the current 
 all selection/Style interactions. First entry fits; subsequent entries restore that view's
 camera with logical anchoring through geometry changes and host resizes. View state is
 session UI state, outside JSON/history, and resets on document replacement/reload. SVG/PNG
-export the current view; Save JSON retains the full project. No new visual tokens.
+export the current view; Save JSON and Copy JSON retain the full project. No new visual tokens.
 
 ## Block appearances and signal notation
 
@@ -373,9 +373,8 @@ connection slots, explicit size minima and shape safety; title sizing governs ot
 Group Style's Corner radius reuses the numeric style field, validation and transactional
 modal. Default square corners preserve existing diagrams; rounded frames use the same
 shared SVG renderer in Preview, exports and DOM, without new tokens or layout variants.
-Cross-group Grid uses the same Layout panel, with native checkboxes under Expand containers
-for layout. Show child choices with a Container path and missing children in Needs Grid
-placement. Reuse help, counts and field errors; no new modal or visual tokens. Shared track
+Cross-group Grid uses the same Layout panel; expansion is derived from Cells, with a hint
+listing each Container's children. Reuse help, counts and field errors; no new modal or visual tokens. Shared track
 gutters reserve Container headers/frames without sacrificing cross-group row alignment.
 
 Preview's Flow is a native select beside View using the same preview-view-control styling.
@@ -387,8 +386,9 @@ rotates glyphs or introduces a separate canvas/menu. Concat becomes a horizontal
 Concat uses the canonical block list footer's Add Concat button and the existing block
 detail/Port/Style controls. Keep footer wrapping at narrow widths. Reuse native selects,
 text-style inheritance, field-help guidance and standard validation/status surfaces. Its
-default Bar is a compact rectangular body, with ordered inputs on the left and a centered
-output on the right. Hidden text can make it a thin bar without removing accessible names.
+Bar is a thin Flow-aligned body: ordered inputs on the left and a centered output on the
+right in Right flow, inputs on top and output at the bottom in Down flow. Port rows show the
+fixed side as muted text instead of a select. Hidden text can make it a thin bar without removing accessible names.
 
 Reuse the shared transactional Style modal and its existing Block/Group/Line tabs. Native
 Appearance selects Rectangle, Stacked or Trapezoid; reveal only its relevant numeric field

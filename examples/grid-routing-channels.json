@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Grid routing channels",
+    "caption": "Four overlapping Nets use separate routing tracks. Data A shares a track with its own fan-out.\nThe requested row gap is 8; only the crowded first gap needs expansion. Audit stays below Consumer A.",
+    "style": {
+      "module": {
+        "fillColor": "#EAF2FF",
+        "borderColor": "#52606D",
+        "label": { "fontSize": 12 },
+        "portLabel": { "hidden": true }
+      },
+      "connection": {
+        "strokeWidth": 2,
+        "endArrow": "triangle",
+        "label": { "fontSize": 11, "padding": 3, "backgroundColor": "#FFF9E6", "repeatAtEnd": "never" }
+      }
+    }
+  },
+  "layout": {
+    "direction": "down",
+    "type": "grid",
+    "rowGap": 8,
+    "columnGap": 12,
+    "cells": [
+      ["ProducerA", null, "ProducerB", null, "ProducerC", null, "ProducerD", null],
+      [null, "ConsumerA", null, "ConsumerB", null, "ConsumerC", null, "ConsumerD"],
+      [null, "Audit", null, null, null, null, null, null]
+    ]
+  },
+  "modules": [
+    {
+      "id": "ProducerA",
+      "label": "Producer A",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ProducerB",
+      "label": "Producer B",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ProducerC",
+      "label": "Producer C",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ProducerD",
+      "label": "Producer D",
+      "ports": [{ "id": "out", "direction": "output", "width": 1 }]
+    },
+    {
+      "id": "ConsumerA",
+      "label": "Consumer A",
+      "ports": [
+        { "id": "in", "direction": "input", "width": 1 },
+        { "id": "out", "direction": "output", "width": 1 }
+      ]
+    },
+    { "id": "ConsumerB", "label": "Consumer B", "ports": [{ "id": "in", "direction": "input", "width": 1 }] },
+    { "id": "ConsumerC", "label": "Consumer C", "ports": [{ "id": "in", "direction": "input", "width": 1 }] },
+    {
+      "id": "ConsumerD",
+      "label": "Consumer D",
+      "ports": [
+        { "id": "data", "direction": "input", "width": 1 },
+        { "id": "control", "direction": "input", "width": 1 }
+      ]
+    },
+    { "id": "Audit", "ports": [{ "id": "in", "direction": "input", "width": 1 }] }
+  ],
+  "connections": [
+    {
+      "id": "DataA",
+      "from": "ProducerA.out",
+      "to": ["ConsumerC.in", "ConsumerD.data"],
+      "label": "Data A",
+      "style": { "strokeColor": "#1565C0" }
+    },
+    {
+      "id": "DataB",
+      "from": "ProducerB.out",
+      "to": ["ConsumerD.control"],
+      "label": "Data B",
+      "style": { "strokeColor": "#7B1FA2" }
+    },
+    {
+      "id": "DataC",
+      "from": "ProducerC.out",
+      "to": ["ConsumerA.in"],
+      "label": "Data C",
+      "style": { "strokeColor": "#008577" }
+    },
+    {
+      "id": "DataD",
+      "from": "ProducerD.out",
+      "to": ["ConsumerB.in"],
+      "label": "Data D",
+      "style": { "strokeColor": "#B45309" }
+    },
+    { "id": "AuditNet", "from": "ConsumerA.out", "to": ["Audit.in"], "style": { "strokeColor": "#64748B" } }
+  ]
+}

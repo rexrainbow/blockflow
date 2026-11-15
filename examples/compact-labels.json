@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Compact title-sized blocks",
+    "style": {
+      "module": {
+        "label": {
+          "fontSize": 12
+        },
+        "portLabel": {
+          "hidden": true
+        }
+      },
+      "connection": {
+        "endArrow": "triangle"
+      }
+    }
+  },
+  "layout": {
+    "direction": "down"
+  },
+  "modules": [
+    {
+      "id": "CPU",
+      "ports": [
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "ALU",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        },
+        {
+          "id": "out",
+          "direction": "output"
+        }
+      ]
+    },
+    {
+      "id": "Result",
+      "label": "Result logic\nx16",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input"
+        }
+      ]
+    },
+    {
+      "id": "DMA",
+      "label": "DMA"
+    }
+  ],
+  "connections": [
+    {
+      "from": "CPU.out",
+      "to": [
+        "ALU.in"
+      ]
+    },
+    {
+      "from": "ALU.out",
+      "to": [
+        "Result.in"
+      ]
+    }
+  ]
+}

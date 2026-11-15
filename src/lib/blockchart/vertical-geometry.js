@@ -1,9 +1,9 @@
 // Screen-space geometry: text remains horizontal while ports follow the flow.
-export function verticalModuleGeometry(module, textSize, unit) {
+export function verticalModuleGeometry(module, textSize, unit, pitch = 24) {
   const type = module.appearance?.type ?? (module.type === 'concat' ? 'bar' : 'rectangle');
   const stroke = module.style.borderWidth,
     margin = 12 + Math.max(0, stroke - 1),
-    compact = type === 'bar';
+    bar = type === 'bar';
   const measure = (value, style) => {
     const size = textSize(value, style),
       padding = style.hidden ? 0 : style.padding;
@@ -16,22 +16,22 @@ export function verticalModuleGeometry(module, textSize, unit) {
   const inputHeight = Math.max(0, ...inputs.map((p) => sizes.get(p.id).height));
   const outputHeight = Math.max(0, ...outputs.map((p) => sizes.get(p.id).height));
   const columns = Array.from({ length: Math.max(inputs.length, outputs.length) }, (_, i) =>
-    Math.max(24, ...[inputs[i], outputs[i]].filter(Boolean).map((p) => sizes.get(p.id).width + 12)),
+    Math.max(pitch, ...[inputs[i], outputs[i]].filter(Boolean).map((p) => sizes.get(p.id).width + 12)),
   );
   const allHidden = module.style.label.hidden && module.ports.every((p) => p.style.hidden);
   const height = Math.max(
-    compact && allHidden ? 12 + 2 * Math.max(0, stroke - 1) : 84,
+    bar && allHidden ? 12 + 2 * Math.max(0, stroke - 1) : 84,
     (module.height ?? 0) * unit.height,
-    compact && allHidden
+    bar && allHidden
       ? 12 + 2 * Math.max(0, stroke - 1)
       : title.height + inputHeight + outputHeight + 4 * margin,
   );
   const ratio = type === 'trapezoid' ? module.appearance.rightHeightRatio : 1;
   const required = (ports) =>
-    ports.reduce((sum, p) => sum + Math.max(24, sizes.get(p.id).width + 12), 0) + 2 * margin;
+    ports.reduce((sum, p) => sum + Math.max(pitch, sizes.get(p.id).width + 12), 0) + 2 * margin;
   const topFraction = 1 - (1 - ratio) * Math.min(1, (margin + inputHeight) / height);
   const width = Math.max(
-    compact ? 0 : 140,
+    bar ? 0 : 140,
     (module.width ?? 0) * unit.width,
     title.width ? (title.width + 2 * margin) / ratio : 0,
     type === 'trapezoid'
@@ -43,7 +43,7 @@ export function verticalModuleGeometry(module, textSize, unit) {
     labels = Object.create(null);
   const centers = (ports, start, span) => {
     const widths =
-      type === 'trapezoid' ? ports.map((p) => Math.max(24, sizes.get(p.id).width + 12)) : columns;
+      type === 'trapezoid' ? ports.map((p) => Math.max(pitch, sizes.get(p.id).width + 12)) : columns;
     const free = span - 2 * margin - widths.reduce((a, b) => a + b, 0);
     let x = start + margin + free / (widths.length + 1);
     return widths.map((w) => {
@@ -59,7 +59,7 @@ export function verticalModuleGeometry(module, textSize, unit) {
     const fraction = type === 'trapezoid' ? (input ? topFraction : ratio) : 1;
     const xs = centers(ports, (width * (1 - fraction)) / 2, width * fraction);
     for (const p of ports) {
-      const x = compact && !input && outputs.length === 1 ? width / 2 : xs[p.order];
+      const x = bar && !input && outputs.length === 1 ? width / 2 : xs[p.order];
       const y = input ? 0 : height + extra;
       points[p.id] = { x, y };
       labels[p.id] = {

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Container-local spacing",
+    "caption": "Root: module 20 / layer 30. Complex path: 60 / 80. Inner compute: 24 / inherited 80.\nThe regular path inherits root spacing. Local Auto spacing does not change Grid row/column gaps.",
+    "style": {
+      "module": {
+        "fillColor": "#EAF2FF",
+        "borderColor": "#52606D",
+        "portLabel": { "hidden": true },
+        "label": { "fontSize": 12 }
+      },
+      "connection": { "strokeColor": "#1565C0", "endArrow": "triangle" },
+      "group": {
+        "fillColor": "#F7F9FC",
+        "borderColor": "#7A9BBE",
+        "borderStyle": "dashed",
+        "label": { "fontSize": 12 }
+      }
+    }
+  },
+  "layout": { "direction": "down", "moduleSpacing": 20, "layerSpacing": 30 },
+  "modules": [
+    { "id": "Router", "ports": [{ "id": "out", "direction": "output" }] },
+    {
+      "id": "ALUA",
+      "label": "ALU A",
+      "ports": [
+        { "id": "in", "direction": "input" },
+        { "id": "out", "direction": "output" }
+      ]
+    },
+    {
+      "id": "ALUB",
+      "label": "ALU B",
+      "ports": [
+        { "id": "in", "direction": "input" },
+        { "id": "out", "direction": "output" }
+      ]
+    },
+    {
+      "id": "Processor",
+      "ports": [
+        { "id": "a", "direction": "input" },
+        { "id": "b", "direction": "input" },
+        { "id": "out", "direction": "output" }
+      ]
+    },
+    { "id": "Sink", "ports": [{ "id": "in", "direction": "input" }] },
+    { "id": "InputBuffer", "label": "Input buffer", "ports": [{ "id": "out", "direction": "output" }] },
+    { "id": "OutputBuffer", "label": "Output buffer", "ports": [{ "id": "in", "direction": "input" }] }
+  ],
+  "groups": [
+    {
+      "id": "Complex",
+      "type": "container",
+      "label": "Complex path: local 60 / 80",
+      "members": ["Router", "Inner", "Sink"],
+      "layout": { "type": "auto", "moduleSpacing": 60, "layerSpacing": 80 }
+    },
+    {
+      "id": "Inner",
+      "type": "container",
+      "label": "Inner compute: 24 / inherited 80",
+      "members": ["ALUA", "ALUB", "Processor"],
+      "layout": { "moduleSpacing": 24 },
+      "style": { "fillColor": "#EFF6FF", "borderColor": "#477DB3" }
+    },
+    {
+      "id": "Regular",
+      "type": "container",
+      "label": "Regular path: inherited 20 / 30",
+      "members": ["InputBuffer", "OutputBuffer"]
+    }
+  ],
+  "connections": [
+    { "id": "Tasks", "from": "Router.out", "to": ["ALUA.in", "ALUB.in"] },
+    { "from": "ALUA.out", "to": ["Processor.a"] },
+    { "from": "ALUB.out", "to": ["Processor.b"] },
+    { "from": "Processor.out", "to": ["Sink.in"] },
+    { "from": "InputBuffer.out", "to": ["OutputBuffer.in"] }
+  ]
+}

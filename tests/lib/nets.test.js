@@ -178,7 +178,7 @@ test('Net targets retain local constraints and survive group views, collapse and
   copyLayout(scoped);
   assert.equal(scoped.connections.length, 1);
   assert.equal(scoped.connections[0].netId, 'control');
-  raw.layout = { type: 'grid', expandGroups: ['G'], cells: [['Master', 'A', 'B', 'C']] };
+  raw.layout = { type: 'grid', cells: [['Master', 'A', 'B', 'C']] };
   copyLayout(await layoutDiagram(createDiagramModel(raw)));
   delete raw.layout;
   raw.groups[0].type = 'collection';

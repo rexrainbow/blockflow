@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Flow-aligned feedback concatenation",
+    "style": {
+      "module": { "portLabel": { "hidden": true } },
+      "connection": { "endArrow": "triangle" }
+    }
+  },
+  "layout": { "direction": "down" },
+  "modules": [
+    {
+      "id": "FilteredInputs",
+      "label": "Filtered inputs",
+      "ports": [{ "id": "out", "direction": "output", "width": 32 }]
+    },
+    {
+      "id": "Sources",
+      "type": "concat",
+      "style": { "fillColor": "#1565C0", "borderColor": "#1565C0", "label": { "hidden": true } },
+      "ports": [
+        { "id": "filtered", "direction": "input", "width": 32 },
+        { "id": "prior", "direction": "input", "width": 4 },
+        { "id": "out", "direction": "output", "width": 36 }
+      ]
+    },
+    {
+      "id": "Logic",
+      "label": "Logic",
+      "ports": [
+        { "id": "in", "direction": "input", "width": 36 },
+        { "id": "out", "direction": "output", "width": 4 }
+      ]
+    }
+  ],
+  "connections": [
+    { "from": "FilteredInputs.out", "to": ["Sources.filtered"], "label": "Filtered inputs\n32 signals" },
+    { "from": "Sources.out", "to": ["Logic.in"], "label": "Source pool\n36 signals" },
+    {
+      "from": "Logic.out",
+      "to": ["Sources.prior"],
+      "feedback": true,
+      "constraint": false,
+      "label": "Prior results\n4 signals",
+      "style": { "lineStyle": "dotted" }
+    }
+  ]
+}

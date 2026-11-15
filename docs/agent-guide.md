@@ -239,11 +239,24 @@ widths must output equal the input sum. This is an authoritative model check; st
 schema validation cannot compare sums. Never infer or propagate widths. Existing connection
 checks still reject unequal explicitly known endpoint widths.
 
-Concat defaults to `{ "type": "bar" }` geometry when `appearance` is omitted; ordinary
-blocks still default to Rectangle. Bar is a portable appearance with no extra parameters,
-compact automatic width and centered output anchors. Explicit relative minima still apply.
-Hide title and port text using `style.label.hidden` / `style.portLabel.hidden` for a thin
-bar. Changing appearance does not remove Concat validation. No automatic bit-range labels are generated. Down flow uses a horizontal bar with inputs ordered left to right. Concat cannot convert to a Boundary group.
+Concat has fixed `bar` geometry: Down uses inputs at the top and output at the bottom
+(horizontal bar); Right uses inputs at the left and output at the right (vertical bar).
+Omit Port `side` to follow Flow. An explicit side must match it, including feedback;
+otherwise validation fails at the Port's `side`. Only omitted appearance or
+`{ "type": "bar" }` is accepted on Concat; ordinary Block appearances remain unrestricted.
+
+The bar body stays thin (12 logical units plus allowance for a border wider than 1),
+while length grows for ordered input slots and receiver labels. Visible module/Port
+names are reserved outside the bar. Width/height minimums apply to its layout envelope,
+not bar thickness; measured node bounds can therefore be larger than the filled body.
+The output is centered between the first and last input. Never infer bit-range labels.
+Connection endpoints and arrow tips attach to the physical bar edges, even when
+multiline titles, visible Port names or explicit size minimums enlarge the layout envelope.
+After ELK placement the runtime restores these physical anchors and reroutes affected
+connections; it does not treat the surrounding text envelope as the Concat body.
+This applies to Auto, Grid and scoped layouts without authoring new coordinates.
+
+Concat cannot convert to a Boundary group. See [concat-feedback.json](../examples/concat-feedback.json).
 
 ### Block appearance and signal notation
 
@@ -278,7 +291,10 @@ image bounds and edge-label avoidance and is shared by SVG, PNG and DOM.
 `feedbackRouting` is `outer` (requires Right or Down). Auto compares accessible sides by
 bends then length. A blocked requested side keeps the original ELK route and reports
 `routingInfo.reason: "outer-access-blocked"`; it does not silently switch sides. Existing
-terminal, boundary-scope and group-view fallbacks still apply. This is a diagram-wide setting.
+terminal, boundary-scope and group-view fallbacks still apply. This is a diagram-wide setting. Ordinary
+Container headings do not block the endpoint access segments, including Down flow.
+Actual hardware and reserved signal-name nodes remain obstacles; Boundary headers
+and collapsed frames retain their protection.
 See [signal schematic](../examples/signal-schematic.json) for all four features together.
 
 ### Portable style fields
@@ -359,6 +375,22 @@ SVG/PNG from this layout show only the group; source JSON still describes the wh
 
 ## Vertical flow
 
+Blockchart uses one layout configuration with module/layer spacing defaults of 20/30.
+The former `layout.density` field is rejected; remove it from authoring JSON. Explicit
+spacing, Grid gaps and physical width/height minimums retain their contracts. See
+[layout defaults and routing](layout-defaults.md).
+
+Routing uses body-stroke channel clearance, endpoint-local arrows, obstacle-aware
+fixed paths and same-side Terminal rails near content. Eligible Auto regions credit
+Container gutters against layer spacing. Ordinary Container titles occupy a top band;
+wires may cross it and overlap the text directly, without a Container title mask.
+Explicit text backgrounds still paint normally. Layout bounds and saved JSON are unchanged.
+
+Ordinary Blocks without visible Port names use title-driven Auto sizing (minimum
+64 x 36, text clearance 12/8 plus label padding and border). Receiver names and Port
+slots may enlarge the face. Explicit width/height units remain 140 x 84; Concat keeps
+its separate thin-bar geometry. See [the title-sized example](../examples/compact-labels.json).
+
 Use `layout.direction: "down"` for Top to bottom. Keep all module, port, terminal and
 connection identities, widths and Concat input order. Inputs use top ports and outputs bottom
 ports, with each side ordered left to right. Text remains horizontal, with space measured
@@ -375,10 +407,33 @@ apply. See [vertical-flow.json](../examples/vertical-flow.json).
 
 ## Grid and overview additions
 
+Groups may set `layout.moduleSpacing` and/or `layout.layerSpacing` independently of
+their layout type. Both are optional finite positive numbers. Omit to inherit the
+nearest ancestor value, then root/default; null is invalid. They affect expanded
+interior Auto layout (including Auto neighbors of a partial Grid), while the parent
+controls external spacing. Grid `rowGap`/`columnGap` remain independent. Group views
+retain inheritance, and collapsed groups preserve inactive overrides. Derived values
+never enter saved group configs. `resolveLayoutSpacing(document, groupId)` from the
+pure library resolves both values without mutation. See
+[local-layout-spacing.json](../examples/local-layout-spacing.json) and
+[spacing contracts](layout-defaults.md#container-local-auto-spacing).
+
 Root `layout` and group `layout` support `type: "auto"` (default) or `"grid"`. Grid requires
 rectangular `cells`, containing any subset of direct members, at most once each, with null for blank cells.
 Root direct members exclude grouped items and Terminals. Rows/columns are screen-space,
 independent of Flow. Optional non-negative `rowGap` and `columnGap` default to 50 and 80.
+They are minimum gaps. Down Grid regions automatically reserve horizontal tracks between
+rows (Right uses vertical tracks between columns) and enlarge only crowded gaps. One
+Net shares a track, disjoint ranges can reuse tracks and different Nets reserve separate
+ink space. Blocked access keeps the prior route; perpendicular crossings remain possible.
+Eligible ordinary Auto Containers also reserve tracks between adjacent geometric
+flow bands, using existing local/inherited layer spacing and adding only missing space.
+This first phase handles congested forward facing-Port links inside one Container;
+cross-Container, skipped-band, feedback and side-facing links retain general routing.
+Grid-controlled and protected subtrees retain their rules. See
+[auto-routing-channels.json](../examples/auto-routing-channels.json),
+[grid-routing-channels.json](../examples/grid-routing-channels.json)
+and [routing contracts](layout-defaults.md#grid-routing-channels).
 Cell sizes are measured, contents centered, and all connections rerouted orthogonally around
 obstacles. Increase gaps/change sides when access is obstructed. Nested grids and scoped
 group views retain IDs; collapse never rewrites stored cells. Unlisted members stay Auto.
@@ -386,11 +441,12 @@ The selected Grid is measured first and placed as one temporary rectangle among 
 neighbors using real placement-affecting connections. Auto never enters the Grid rectangle,
 including its empty tracks. No group or fake signal is added to JSON. An all-null Grid
 reserves no rectangle and leaves every member automatic. New/moved-in members stay Auto;
-removed members leave nulls. See [partial-grid.json](../examples/partial-grid.json).
+deletion commands must explicitly replace removed references with nulls. See [partial-grid.json](../examples/partial-grid.json).
 
-Grid `expandGroups` optionally lists nonempty direct Container IDs. Replace those parent
-IDs in `cells` with all of their direct children, exactly once each; no parent/child double
-placement. Descendants beyond that one level stay inside their own atomic group. Boundary
+Grid expansion is inferred entirely from `cells`. Place a nonempty direct Container ID
+to keep it atomic, or replace it with all of its direct children, exactly once each, to
+expand it. Parent and child IDs cannot coexist. Do not write `expandGroups`; the obsolete
+field is rejected. Descendants beyond that one level stay inside their own atomic group. Boundary
 and Collection cannot be expanded. Each Container's children must span a rectangular region
 containing only its children or null; expanded regions cannot overlap even in empty cells.
 Track gutters reserve headers/borders and minimum group sizes while all cells in a row or
@@ -442,10 +498,16 @@ repetition is documented by labels/caption rather than duplicating hardware inst
 
 ## Port adjustment
 
+Fixed orthogonal routing scores the complete path, including turns between endpoint
+escape segments and the searched middle path. Equal-length clear candidates therefore
+prefer fewer total bends. Departure/arrival directions stay fixed, immediate reversals
+over escape segments are rejected, and obstacle/scope constraints remain intact. This
+changes wire selection without moving Blocks or Ports and adds no authoring option.
+
 By default, `layout.portAdjustment: "reduce-bends"` slides rectangular/stacked Block Ports
 after placement without resizing or moving Blocks. `layout.maxPortShift` bounds movement
 from each initial anchor (default 40 logical units); zero keeps them fixed. Sides, same-side
-order, minimum 24-unit anchor gaps and text clearance remain constraints. Port names follow
+order, minimum 16-unit anchor gaps and text clearance remain constraints. Port names follow
 their anchor. Concat, other appearances, Group Ports and feedback anchors stay fixed.
 Terminal anchors and names move together perpendicular to flow, within the same shift limit.
 Their order and spacing are preserved, and moves overlapping Blocks, Groups or other
@@ -453,10 +515,20 @@ Terminals are rejected. Terminal adjustment also rejects changes that increase
 connection-label clearance warnings. Source signal nodes may slide with their source within the existing wrapper.
 All affected Net branches participate in the comparison; crossing/obstacle counts cannot
 increase. A deterministic search (four passes, 128 trials maximum) accepts improvements in
-bends, length, then displacement. Reserved Inline names follow their Ports; final arrows follow adjustment. This applies to
+bends, displacement, then length. Reserved Inline names follow their Ports; final arrows follow adjustment. This applies to
 Auto, Grid and group views; saved JSON contains settings, never adjusted coordinates.
 Set `layout.portAdjustment: "fixed"` to disable sliding. An obstacle or disjoint ranges can require bends even with adjustment.
 Use examples/port-adjustment.json for a six-interface reference.
+
+Reduce-bends prioritizes fewer bends, then less total displacement from initial
+Port/Terminal anchors, then shorter routed length. It does not move an initially
+fixed anchor solely to shorten a route with the same bend count. Real bend reduction
+can still justify movement within the existing bounds and safety constraints.
+
+Reduce-bends first tries aligning at the current Port position of the less-populated
+face when both endpoints can move. This keeps a centered single-Port interface stable
+when the multi-Port peer can make the alignment. Sparse faces remain movable if that
+choice is blocked or out of range; existing bounds/safety/quality checks still apply.
 
 ## Single-source Nets and source signal nodes
 

@@ -2,7 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'editor.spec.js',
+  // studio.spec.js covers the current UI (src/studio).
+  testMatch: 'studio.spec.js',
   fullyParallel: false,
   workers: 1,
   timeout: 60000,

@@ -1,3 +1,4 @@
+import { LAYOUT_DEFAULTS } from './layout-defaults.js';
 import { groupType } from './group-type.js';
 import { createConnectionContext, boundaryGroups, receivingFaceKey } from './connectivity.js';
 import {
@@ -159,6 +160,23 @@ export function createDiagramModel(input) {
         fail('Concat cannot have bidirectional ports', path + '.ports');
       if (!inputs.length || outputs.length !== 1)
         fail('Concat requires at least one input and exactly one output', `${path}.ports`);
+      const down = input.layout?.direction === 'down';
+      for (const [j, port] of ports.entries()) {
+        const expected = down
+          ? port.direction === 'input'
+            ? 'top'
+            : 'bottom'
+          : port.direction === 'input'
+            ? 'left'
+            : 'right';
+        if (port.side !== expected)
+          fail(
+            `Concat ${port.direction} ports must use the ${expected} side for this Flow; omit side to follow Flow`,
+            `${path}.ports[${j}].side`,
+          );
+      }
+      if (own(module, 'appearance') && module.appearance?.type !== 'bar')
+        fail('Concat has a fixed bar appearance; omit appearance or use bar', `${path}.appearance`);
       if (ports.every((p) => p.width !== null)) {
         const sum = inputs.reduce((total, p) => total + BigInt(p.width), 0n);
         if (sum !== BigInt(outputs[0].width))
@@ -419,6 +437,10 @@ export function createDiagramModel(input) {
   });
 
   const rawLayout = own(input, 'layout') ? input.layout : {};
+  if (rawLayout && Object.hasOwn(rawLayout, 'density'))
+    fail('Remove density; layout uses a single default configuration', 'layout.density');
+  if (rawLayout && Object.hasOwn(rawLayout, 'expandGroups'))
+    fail('Remove expandGroups; Container expansion is inferred from cells', 'layout.expandGroups');
   object(
     rawLayout,
     [
@@ -437,7 +459,6 @@ export function createDiagramModel(input) {
       'cells',
       'rowGap',
       'columnGap',
-      'expandGroups',
     ],
     'layout',
   );
@@ -445,6 +466,7 @@ export function createDiagramModel(input) {
   const direction = option('direction', 'right');
   const routing = option('routing', 'orthogonal');
   const placement = option('placement', 'default');
+  const spacing = LAYOUT_DEFAULTS;
   if (!['fixed', 'reduce-bends'].includes(option('portAdjustment', 'reduce-bends')))
     fail('Expected fixed or reduce-bends', 'layout.portAdjustment');
   const maxPortShift = option('maxPortShift', 40);
@@ -502,8 +524,8 @@ export function createDiagramModel(input) {
       ...(rootGrid.type === 'grid' ? rootGrid : own(rawLayout, 'type') ? { type: 'auto' } : {}),
       feedbackMargin: positive(option('feedbackMargin', 20), 'layout.feedbackMargin'),
       feedbackLaneSpacing: positive(option('feedbackLaneSpacing', 12), 'layout.feedbackLaneSpacing'),
-      moduleSpacing: positive(option('moduleSpacing', 50), 'layout.moduleSpacing'),
-      layerSpacing: positive(option('layerSpacing', 80), 'layout.layerSpacing'),
+      moduleSpacing: positive(option('moduleSpacing', spacing.moduleSpacing), 'layout.moduleSpacing'),
+      layerSpacing: positive(option('layerSpacing', spacing.layerSpacing), 'layout.layerSpacing'),
       ...(own(rawLayout, 'portAdjustment') ? { portAdjustment: rawLayout.portAdjustment } : {}),
       ...(own(rawLayout, 'maxPortShift') ? { maxPortShift } : {}),
     },
