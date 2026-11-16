@@ -5,9 +5,9 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { reconcileGrids, createGridPlan, directGridMembers } from '../../src/lib/blockchart/grid.js';
-import { renameModule, removeModule, removeGroup } from '../../src/editor/state/commands.js';
+import { renameModule, removeModule, removeGroup } from '../../src/editor/blockchart/commands.js';
 const source = JSON.parse(
-  await readFile(new URL('../../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/processor-cross-group-grid.json', import.meta.url), 'utf8'),
 );
 const schema = JSON.parse(
   await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),

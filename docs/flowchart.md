@@ -97,8 +97,12 @@ allows. No source-label virtual Block or destination repetition is used.
 
 Back edges are inferred deterministically by DFS over flow edges and marked as loops only
 in the normalized model. Explicit `kind: "loop"` can disambiguate the intended main path.
-Loops do not determine the main levels. The side defaults to right for vertical flow or
-bottom for horizontal flow; use `layout.loopSide` or explicit edge sides to change it.
+Loops do not determine the main levels. With `layout.loopSide: "auto"`, routing tries
+both perpendicular sides and selects a clear route using length plus bend cost.
+Local candidates consider node/group extents overlapping the return span, while all
+obstacles remain active; full outer routes remain fallbacks. Ties prefer right for
+vertical flow or bottom for horizontal flow. Explicit `layout.loopSide` retains its
+fixed side; explicit edge endpoint sides are respected in either mode.
 This detects graph back edges, not programming-language loop semantics.
 
 Notes require `attachTo`, or a node-to-note association from which attachment can be
@@ -110,7 +114,9 @@ styles, are configurable through `diagram.style.node`, `.note` and local `node.s
 
 Layout fields: `direction` (down/right/up/left), positive `nodeSpacing` (40),
 `layerSpacing` (60), `noteGap` (40), and `loopSide` (auto/left/right/top/bottom). A global
-loop side must be perpendicular to flow. Group loops reserve additional interior lanes.
+loop side must be perpendicular to flow. Group loops reserve additional interior lanes;
+auto reserves both perpendicular sides so either candidate can stay inside the group.
+Group bounds and route positions may change when auto chooses a different side.
 
 Node/group style fields: `fillColor`, `borderColor`, positive `borderWidth`, `borderStyle`,
 non-negative `borderRadius`, `color`, positive `fontSize`, non-negative `padding`, and
@@ -123,6 +129,24 @@ Positions, paths and label bounds appear only in the layout result. SVG contains
 and shapes; it does not execute HTML or include editor overlays. Inspect `layout.warnings`
 for `FLOW_LABEL_OVERLAP`; complicated charts may need larger spacing or explicit sides.
 
+Condition labels prefer the middle of an exclusive straight section of their own
+wire. Text stays horizontal in every flow direction. The full label box leaves
+space around bends, endpoints, arrows and intersections; junction clearance scales
+with font size (at least 14 layout units). Shared trunks cannot host a label while
+another edge still occupies that section. The existing `labelBackgroundColor`
+rectangle masks the owning wire under the text; its color/opacity settings remain
+respected. Other wire strokes must still clear the label.
+
+Placement avoids nodes, group titles and other labels. If inline placement fails,
+bounded local rerouting may move conflicting wires without moving nodes or changing
+endpoint sides. Already labeled routes remain fixed. Trials commit together only
+when all involved wires clear existing labels and the candidate; failed trials
+retain original paths. As a last resort a label may sit beside its wire, with a
+`FLOW_LABEL_OVERLAP` warning explaining the fallback. Unresolved node/label/wire
+conflicts also use that diagnostic. Short or crowded connections can therefore
+report a warning even when a beside-wire placement avoids actual overlaps. This
+is best effort; no new authoring fields are required.
+
 ## Source ownership
 
 `src/lib/flowchart` owns this schema's parser, model, geometry, layout and renderer.
@@ -133,3 +157,10 @@ and platform-specific image exporters. Neither domain depends on the other.
 Existing `src/lib/index.js`, `node.js`, `browser.js` and `export/dom.js` retain their public
 Blockchart exports. Internal imports use their new domain locations. Shared tools contain
 no Net, hardware Port, decision, note-attachment or editor-state policy.
+
+## Text alignment
+
+Text styles accept `textAlign: "left" | "center" | "right"` for lines inside the
+existing text block. Omission preserves current alignment; geometry and single-line
+placement stay unchanged. See [the shared alignment contract](text-alignment.md)
+for inheritance, field paths and Statechart description alignment.

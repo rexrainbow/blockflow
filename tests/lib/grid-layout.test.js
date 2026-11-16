@@ -6,10 +6,10 @@ import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { fixture } from './helpers.js';
-import { renameModule, removeModule, validateDocument } from '../../src/editor/state/commands.js';
+import { renameModule, removeModule, validateDocument } from '../../src/editor/blockchart/commands.js';
 import { reconcileGrids } from '../../src/lib/blockchart/grid.js';
 const example = JSON.parse(
-  await readFile(new URL('../../examples/processor-overview.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/processor-overview.json', import.meta.url), 'utf8'),
 );
 const schema = JSON.parse(
   await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),

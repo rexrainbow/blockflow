@@ -4,16 +4,17 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { convertDiagram } from '../src/agent-kit/blockchart-converter.js';
 
-// The bundled list, read from src/studio/examples.js so the tests follow it.
+// The bundled list, read from src/studio/blockchart/examples.js so the tests follow it.
 const EXAMPLES = [
-  ...(await readFile(new URL('../src/studio/examples.js', import.meta.url), 'utf8')).matchAll(
-    /examples\/([\w-]+)\.json/g,
+  ...(await readFile(new URL('../src/studio/blockchart/examples.js', import.meta.url), 'utf8')).matchAll(
+    /examples\/blockchart\/([\w-]+)\.json/g,
   ),
 ].map((m) => m[1]);
+if (!EXAMPLES.length) throw new Error('No bundled examples found in src/studio/blockchart/examples.js');
 const FIRST = EXAMPLES[0];
 
 const readExample = async (name) =>
-  JSON.parse(await readFile(new URL(`../examples/${name}.json`, import.meta.url), 'utf8'));
+  JSON.parse(await readFile(new URL(`../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
 
 async function ready(page) {
   await page.waitForFunction(
@@ -210,7 +211,9 @@ test('adding a block to an expanded container places it; opening a file keeps it
   expect(await page.evaluate(() => window.__studio.store.document)).toEqual(source);
 });
 
-test('spacing defaults: no Density control; dots show default vs set, Undo, save and group view', async ({ page }) => {
+test('spacing defaults: no Density control; dots show default vs set, Undo, save and group view', async ({
+  page,
+}) => {
   test.setTimeout(120000); // several full relayouts of the processor example
   // Works before and after the runtime drops density: start from a document without it.
   const source = await readExample('processor-components');
@@ -277,7 +280,10 @@ test('spacing defaults: no Density control; dots show default vs set, Undo, save
   await expect.poll(docLayout).toEqual({ direction: 'down' });
 
   // Saved JSON holds only authoring values: no defaults are written.
-  const [download] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => window.__studio.saveJson())]);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
   const saved = JSON.parse(await readFile(await download.path(), 'utf8'));
   expect(saved).toEqual({ ...source, layout: { direction: 'down' } });
 
@@ -315,7 +321,9 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
 
   // The toolbar adds the next input (a second output is not allowed).
   await page.getByRole('button', { name: 'Add input port (next in order)' }).click();
-  await expect.poll(async () => (await concat()).ports.map((p) => p.direction)).toEqual(['input', 'input', 'output', 'input']);
+  await expect
+    .poll(async () => (await concat()).ports.map((p) => p.direction))
+    .toEqual(['input', 'input', 'output', 'input']);
   expect((await concat()).ports[3]).not.toHaveProperty('side');
   await svgMatches();
 
@@ -326,21 +334,30 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
   await label.press('Control+Enter');
   await expect.poll(async () => (await concat()).label).toBe('Source pool');
   await svgMatches();
-  const bar = await page.evaluate(() => window.__studio.store.layout.layout.modules.find((m) => m.id === 'Sources'));
+  const bar = await page.evaluate(() =>
+    window.__studio.store.layout.layout.modules.find((m) => m.id === 'Sources'),
+  );
   expect(bar.body.shapes[0].height).toBeLessThanOrEqual(12);
 
   // Changing Flow clears explicit Concat sides in the same step.
-  await page.getByRole('radiogroup', { name: 'Flow direction' }).getByRole('radio', { name: 'L → R' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Flow direction' })
+    .getByRole('radio', { name: 'L → R' })
+    .click();
   await expect.poll(async () => (await doc()).layout).toBeUndefined();
   expect((await concat()).ports.every((p) => p.side === undefined)).toBe(true);
   await svgMatches();
   await page.locator('.outline').getByText('Source pool', { exact: true }).click();
   await expect(sides).toHaveText(['Left', 'Left', 'Right', 'Left']);
-  const right = await page.evaluate(() => window.__studio.store.layout.layout.modules.find((m) => m.id === 'Sources'));
+  const right = await page.evaluate(() =>
+    window.__studio.store.layout.layout.modules.find((m) => m.id === 'Sources'),
+  );
   expect(right.ports.map((p) => p.side)).toEqual(['left', 'left', 'right', 'left']);
   expect(right.body.shapes[0].width).toBeLessThanOrEqual(12);
   // Port hit targets sit on the published anchors.
-  const hits = await page.$$eval('.hit-port[data-owner="Sources"]', (els) => els.map((e) => [+e.getAttribute('cx'), +e.getAttribute('cy')]));
+  const hits = await page.$$eval('.hit-port[data-owner="Sources"]', (els) =>
+    els.map((e) => [+e.getAttribute('cx'), +e.getAttribute('cy')]),
+  );
   expect(hits).toEqual(right.ports.map((p) => [p.x, p.y]));
 
   // Undo restores Down and the authored sides; Redo clears them again.
@@ -363,7 +380,10 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
   await svgMatches();
 
   // Saved JSON holds only authoring values.
-  const [download] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => window.__studio.saveJson())]);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
   const saved = JSON.parse(await readFile(await download.path(), 'utf8'));
   expect(saved).toEqual(await doc());
   expect(JSON.stringify(saved)).not.toContain('"body"');
@@ -376,7 +396,9 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
   ]) {
     const file = structuredClone(source);
     broken(file);
-    await page.locator('input[type="file"]').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
     await expect(page.locator('.toasts')).toContainText(path);
     expect(await doc()).toEqual(before);
   }
@@ -384,10 +406,14 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
 
 test('Copy JSON puts exactly the saved file on the clipboard, from any view', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  const [download] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => window.__studio.saveJson())]);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
   const saved = await readFile(await download.path(), 'utf8');
   // The OS clipboard may turn \n into \r\n on Windows; the text is otherwise identical.
-  const clipboard = async () => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n');
+  const clipboard = async () =>
+    (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n');
   const doc = await page.evaluate(() => window.__studio.store.document);
 
   // File menu.
@@ -413,9 +439,13 @@ test('Copy JSON puts exactly the saved file on the clipboard, from any view', as
   await expect.poll(clipboard).toBe(saved);
 });
 
-test('Copy JSON falls back to a dialog with the text selected when the clipboard is blocked', async ({ page }) => {
+test('Copy JSON falls back to a dialog with the text selected when the clipboard is blocked', async ({
+  page,
+}) => {
   await page.evaluate(() => {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('blocked')) } });
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('blocked')) },
+    });
     document.execCommand = () => false;
   });
   const text = await page.evaluate(() => JSON.stringify(window.__studio.store.document, null, 2) + '\n');
@@ -451,8 +481,15 @@ test('retired layout.density: opened files and a stored draft report the runtime
   }
 
   // A draft stored before the change is kept aside, reported, and offered back unchanged.
-  const draft = { ...source, diagram: { ...source.diagram, name: 'Old draft' }, layout: { direction: 'down', density: 'compact' } };
-  await page.evaluate((d) => localStorage.setItem('blockflow.editor.v1', JSON.stringify({ document: d })), draft);
+  const draft = {
+    ...source,
+    diagram: { ...source.diagram, name: 'Old draft' },
+    layout: { direction: 'down', density: 'compact' },
+  };
+  await page.evaluate(
+    (d) => localStorage.setItem('blockflow.editor.v1', JSON.stringify({ document: d })),
+    draft,
+  );
   await page.reload();
   await ready(page);
   const notice = page.locator('.toast.error', { hasText: 'Your last browser diagram was not opened' });
@@ -461,7 +498,9 @@ test('retired layout.density: opened files and a stored draft report the runtime
   expect(await page.evaluate(() => window.__studio.store.document.diagram.name)).toBe(source.diagram.name);
   // Autosave of the replacement document does not destroy the kept draft.
   await page.waitForTimeout(500);
-  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('blockflow.editor.v1.rejected'))).document).toEqual(draft);
+  expect(
+    JSON.parse(await page.evaluate(() => localStorage.getItem('blockflow.editor.v1.rejected'))).document,
+  ).toEqual(draft);
 
   // The notice is shown once: dismissing it and reloading does not report it again.
   await notice.getByRole('button', { name: 'Dismiss' }).click();
@@ -491,7 +530,8 @@ test('Container titles overlap wires continuously; the current drawing owns its 
     page.evaluate(() => {
       const svg = document.querySelector('.art:not(.leaving) svg');
       return {
-        titleMasks: svg.querySelectorAll('[data-role="container-title-mask"], [id$="container-title-mask"]').length,
+        titleMasks: svg.querySelectorAll('[data-role="container-title-mask"], [id$="container-title-mask"]')
+          .length,
         layerMask: svg.querySelector('[data-role="connection-layer"]')?.getAttribute('mask') ?? null,
         labelMasks: svg.querySelectorAll('mask[id*="connection-label-mask"]').length,
       };
@@ -506,12 +546,17 @@ test('Container titles overlap wires continuously; the current drawing owns its 
       const leaving = document.querySelector('.art.leaving');
       if (!leaving) return false;
       const current = document.querySelector('.art:not(.leaving)');
-      const dup = [...current.querySelectorAll('[id]')].filter((el) => document.querySelectorAll(`[id="${CSS.escape(el.id)}"]`).length > 1);
-      const refs = [...leaving.querySelectorAll('[mask]')].map((el) => el.getAttribute('mask').match(/#([^)]+)/)[1]);
+      const dup = [...current.querySelectorAll('[id]')].filter(
+        (el) => document.querySelectorAll(`[id="${CSS.escape(el.id)}"]`).length > 1,
+      );
+      const refs = [...leaving.querySelectorAll('[mask]')].map(
+        (el) => el.getAttribute('mask').match(/#([^)]+)/)[1],
+      );
       return {
         duplicates: dup.length,
         leavingRenamed: [...leaving.querySelectorAll('[id]')].every((el) => el.id.startsWith('leaving-')),
-        leavingRefsResolveInside: refs.length > 0 && refs.every((id) => leaving.querySelector(`[id="${CSS.escape(id)}"]`)),
+        leavingRefsResolveInside:
+          refs.length > 0 && refs.every((id) => leaving.querySelector(`[id="${CSS.escape(id)}"]`)),
       };
     },
     null,
@@ -522,7 +567,11 @@ test('Container titles overlap wires continuously; the current drawing owns its 
     d.layout = { ...d.layout, moduleSpacing: 40 };
     window.__studio.replaceKeepingUndo(d, 'test');
   });
-  expect(await (await fade).jsonValue()).toEqual({ duplicates: 0, leavingRenamed: true, leavingRefsResolveInside: true });
+  expect(await (await fade).jsonValue()).toEqual({
+    duplicates: 0,
+    leavingRenamed: true,
+    leavingRefsResolveInside: true,
+  });
   await ready(page);
   await page.waitForTimeout(300);
   expect(await page.locator('.art').count()).toBe(1);
@@ -560,9 +609,14 @@ test('Container titles overlap wires continuously; the current drawing owns its 
   expect(hit).toBe(true);
 });
 
-test('a group moves into another group by its title, Move to… or Inside; never into itself', async ({ page }) => {
+test('a group moves into another group by its title, Move to… or Inside; never into itself', async ({
+  page,
+}) => {
   const parentOf = (id) =>
-    page.evaluate((id) => window.__studio.store.document.groups.find((g) => g.members.includes(id))?.id ?? '', id);
+    page.evaluate(
+      (id) => window.__studio.store.document.groups.find((g) => g.members.includes(id))?.id ?? '',
+      id,
+    );
   await page.evaluate(() => window.__studio.canvas.fit());
   await page.waitForTimeout(250);
   // Zoomed out, every title strip (the group's drag handle) stays at least 16 screen px tall.
@@ -570,7 +624,9 @@ test('a group moves into another group by its title, Move to… or Inside; never
   const short = await page.$$eval('[data-hit="group-title"]', (els) =>
     els
       .map((e) => {
-        const box = document.querySelector(`[data-hit="group"][data-id="${e.dataset.id}"]`).getBoundingClientRect();
+        const box = document
+          .querySelector(`[data-hit="group"][data-id="${e.dataset.id}"]`)
+          .getBoundingClientRect();
         return { id: e.dataset.id, title: e.getBoundingClientRect().height, group: box.height };
       })
       .filter((t) => t.title < Math.min(16, t.group) - 0.5),
@@ -608,7 +664,9 @@ test('a group moves into another group by its title, Move to… or Inside; never
   await ready(page);
 
   // Context menu › Move to…: the current parent is marked; the group itself and its descendants are absent.
-  await page.evaluate(() => window.__studio.contextMenu({ type: 'group', id: 'Processor' }, { x: 300, y: 200 }));
+  await page.evaluate(() =>
+    window.__studio.contextMenu({ type: 'group', id: 'Processor' }, { x: 300, y: 200 }),
+  );
   await page.getByRole('menuitem', { name: 'Move to…' }).click();
   const offered = await page.$$eval('.menu .menu-item', (els) => els.map((e) => e.textContent.trim()));
   expect(offered).toEqual(['Top level', 'Input subsystem', 'Input conditioning', 'Interrupts']);
@@ -639,7 +697,8 @@ test('group spacing: inherited vs set per property, clear, invalid, root and mod
   await page.waitForTimeout(250);
   await ready(page);
   const doc = () => page.evaluate(() => window.__studio.store.document);
-  const groupLayout = (id) => page.evaluate((id) => window.__studio.store.document.groups.find((g) => g.id === id).layout, id);
+  const groupLayout = (id) =>
+    page.evaluate((id) => window.__studio.store.document.groups.find((g) => g.id === id).layout, id);
   const svgMatches = async (options = {}) => {
     await page.waitForTimeout(250);
     await ready(page);
@@ -664,7 +723,10 @@ test('group spacing: inherited vs set per property, clear, invalid, root and mod
   await expect(ls).toHaveAttribute('placeholder', '80');
   await expect(lsDot).not.toContainClass('on');
   await expect(lsDot).toHaveAttribute('title', 'Inherited from group Complex (80)');
-  await expect(msDot).toHaveAttribute('title', 'Set on this group — click to inherit from group Complex (60)');
+  await expect(msDot).toHaveAttribute(
+    'title',
+    'Set on this group — click to inherit from group Complex (60)',
+  );
 
   // The dot clears only that property; the now-empty layout object is removed.
   await msDot.click();
@@ -704,7 +766,9 @@ test('group spacing: inherited vs set per property, clear, invalid, root and mod
   await open('Complex');
   await page.locator('[data-fid="grid-mode-grid"]').click();
   await expect(page.locator('[data-hint="spacing-grid"]')).toHaveCount(1);
-  await expect.poll(() => groupLayout('Complex')).toMatchObject({ type: 'grid', moduleSpacing: 60, layerSpacing: 80 });
+  await expect
+    .poll(() => groupLayout('Complex'))
+    .toMatchObject({ type: 'grid', moduleSpacing: 60, layerSpacing: 80 });
   await page.locator('[data-fid="grid-mode-auto"]').click();
   await expect.poll(() => groupLayout('Complex')).toEqual({ moduleSpacing: 60, layerSpacing: 80 });
   await svgMatches();
@@ -718,7 +782,10 @@ test('group spacing: inherited vs set per property, clear, invalid, root and mod
   await page.evaluate(() => window.__studio.enterGroup('Complex'));
   await svgMatches({ rootGroupId: 'Complex' });
   await page.evaluate(() => window.__studio.enterGroup(''));
-  const [download] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => window.__studio.saveJson())]);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
   const saved = JSON.parse(await readFile(await download.path(), 'utf8'));
   expect(saved).toEqual(await doc());
   expect(saved.groups.find((g) => g.id === 'Inner').layout).toEqual({ moduleSpacing: 24 });

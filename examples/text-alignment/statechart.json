@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Statechart text alignment",
+    "style": {
+      "state": { "textAlign": "center", "descriptionAlign": "left" },
+      "transition": { "textAlign": "right" }
+    }
+  },
+  "states": [
+    { "id": "Initial", "kind": "initial" },
+    { "id": "Idle", "label": "Waiting state\nIdle", "description": "output = 0\nenable = false" },
+    {
+      "id": "Active",
+      "label": "Processing state\nActive",
+      "description": "output = 1\nenable = true",
+      "style": { "descriptionAlign": "right" }
+    }
+  ],
+  "transitions": [
+    { "from": "Initial", "to": "Idle" },
+    { "from": "Idle", "to": "Active", "label": "request received\nstart" },
+    { "from": "Active", "to": "Idle", "label": "processing complete\nstop" }
+  ]
+}

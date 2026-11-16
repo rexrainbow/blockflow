@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { ancestors, descendants } from '../../src/lib/blockchart/hierarchy.js';
 import { checkLayout, freeze } from './helpers.js';
-const fixture = JSON.parse(await readFile(new URL('../../examples/nested-groups.json', import.meta.url), 'utf8'));
+const fixture = JSON.parse(await readFile(new URL('../../examples/blockchart/nested-groups.json', import.meta.url), 'utf8'));
 test('styled startup example fits all labels after compact routing without global spacing retries',async()=>{
   const layout=await layoutDiagram(createDiagramModel(fixture));
   assert.equal(layout.warnings,undefined);

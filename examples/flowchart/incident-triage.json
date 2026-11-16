@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "diagram": { "name": "Incident triage" },
+  "layout": { "direction": "right" },
+  "nodes": [
+    { "id": "Alert", "type": "terminator", "label": "Alert fires" },
+    { "id": "Ack", "label": "Acknowledge\nwithin 5 min" },
+    { "id": "Customer", "type": "decision", "label": "Customers\naffected?" },
+    { "id": "Declare", "label": "Declare incident\nopen a channel", "style": { "fillColor": "#fde8e8", "borderColor": "#b42318" } },
+    { "id": "Mitigate", "label": "Mitigate" },
+    { "id": "Fixed", "type": "decision", "label": "Resolved?" },
+    { "id": "Ticket", "label": "File a ticket" },
+    { "id": "Review", "label": "Post-incident\nreview" },
+    { "id": "Close", "type": "terminator", "label": "Close" },
+    { "id": "CommsNote", "type": "note", "label": "Update the status\npage every 30 min", "attachTo": "Declare" }
+  ],
+  "edges": [
+    { "from": "Alert", "to": "Ack" },
+    { "from": "Ack", "to": "Customer" },
+    { "from": "Customer", "to": "Declare", "label": "Yes" },
+    { "from": "Customer", "to": "Ticket", "label": "No" },
+    { "from": "Declare", "to": "Mitigate" },
+    { "from": "Mitigate", "to": "Fixed" },
+    { "from": "Fixed", "to": "Mitigate", "label": "No" },
+    { "from": "Fixed", "to": "Review", "label": "Yes" },
+    { "from": "Review", "to": "Close" },
+    { "from": "Ticket", "to": "Close" }
+  ],
+  "groups": [
+    { "id": "Response", "label": "Incident response", "members": ["Declare", "CommsNote", "Mitigate", "Fixed"] }
+  ]
+}

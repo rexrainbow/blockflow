@@ -1,0 +1,26 @@
+stateDiagram-v2
+    direction TB
+    %% No initial transition is inferred from DOT's IDLE shape.
+    %% DOT colors and dashed edges are omitted in the supported Mermaid subset.
+
+    IDLE: IDLE
+    IDLE: (idle-output)
+    INIT: INIT
+    INIT: (idle-output)
+    HI: HI
+    HI: (1)
+    LO: LO
+    LO: (0)
+
+    IDLE --> INIT: Function-Start && Has Initial-delay
+    IDLE --> HI: Function-start && No Initial-delay
+    INIT --> HI
+    HI --> LO
+    LO --> HI: Not last-cycle
+    LO --> IDLE: Is last-cycle && Not continue-mode
+    LO --> INIT: Is last-cycle && continue-mode && Has Initial-delay
+    LO --> HI: Is last-cycle && continue-mode && No Initial-delay
+
+    INIT --> IDLE: Function-Stop
+    HI --> IDLE: Function-Stop
+    LO --> IDLE: Function-Stop

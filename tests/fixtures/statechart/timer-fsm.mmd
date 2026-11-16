@@ -1,0 +1,23 @@
+stateDiagram-v2
+    direction TB
+    %% IDLE is marked initial for this example; the DOT does not specify reset semantics.
+    [*] --> IDLE
+    IDLE: IDLE
+    IDLE: idle-output
+    INIT: INIT
+    INIT: idle-output
+    HI: HI
+    HI: output = 1
+    LO: LO
+    LO: output = 0
+    IDLE --> INIT: Function-Start && Has Initial-delay
+    IDLE --> HI: Function-Start && No Initial-delay
+    INIT --> HI
+    HI --> LO
+    LO --> HI: Not last-cycle
+    LO --> IDLE: Is last-cycle && Not continue-mode
+    LO --> INIT: Is last-cycle && continue-mode && Has Initial-delay
+    LO --> HI: Is last-cycle && continue-mode && No Initial-delay
+    INIT --> IDLE: Function-Stop
+    HI --> IDLE: Function-Stop
+    LO --> IDLE: Function-Stop

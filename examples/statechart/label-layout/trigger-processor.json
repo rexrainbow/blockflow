@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Trigger processor FSM with topology-first placement"
+  },
+  "layout": {
+    "direction": "down",
+    "labelMaxWidth": 240
+  },
+  "states": [
+    {
+      "id": "IDLE"
+    },
+    {
+      "id": "InitSkip",
+      "label": "Init-skip"
+    },
+    {
+      "id": "Sample"
+    },
+    {
+      "id": "Skip"
+    },
+    {
+      "id": "InitSkipPause",
+      "label": "Pause",
+      "description": "from Init-skip"
+    },
+    {
+      "id": "SamplePause",
+      "label": "Pause",
+      "description": "from Sample"
+    },
+    {
+      "id": "SkipPause",
+      "label": "Pause",
+      "description": "from Skip"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "IDLE",
+      "to": "InitSkip",
+      "label": "(Turn on) && (Has Init-skip)"
+    },
+    {
+      "from": "IDLE",
+      "to": "Sample",
+      "label": "(Turn on) && (No Init-skip)"
+    },
+    {
+      "from": "InitSkip",
+      "to": "Sample"
+    },
+    {
+      "from": "Sample",
+      "to": "Skip",
+      "label": "(Has skip)"
+    },
+    {
+      "from": "Skip",
+      "to": "Sample",
+      "label": "(Infinity cycles) || (Has next-cycle)"
+    },
+    {
+      "from": "Sample",
+      "to": "IDLE",
+      "label": "(No skip) && (Cycle end)"
+    },
+    {
+      "from": "Skip",
+      "to": "IDLE",
+      "label": "(Has skip) && (Cycle end)"
+    },
+    {
+      "from": "InitSkip",
+      "to": "IDLE",
+      "label": "(Turn off) && (Stop mode is RESET)"
+    },
+    {
+      "from": "Sample",
+      "to": "IDLE",
+      "label": "(Turn off) && (Stop mode is RESET)"
+    },
+    {
+      "from": "Skip",
+      "to": "IDLE",
+      "label": "(Turn off) && (Stop mode is RESET)"
+    },
+    {
+      "from": "InitSkip",
+      "to": "InitSkipPause",
+      "label": "(Turn off) && (Stop mode is PAUSE)"
+    },
+    {
+      "from": "Sample",
+      "to": "SamplePause",
+      "label": "(Turn off) && (Stop mode is PAUSE)"
+    },
+    {
+      "from": "Skip",
+      "to": "SkipPause",
+      "label": "(Turn off) && (Stop mode is PAUSE)"
+    },
+    {
+      "from": "InitSkipPause",
+      "to": "InitSkip",
+      "label": "(Turn on)"
+    },
+    {
+      "from": "SamplePause",
+      "to": "Sample",
+      "label": "(Turn on)"
+    },
+    {
+      "from": "SkipPause",
+      "to": "Skip",
+      "label": "(Turn on)"
+    }
+  ]
+}

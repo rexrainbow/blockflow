@@ -113,7 +113,7 @@ for (const direction of ['right', 'down']) {
 
   test(`Feedback enters the normal input face and repeated labels cannot thicken Concat (${direction})`, async () => {
     const raw = JSON.parse(
-      await readFile(new URL('../../examples/concat-feedback.json', import.meta.url), 'utf8'),
+      await readFile(new URL('../../examples/blockchart/concat-feedback.json', import.meta.url), 'utf8'),
     );
     raw.layout.direction = direction;
     for (const e of raw.connections) {

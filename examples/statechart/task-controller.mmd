@@ -1,0 +1,39 @@
+stateDiagram-v2
+    direction TB
+    %% A batch task controller with optional preparation and inter-step intervals.
+    %% Seven states, sixteen independent transitions, and three pause/resume pairs.
+
+    Idle: Idle
+    Idle: awaiting a new batch
+    Preparing: Preparing
+    Preparing: initialize the batch
+    Running: Running
+    Running: process work steps
+    Waiting: Waiting
+    Waiting: between work steps
+
+    state "Paused" as PreparingPaused
+    PreparingPaused: from Preparing
+    state "Paused" as RunningPaused
+    RunningPaused: from Running
+    state "Paused" as WaitingPaused
+    WaitingPaused: from Waiting
+
+    Idle --> Preparing: Start requested && preparation is enabled
+    Idle --> Running: Start requested && preparation is disabled
+    Preparing --> Running: Preparation complete
+    Running --> Waiting: Step complete && interval is enabled
+    Waiting --> Running: Interval complete && (repeat forever || steps remain)
+    Running --> Idle: Batch complete && interval is disabled
+    Waiting --> Idle: Interval complete && batch complete
+
+    Preparing --> Idle: Stop requested && stop mode is Reset
+    Running --> Idle: Stop requested && stop mode is Reset
+    Waiting --> Idle: Stop requested && stop mode is Reset
+
+    Preparing --> PreparingPaused: Stop requested && stop mode is Pause
+    Running --> RunningPaused: Stop requested && stop mode is Pause
+    Waiting --> WaitingPaused: Stop requested && stop mode is Pause
+    PreparingPaused --> Preparing: Resume requested
+    RunningPaused --> Running: Resume requested
+    WaitingPaused --> Waiting: Resume requested

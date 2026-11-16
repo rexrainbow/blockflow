@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Blockchart text alignment",
+    "style": {
+      "text": { "textAlign": "left" },
+      "module": { "label": { "textAlign": "center" } },
+      "connection": { "label": { "backgroundColor": "#fff4cc" } }
+    }
+  },
+  "modules": [
+    {
+      "id": "Source",
+      "label": "Signal processor\nCore A",
+      "ports": [
+        { "id": "in", "direction": "input", "label": "External request\ninput" },
+        { "id": "out", "direction": "output", "label": "Processed value\ndata" }
+      ]
+    },
+    {
+      "id": "Sink",
+      "label": "Result storage\nBank B",
+      "style": { "label": { "textAlign": "right" } },
+      "ports": [
+        { "id": "in", "direction": "input", "label": "Incoming value\ndata" },
+        { "id": "out", "direction": "output", "label": "Completion flag\ndone" }
+      ]
+    }
+  ],
+  "groups": [{ "id": "Pipeline", "label": "Processing pipeline\nTwo stages", "members": ["Source", "Sink"] }],
+  "terminals": [
+    { "id": "Request", "direction": "input", "label": "Command request\nstart" },
+    {
+      "id": "Done",
+      "direction": "output",
+      "label": "Completion status\nready",
+      "style": { "textAlign": "right" }
+    }
+  ],
+  "connections": [
+    { "from": { "terminal": "Request" }, "to": ["Source.in"] },
+    { "from": "Source.out", "to": ["Sink.in"], "label": "Shared data value\npayload" },
+    { "from": "Sink.out", "to": [{ "terminal": "Done" }] }
+  ]
+}

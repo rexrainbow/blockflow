@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Flowchart text alignment",
+    "style": {
+      "node": { "textAlign": "left" },
+      "edge": { "textAlign": "right" },
+      "group": { "textAlign": "right" },
+      "note": { "textAlign": "left" }
+    }
+  },
+  "nodes": [
+    { "id": "Start", "label": "Begin request\nstep 1" },
+    { "id": "Work", "label": "Process request\nstep 2", "style": { "textAlign": "center" } },
+    {
+      "id": "Note",
+      "type": "note",
+      "label": "Additional information\nShort detail\nAnother detail",
+      "attachTo": "Work"
+    }
+  ],
+  "edges": [{ "from": "Start", "to": "Work", "label": "Request is ready\ngo" }],
+  "groups": [
+    { "id": "Steps", "label": "Request processing\nTwo steps", "members": ["Start", "Work", "Note"] }
+  ]
+}

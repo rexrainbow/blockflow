@@ -7,8 +7,8 @@ import {copyLayout} from '../../src/lib/blockchart/view/layout.js';
 import {descendants} from '../../src/lib/blockchart/hierarchy.js';
 import {createConnectionContext} from '../../src/lib/blockchart/connectivity.js';
 import {freeze} from './helpers.js';
-const boundary=JSON.parse(await readFile(new URL('../../examples/boundary-groups.json',import.meta.url),'utf8'));
-const collection=JSON.parse(await readFile(new URL('../../examples/collection-instances.json',import.meta.url),'utf8'));
+const boundary=JSON.parse(await readFile(new URL('../../examples/blockchart/boundary-groups.json',import.meta.url),'utf8'));
+const collection=JSON.parse(await readFile(new URL('../../examples/blockchart/collection-instances.json',import.meta.url),'utf8'));
 
 for(const rootGroupId of ['Inner','Outer']) for(const direction of ['right']) test('group view isolates the complete boundary interface and internal graph '+rootGroupId+' '+direction,async()=>{
   const raw=structuredClone(boundary);raw.layout.direction=direction;

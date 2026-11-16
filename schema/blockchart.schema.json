@@ -165,6 +165,10 @@
           "type": "boolean",
           "default": false,
           "description": "Hide text, background and width notation without reserving text space. The owning object and endpoints remain."
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "Align lines within the existing measured text block; omission preserves current alignment."
         }
       }
     },
@@ -902,6 +906,10 @@
           "$ref": "#/$defs/nonNegative",
           "default": 0,
           "description": "Label background/frame corner radius in logical SVG units, clamped to its dimensions."
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "Align lines within the existing measured text block; omission preserves current alignment."
         }
       }
     },

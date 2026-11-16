@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
-  root: fileURLToPath(new URL('./examples/', import.meta.url)),
+  root: fileURLToPath(new URL('./examples/blockchart/', import.meta.url)),
   base: './',
   build: {
     outDir: fileURLToPath(new URL('./dist-dom/', import.meta.url)),
@@ -11,7 +11,7 @@ export default defineConfig({
     modulePreload: false,
     chunkSizeWarningLimit: 2000,
     rolldownOptions: {
-      input: fileURLToPath(new URL('./examples/dom-viewer.html', import.meta.url)),
+      input: fileURLToPath(new URL('./examples/blockchart/dom-viewer.html', import.meta.url)),
       output: {
         format: 'iife',
         entryFileNames: 'app.js',

@@ -79,11 +79,9 @@ test('Mermaid batch fixture compiles into stable portable JSON and infers a loop
   const node = (id) => result.nodes.find((n) => n.id === id),
     loop = result.edges.find((e) => e.kind === 'loop');
   assert.equal(loop.label, 'Yes');
-  assert.equal(loop.fromSide, 'right');
-  assert.equal(loop.toSide, 'right');
-  assert.ok(
-    Math.max(...loop.sections[0].points.map((p) => p.x)) > node('Settings').x + node('Settings').width,
-  );
+  assert.equal(loop.fromSide, 'left');
+  assert.equal(loop.toSide, 'left');
+  assert.ok(Math.min(...loop.sections[0].points.map((p) => p.x)) < node('StageWrite').x);
   assert.ok(node('Settings').x > node('StageWrite').x + node('StageWrite').width);
   near(
     node('Settings').y + node('Settings').height / 2,
@@ -95,7 +93,24 @@ test('Mermaid batch fixture compiles into stable portable JSON and infers a loop
   const no = result.edges.find((e) => e.label === 'No'),
     yes = loop;
   assert.ok(no.labelBounds.y > node('MoreWrites').y + node('MoreWrites').height);
-  assert.ok(yes.labelBounds.x > node('MoreWrites').x + node('MoreWrites').width);
+  assert.ok(
+    yes.sections.some(({ points }) =>
+      points.slice(1).some((b, i) => {
+        const a = points[i],
+          p = yes.labelPosition;
+        return (
+          (Math.abs(a.x - b.x) < 1e-6 &&
+            Math.abs(p.x - a.x) < 1e-6 &&
+            p.y >= Math.min(a.y, b.y) &&
+            p.y <= Math.max(a.y, b.y)) ||
+          (Math.abs(a.y - b.y) < 1e-6 &&
+            Math.abs(p.y - a.y) < 1e-6 &&
+            p.x >= Math.min(a.x, b.x) &&
+            p.x <= Math.max(a.x, b.x))
+        );
+      }),
+    ),
+  );
   // The note detour must not create out-and-back spurs on the loop lane.
   const points = loop.sections[0].points;
   for (let i = 2; i < points.length; i++) {
@@ -119,7 +134,12 @@ for (const direction of ['TD', 'LR', 'BT', 'RL'])
       ['outer', 'inner'],
     );
     assert.equal(result.nodes.length, 5);
-    assert.equal(result.warnings, undefined);
+    // Short branches can require the documented beside-wire fallback.
+    assert.deepEqual(
+      result.warnings?.map((w) => ({ code: w.code, edgeId: w.edgeId })),
+      direction === 'BT' ? undefined : [{ code: 'FLOW_LABEL_OVERLAP', edgeId: 'edge_3' }],
+    );
+    if (result.warnings) assert.match(result.warnings[0].message, /placed beside its wire/);
     const [a, b] = ['A', 'B'].map((id) => result.nodes.find((n) => n.id === id));
     assert.ok(
       direction === 'TD'

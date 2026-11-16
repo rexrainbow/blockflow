@@ -6,7 +6,7 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { freeze } from './helpers.js';
 const sample = JSON.parse(
-  await readFile(new URL('../../examples/port-adjustment.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/port-adjustment.json', import.meta.url), 'utf8'),
 );
 const validate = new Ajv({ strict: true, allErrors: true }).compile(
   JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8')),
@@ -122,7 +122,7 @@ test('Vertical flow and stacked front faces slide along their side; other appear
       assert.ok(Math.abs(p.x - n.x - (q.x - a.x)) <= 240 + 1e-6);
     }
   for (const name of ['concat', 'block-appearances']) {
-    const raw = JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+    const raw = JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
     const before = await layoutDiagram(createDiagramModel(raw));
     raw.layout ??= {};
     raw.layout.portAdjustment = 'reduce-bends';
@@ -149,7 +149,7 @@ test('Shared source labels, feedback, boundary and Collection scopes retain rout
     'collection-instances',
     'signal-schematic',
   ]) {
-    const raw = JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8')),
+    const raw = JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8')),
       before = await layoutDiagram(createDiagramModel(raw));
     raw.layout ??= {};
     raw.layout.portAdjustment = 'reduce-bends';
@@ -251,7 +251,7 @@ test('An intervening block keeps necessary bends; visible ports never swap or ov
 });
 
 const terminalSample = JSON.parse(
-  await readFile(new URL('../../examples/terminals.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/terminals.json', import.meta.url), 'utf8'),
 );
 function terminalEndpoints(layout) {
   for (const edge of layout.connections)

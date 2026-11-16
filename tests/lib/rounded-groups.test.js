@@ -82,7 +82,7 @@ test('group-only radius rejects unsafe values and clamps huge radii to the inset
 
 test('components migration replaces signal ovals with labels/abstract concat and preserves auto groups', async () => {
   const raw = JSON.parse(
-    await readFile(new URL('../../examples/processor-components.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../../examples/blockchart/processor-components.json', import.meta.url), 'utf8'),
   );
   assert.equal(raw.modules.length, 16);
   assert.equal(raw.groups.length, 9);

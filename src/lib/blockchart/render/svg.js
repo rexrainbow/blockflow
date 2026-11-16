@@ -1,4 +1,5 @@
 import { textLines } from '../geometry.js';
+import { alignedTextPosition } from '../../shared/text.js';
 import { TEXT_STYLE, BLOCK_STYLE, connectionStyle, paint, groupCornerRadius } from '../styles.js';
 import { connectionLabels } from '../layout/edge-labels.js';
 
@@ -135,6 +136,7 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
       );
     }
     const rows = textLines(value);
+    position = alignedTextPosition(value, position, style);
     const content =
       rows.length === 1
         ? escape(value)

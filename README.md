@@ -4,6 +4,11 @@ Describe modules, input/output ports and connections in JSON or the web editor. 
 
 ## Installation and development
 
+Flat state machines are supported through a documented `stateDiagram-v2` subset
+or Statechart JSON. See [Statechart runtime](docs/statechart.md) for the schema,
+Timer FSM example and CLI/API. The standalone Agent Kit includes
+`statechart-convert.mjs` and `statechart.schema.json`; GUI integration is separate.
+
 ```powershell
 npm.cmd ci
 npm.cmd run dev
@@ -21,7 +26,12 @@ npm.cmd run examples
 
 Use `npm.cmd` in PowerShell to avoid changing the script execution policy. Other shells can use `npm`.
 
-Generated examples are written to `output/`. They include a UART data path, direct feedback and feedback across three modules, with right/left variants, SVG, PNG at 2x scale and layout JSON.
+Source examples are organized by diagram type: `examples/blockchart/`,
+`examples/flowchart/` and `examples/statechart/`. Shared cross-chart alignment
+examples remain in `examples/text-alignment/`. Blockchart generation/comparison
+scripts and the DOM viewer demo live in `examples/blockchart/`.
+
+Generated examples are written to `output/`. They include a UART data path, direct feedback and feedback across three modules, with right/down variants, SVG, PNG at 2x scale and layout JSON.
 
 ### Generated files
 
@@ -79,7 +89,7 @@ works in the offline editor.
 - **Nested groups:** **Add group** at the bottom of the Blocks list creates a subgroup inside the selected group, or a root group when no group is selected. Group action menus also offer **Add subgroup** and **Move to group...**. Drag blocks and groups into another group or the root drop area. An item cannot move into itself or its descendants. Creating a group around a block preserves its parent location and connection endpoints.
 - List groups support **Collapse all / Expand all**. Searching blocks/groups shows matches and their ancestor paths. Selecting a search result or a member in the preview reveals and locates it in the list. Details shows a clickable full path. **Ungroup** promotes direct members to the original parent while retaining nested groups, blocks and connections; the operation supports Undo. Group names and **Style** settings for borders, backgrounds and titles are edited separately.
 - **Split / Editor / Preview** modes remain available. The block list defaults to approximately 260 px in Split mode and 360 px in Editor mode. Each width is remembered separately and can be adjusted by dragging the inner divider or using arrow keys. Search, list disclosure and column widths do not rerun layout or enter document history. Narrow screens stack the work areas vertically.
-- Nested groups use once compound layout in every runtime; see examples/nested-groups.json.
+- Nested groups use once compound layout in every runtime; see examples/blockchart/nested-groups.json.
 
 - Interface text, accessible names, statuses and validation messages are in English. User-authored diagram names and labels retain their original language.
 - GUI, library and CLI all use once layout with the same visible graph.
@@ -102,20 +112,20 @@ works in the offline editor.
 
 The top toolbar's **File** menu provides New, Open JSON, Save JSON and Load example. **Export** provides SVG, PNG and PNG scale settings. Undo/Redo, workspace switching and Layout settings have separate controls. Click the dot beside the document name to inspect save status. Routine notifications disappear after four seconds; errors remain until dismissed or updated. The compact desktop toolbar removes the former extra heading and bottom status row, reclaiming 121 px of workspace height. Narrow screens use two toolbar rows.
 
-Each connection and the Add connection dialog provides a **Feedback** checkbox. Omitting `feedback` or setting it to `false` gives ELK direction priority 10; `true` gives priority 0, preferring that edge as feedback when breaking a cycle. This is a layout preference: it does not guarantee positions or backward routing, and is not equivalent to Graphviz's `constraint=false`. It works with once layout and does not enable staged layout or exterior routing. See the [InputA/InputB/Mux example](examples/feedback-priority.json).
+Each connection and the Add connection dialog provides a **Feedback** checkbox. Omitting `feedback` or setting it to `false` gives ELK direction priority 10; `true` gives priority 0, preferring that edge as feedback when breaking a cycle. This is a layout preference: it does not guarantee positions or backward routing, and is not equivalent to Graphviz's `constraint=false`. It works with once layout and does not enable staged layout or exterior routing. See the [InputA/InputB/Mux example](examples/blockchart/feedback-priority.json).
 
 Interface contracts are documented in [DESIGN.md](DESIGN.md) and [UX-CONTRACT.md](UX-CONTRACT.md). Additional checks are `npm.cmd run check`, `npm.cmd run check:design` and `npm.cmd run format:check`. Browser tests cover accessibility, desktop/narrow viewports and actual file downloads. Screenshots are written to `output/editor/`.
 
 ## Agents and JSON Schema
 
 Agents can generate or edit JSON directly without operating the web app. Start with the [agent guide](docs/agent-guide.md),
-[JSON Schema](schema/blockchart.schema.json) and [minimal example](examples/agent-minimal.json).
+[JSON Schema](schema/blockchart.schema.json) and [minimal example](examples/blockchart/agent-minimal.json).
 The schema uses Draft 2020-12 and validates fields and types. The library validates cross-object semantics such as endpoint existence, unique IDs, bit widths, drivers, group membership and boundary crossings.
 Configure schema association externally in your editor; do not add `$schema` to diagram JSON, where it is rejected as an unknown property.
 
 ```powershell
-npm.cmd run validate:diagram -- examples/agent-minimal.json
-npm.cmd run validate:diagram -- examples/agent-minimal.json --svg output/agent-minimal.svg
+npm.cmd run validate:diagram -- examples/blockchart/agent-minimal.json
+npm.cmd run validate:diagram -- examples/blockchart/agent-minimal.json --svg output/agent-minimal.svg
 ```
 
 The first command performs read-only validation and accepts multiple input files. The second also runs layout and writes an SVG for inspection.
@@ -129,7 +139,7 @@ Schema/example consistency tests use the development dependency Ajv. The validat
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel, layoutDiagram, renderSvg, exportSvg, exportPng } from './src/lib/node.js';
 
-const json = JSON.parse(await readFile('./examples/uart-data-path.json', 'utf8'));
+const json = JSON.parse(await readFile('./examples/blockchart/uart-data-path.json', 'utf8'));
 const model = createDiagramModel(json);
 const layout = await layoutDiagram(model);
 const svg = renderSvg(layout);
@@ -255,7 +265,7 @@ Port style inheritance is resolved before layout; sizing and SVG/PNG use those s
 npm.cmd run examples:styles
 ```
 
-- [Complete JSON example](examples/style-gallery.json)
+- [Complete JSON example](examples/blockchart/style-gallery.json)
 - After running the command above, open `output/styles/style-gallery.svg` or `output/styles/style-gallery.png` locally.
 - [Style fields and inheritance rules](docs/agent-guide.md#optional-styles), with exact keys in the [JSON Schema](schema/blockchart.schema.json)
 
@@ -284,9 +294,9 @@ conflicting explicit sides are rejected, even for feedback. Only Bar or omitted
 appearance is accepted on Concat; ordinary Block Bar appearance remains configurable.
 Input order is retained and the output is centered between the outer inputs. Visible
 names and Port text reserve external space without thickening the body. Relative size
-minimums apply to the layout envelope. See [the feedback example](examples/concat-feedback.json).
+minimums apply to the layout envelope. See [the feedback example](examples/blockchart/concat-feedback.json).
 
-Open [the Concat example](examples/concat.json) for both an abstract path and two 16-bit
+Open [the Concat example](examples/blockchart/concat.json) for both an abstract path and two 16-bit
 sources combined into a 32-bit Mux input.
 
 ## Standalone Agent Kit
@@ -329,7 +339,7 @@ width/height. SVG, PNG and DOM export share the geometry.
 Outer feedback supports Right and Down. Its side is Auto/Top/Bottom for Right and
 Auto/Left/Right for Down. The editor maps Top ↔ Left and Bottom ↔ Right when switching axes,
 in the same Undo step. Direct JSON must use a compatible side. Blocked access retains ELK.
-See [vertical-flow.json](examples/vertical-flow.json) for Concat, Terminals, groups, appearances
+See [vertical-flow.json](examples/blockchart/vertical-flow.json) for Concat, Terminals, groups, appearances
 and exterior feedback together.
 
 ## Block appearances and signal schematics
@@ -347,7 +357,7 @@ For example, use `"appearance": { "type": "stacked", "layers": 3 }` on a module.
 Appearance geometry determines the title, port positions and complete occupied bounds. Text
 and relative minimum sizes can enlarge the shape. Routing conservatively avoids its bounding
 rectangle. Groups do not accept `appearance`; choose Rectangle before converting a shaped
-block to a Boundary group. See [block appearances](examples/block-appearances.json).
+block to a Boundary group. See [block appearances](examples/blockchart/block-appearances.json).
 
 All text styles accept boolean `hidden` (default `false`). Use `style.hidden` on a Terminal
 or individual Port, `style.label.hidden` on a Block, Group or Connection, and
@@ -360,7 +370,7 @@ Hidden text, backgrounds and width notation reserve no text space. Names, IDs, g
 anchors and connections remain editable and selectable. Omitted `label` still falls back
 to ID where supported; an empty string is invalid. `hidden` hides text only, never the owning
 object. The old `showPortLabels` field is removed and rejected without migration.
-See [hidden label styles](examples/hidden-labels.json).
+See [hidden label styles](examples/blockchart/hidden-labels.json).
 
 Set `diagram.style.connection.endArrow` to `"triangle"` for destination arrows. Override
 `style.endArrow` per connection with `"triangle"` or `"none"` (the default). Arrows follow the
@@ -372,7 +382,7 @@ connection to select End arrow. Each text-style tab offers Hidden (Inherit defau
 Blank parameters use defaults; arrow controls offer Inherit default. Changes apply together on OK and support Undo. **Layout settings**
 contains Hide port labels, Default end arrow and Feedback side.
 
-[Signal schematic](examples/signal-schematic.json) combines hidden port labels, stacked
+[Signal schematic](examples/blockchart/signal-schematic.json) combines hidden port labels, stacked
 blocks, destination arrows and top-side exterior feedback for a signal-flow diagram.
 
 ## Comparing node placement strategies
@@ -404,9 +414,9 @@ npm.cmd run compare:placement
 
 The command runs three strategies on each of three diagrams: nine cases, all with rightward placement.
 
-- [Branching and merging](examples/placement-branch.json): A -> B -> C -> D, A -> E -> D and F -> D.
-- [Complete feedback](examples/placement-feedback.json): the same modules/ports, adding only D -> A.
-- [Height and port stress](examples/placement-stress.json): the same feedback connections/endpoints, with different block heights and port row positions.
+- [Branching and merging](examples/blockchart/placement-branch.json): A -> B -> C -> D, A -> E -> D and F -> D.
+- [Complete feedback](examples/blockchart/placement-feedback.json): the same modules/ports, adding only D -> A.
+- [Height and port stress](examples/blockchart/placement-stress.json): the same feedback connections/endpoints, with different block heights and port row positions.
 
 Unconnected `aux_i*` / `aux_o*` ports change row positions and block height. The complete feedback graph has six blocks and seven connections.
 
@@ -469,7 +479,7 @@ custom display name is entered. Existing explicit display names remain unchanged
 ## External terminals
 
 Terminals represent named external inputs and outputs without a block frame. Open
-[terminals.json](examples/terminals.json) for a processor example with two external inputs and
+[terminals.json](examples/blockchart/terminals.json) for a processor example with two external inputs and
 three outputs, including a multiline output name.
 
 Add optional root-level `terminals` entries with `id`, `direction` (`input` or `output`),
@@ -584,7 +594,7 @@ obstacle-hit or foreign-Net crossing counts, and improve bends, displacement, th
 The search has at most four passes and 128 trials; it does not promise a global optimum or
 remove bends required by obstacles, port order or disjoint movement ranges. Reserved source and receiver names follow their Ports; arrows are placed afterwards. Explicit Fixed preserves the original fixed-port output exactly.
 
-See [the six-interface example](examples/port-adjustment.json): with adequate Processor
+See [the six-interface example](examples/blockchart/port-adjustment.json): with adequate Processor
 height, six two-bend connections become six straight connections while all Blocks stay put.
 
 ## Net labels and virtual layout nodes
@@ -628,9 +638,9 @@ Virtual modules/groups are absent from public layout modules/groups and static S
 Receiver labels reserve space before routing, rather than using post-routing Callout leaders.
 Remaining conflicts are reported as `EDGE_LABEL_OVERLAP` warnings. User spacing/minimum sizes
 still apply; virtual nodes do not guarantee a smaller graph. SVG/PNG, Preview, offline and
-Agent Kit share the same pipeline. See [Net fan-out](examples/net-fanout.json),
-[bidirectional Net](examples/net-bidirectional.json) and
-[processor components](examples/processor-components.json).
+Agent Kit share the same pipeline. See [Net fan-out](examples/blockchart/net-fanout.json),
+[bidirectional Net](examples/blockchart/net-bidirectional.json) and
+[processor components](examples/blockchart/processor-components.json).
 
 ## Multiline display names and port keys
 
@@ -660,9 +670,9 @@ Display text fields are multiline textareas: Enter adds a line, blur commits one
 Text measurement reserves the maximum line width and full line height; rows and title areas
 grow accordingly. SVG uses tspans with explicit positions; PNG and offline builds share that
 geometry. Lists, breadcrumbs and selectors show compact single-line summaries.
-See `examples/multiline-labels.json`.
+See `examples/blockchart/multiline-labels.json`.
 
-The editor's initial diagram and **File → Load example** use `examples/nested-groups.json`.
+The editor's initial diagram and **File → Load example** use `examples/blockchart/nested-groups.json`.
 It demonstrates System → Core → Pipeline/Auxiliary groups, root blocks C/D, connections
 between groups and a feedback route. All seven connections have labels, including multiline
 source/feedback labels and separate text colors for bypass, auxiliary and feedback routes.
@@ -716,7 +726,7 @@ dialogs, with Auto placeholders and step 0.1. In Style, dimensions, appearance a
 apply together on OK as one Undo step; Cancel or Escape discards the draft. Blank restores
 Auto and removes the geometry field from JSON. Dimensions remain top-level properties.
 Edits support validation, Undo/Redo, JSON persistence and the offline editor.
-Open `examples/block-sizes.json` to compare A/B/C (height 1) with Mux (height 3.5).
+Open `examples/blockchart/block-sizes.json` to compare A/B/C (height 1) with Mux (height 3.5).
 
 ## Interactive DOM exporter
 
@@ -761,7 +771,7 @@ Container and Collection preserve inactive port definitions. Disconnect referenc
 disabling their mode or ungrouping. Group layouts use once mode. SVG, PNG, offline
 editing and DOM port events support the same ports.
 
-Open [boundary-groups.json](examples/boundary-groups.json) for a complete nested example;
+Open [boundary-groups.json](examples/blockchart/boundary-groups.json) for a complete nested example;
 its 12 blocks and 19 connections show inner Execute/Check branches, an outer Bypass,
 two merge points and dashed Retry/Ready feedback paths inside their respective groups.
 See the [agent guide](docs/agent-guide.md#optional-group-boundary-ports) for JSON rules and
@@ -804,7 +814,7 @@ contents. Switching a Boundary with referenced ports is blocked with affected co
 listed; disconnect/reconnect them explicitly first. Inactive port definitions are kept.
 Use the canonical group `type`; `portMode` is not accepted.
 
-Open [the 16-instance example](examples/collection-instances.json), or run
+Open [the 16-instance example](examples/blockchart/collection-instances.json), or run
 `npm.cmd run compare:collection` for expanded/collapsed JSON, SVG and PNG under
 `output/collection/`. Offline editor and DOM view support the same feature.
 
@@ -866,7 +876,7 @@ moves it to the new cell. Shrinking the Grid releases removed members to Auto; n
 stay automatic. Dimensions are stored only through the rectangular cells array. The GUI
 accepts positive whole-number dimensions up to 10,000 total cells.
 
-[Partial Grid](examples/partial-grid.json) reserves an empty middle column for A/B/C while
+[Partial Grid](examples/blockchart/partial-grid.json) reserves an empty middle column for A/B/C while
 Source and Sink use signal-driven automatic placement outside the entire reserved rectangle.
 Only the renderer's temporary layout graph contains that rectangle; JSON groups and real
 connections retain their original identity. An entirely empty Grid leaves every member
@@ -883,7 +893,7 @@ only connection spacing, the title, appearance and explicit size minima remain. 
 with a few hidden Ports can therefore match a portless block with the same title. Many
 Ports still reserve enough space for distinct connections; showing names restores text sizing.
 
-[Processor cluster overview](examples/processor-overview.json) demonstrates all these features. Its transparent
+[Processor cluster overview](examples/blockchart/processor-overview.json) demonstrates all these features. Its transparent
 Sources Container supplies a layout column without a visible frame. The compute cluster Grid preserves
 ALU0/ALU4/ALU1 in the left column and ALU3/ALU2 in the right column. SVG/PNG, offline, DOM viewer
 and the standalone Agent Kit share validation, placement and rendering.
@@ -901,7 +911,7 @@ Container around its region without changing membership or signals. Its own save
 is suspended in the controlling view and used again in group views. Missing members or
 interleaved rectangles block Apply/export with an actionable error; newly added members
 of expanded Containers must also be placed. Other unselected direct members stay Auto.
-Replacing the children with the Container id returns it to a whole participant. See [Processor cross-group Grid](examples/processor-cross-group-grid.json).
+Replacing the children with the Container id returns it to a whole participant. See [Processor cross-group Grid](examples/blockchart/processor-cross-group-grid.json).
 
 ## Rounded group frames and signal labels
 
@@ -911,7 +921,7 @@ Boundary and Collection frames, including collapsed faces and backing cards. Ren
 clamps the radius to half the inset rectangle dimensions. Geometry, Port placement and
 routing retain their existing bounds. This property belongs to groups, not block styles.
 
-[Processor components](examples/processor-components.json) uses Down Flow, Auto and nested
+[Processor components](examples/blockchart/processor-components.json) uses Down Flow, Auto and nested
 rounded Containers without Grid. It combines an instruction decoder, ALU, input/output
 registers, muxes and interrupt routing. Signal names use Connection labels; external endpoints
 display their names on Terminals without duplicate edge labels. Abstract concat bars collect
@@ -943,7 +953,7 @@ The editor exposes them in Connection style > Label; blank values inherit defaul
 }
 ```
 
-The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
+The snippet is the value of `style.label`. See `examples/blockchart/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
 
 
@@ -989,7 +999,7 @@ Routing uses stroke-aware orthogonal clearance, local arrows, near-content Termi
 rails and eligible Container gap budgets. Wires may cross ordinary Container titles;
 heading text overlaps continuous wires without a Container title mask. See
 [layout defaults and routing](docs/layout-defaults.md) and
-[the layout example](examples/compact-layout.json). Generate current spacing and A4-fit
+[the layout example](examples/blockchart/compact-layout.json). Generate current spacing and A4-fit
 reports with `node scripts/measure-layout.js`.
 
 See [the layout pipeline and stage contracts](docs/blockchart-layout.md) for runtime
@@ -1031,4 +1041,4 @@ can specialize them. Collapsed Collection virtual Ports use the same resolution.
 Individual Style dialogs show the inherited value and its source. Blank controls remain
 blank; placeholders and help are informative, never authored values. Defaults also show
 the next inherited value, ending at the built-in style. Diagram styling does not change
-editor chrome or application preferences. See [the defaults example](examples/default-styles.json).
+editor chrome or application preferences. See [the defaults example](examples/blockchart/default-styles.json).

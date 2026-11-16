@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import {createDiagramModel,layoutDiagram,renderSvg} from '../../src/lib/index.js';
 import {copyLayout,connectionKey} from '../../src/lib/blockchart/view/layout.js';
 import {freeze} from './helpers.js';
-const fixture=JSON.parse(await readFile(new URL('../../examples/collection-instances.json',import.meta.url),'utf8'));
+const fixture=JSON.parse(await readFile(new URL('../../examples/blockchart/collection-instances.json',import.meta.url),'utf8'));
 const schema=JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json',import.meta.url),'utf8'));
 const validate=new Ajv({strict:true,allErrors:true}).compile(schema);
 const endpoint=p=>p.moduleId+'.'+p.portId;

@@ -201,7 +201,7 @@ for (const grid of [false, true])
 
 test('Collapsed Collection shares a receiver footprint while retaining semantic branch IDs', async () => {
   const raw = JSON.parse(
-    await readFile(new URL('../../examples/collection-instances.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../../examples/blockchart/collection-instances.json', import.meta.url), 'utf8'),
   );
   raw.connections[0].label = 'Parallel data';
   raw.connections[0].style = { label: { repeatAtEnd: 'always' } };
@@ -259,7 +259,7 @@ test('Repeated names retain bidirectional arrows and local non-constraining bran
 
 for (const direction of ['right', 'down'])
   test('Terminal adjustment moves its reserved receiver name ' + direction, async () => {
-    const raw = JSON.parse(await readFile(new URL('../../examples/terminals.json', import.meta.url), 'utf8'));
+    const raw = JSON.parse(await readFile(new URL('../../examples/blockchart/terminals.json', import.meta.url), 'utf8'));
     for (const e of raw.connections)
       if (e.to.some((t) => t.terminal)) {
         e.label = 'Receiver data';

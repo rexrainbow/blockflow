@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel } from '../../src/lib/index.js';
-import { concatSide, setFlowDirection } from '../../src/studio/state/actions.js';
+import { concatSide, setFlowDirection } from '../../src/studio/blockchart/state/actions.js';
 
 const load = async () =>
-  JSON.parse(await readFile(new URL('../../examples/concat-feedback.json', import.meta.url), 'utf8'));
+  JSON.parse(await readFile(new URL('../../examples/blockchart/concat-feedback.json', import.meta.url), 'utf8'));
 
 test('Flow change clears explicit Concat sides so the document stays valid', async () => {
   const doc = await load();

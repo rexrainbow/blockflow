@@ -48,7 +48,7 @@ for (const direction of ['right']) test('Source signal labels retain bounds, SVG
 });
 
 test('nested group labels and outer feedback use final absolute routes', async () => {
-  const raw = JSON.parse(await readFile(new URL('../../examples/connection-labels.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(await readFile(new URL('../../examples/blockchart/connection-labels.json', import.meta.url), 'utf8'));
   const result = await layoutDiagram(createDiagramModel(raw));
   assert.equal(result.warnings, undefined);
   assert.ok(result.connections.some(edge => edge.routingInfo?.method === 'outer-aabb'));
@@ -64,7 +64,7 @@ test('nested group labels and outer feedback use final absolute routes', async (
 });
 
 test('once layout retains connection labels on complex feedback routes', async () => {
-  const raw = JSON.parse(await readFile(new URL('../../examples/placement-feedback.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(await readFile(new URL('../../examples/blockchart/placement-feedback.json', import.meta.url), 'utf8'));
   raw.connections.forEach((edge,i) => edge.label = ['data','ready','valid'][i%3]);
   const result = await layoutDiagram(createDiagramModel(raw));
   for (const edge of result.connections) {

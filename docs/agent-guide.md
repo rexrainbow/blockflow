@@ -7,7 +7,7 @@ The schema uses JSON Schema Draft 2020-12 and describes version 1 input.
 
 ## Minimal diagram
 
-Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start here:
+Copy [examples/blockchart/agent-minimal.json](../examples/blockchart/agent-minimal.json), or start here:
 
 ```json
 {
@@ -78,7 +78,7 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
 - Module `width` and `height` are optional positive finite numbers in shared relative units,
   such as `1`, `1.1` or `3.5`. They set minimum dimensions, independently of port bit widths.
   Omit for Auto; contents can make a block larger. Height spreads port rows without scaling
-  text or strokes. Extra size does not guarantee straight connections. See `examples/block-sizes.json`.
+  text or strokes. Extra size does not guarantee straight connections. See `examples/blockchart/block-sizes.json`.
 - Port array order controls order on each side: top-to-bottom for horizontal flow, left-to-right for Down. Inputs/outputs use left/right sides horizontally and top/bottom in Down.
   Module or connection array order alone does not enforce block positions. Do not invent
   coordinates, compiled branch IDs, `alignmentGroups`, HTML/CSS or renderer-specific fields.
@@ -86,7 +86,7 @@ Copy [examples/agent-minimal.json](../examples/agent-minimal.json), or start her
 ## External terminals
 
 Use optional root `terminals` for external named interfaces without real blocks; see
-[examples/terminals.json](../examples/terminals.json). Each entry requires `id` and
+[examples/blockchart/terminals.json](../examples/blockchart/terminals.json). Each entry requires `id` and
 `direction` (`input` or `output`), and accepts optional multiline `label`, positive safe-integer
 bit `width` and text `style`. Omit label for ID fallback and width for unknown; explicit null
 is invalid. Terminal IDs share the block/group namespace and use the same ID syntax.
@@ -152,7 +152,7 @@ of a cycle. False or omitted uses ELK direction priority 10; true uses 0. This p
 works in once layout. It does not guarantee backward
 routing or exact block positions and does not exclude the edge from ranking like Graphviz
 `constraint=false`. All edges still participate in layout. Outer feedback routing is a
-separate geometric option, not enabled by this flag. See [the InputA/InputB/Mux example](../examples/feedback-priority.json).
+separate geometric option, not enabled by this flag. See [the InputA/InputB/Mux example](../examples/blockchart/feedback-priority.json).
 
 ## Optional hierarchical groups
 
@@ -164,7 +164,7 @@ one block or group is required. Each group's `members` array is required and can
 an ID. Group styles use border/fill fields, `label`, `portLabel`,
 `inputPortLabel` and `outputPortLabel`. All group layouts use once, just like ordinary blocks.
 Grouping does not impose same-rank alignment or fixed positions. See
-[the nested example](../examples/nested-groups.json).
+[the nested example](../examples/blockchart/nested-groups.json).
 
 ### Optional group boundary ports
 
@@ -188,7 +188,7 @@ its own output (internal pass-through); its output can connect to its own input 
 feedback). Each endpoint has at most one incoming driver and may fan out. Width checks
 are per connection, without inference across a chain. In Container or Collection mode stored group port
 definitions remain inactive and cannot be referenced. See
-[the boundary example](../examples/boundary-groups.json) for two enabled levels, an unused
+[the boundary example](../examples/blockchart/boundary-groups.json) for two enabled levels, an unused
 port, multiline labels and styles. Its 12 blocks and 19 connections demonstrate inner
 Execute/Check branches joining at Join, outer Bypass joining at ResultMux, and separate
 Retry/Ready feedback routes within each boundary. No automatic port creation or crossing-edge rewriting.
@@ -231,7 +231,7 @@ Use `type: "concat"` on a module for ordered concatenation; ordinary modules omi
 or use `"block"`. Concat requires at least one input and exactly one output. Input port
 array order is composition order, first at the high end for bit concatenation. Keep all
 ports and ordinary `Module.port` connection references; never connect multiple drivers to
-a single input. See [examples/concat.json](../examples/concat.json).
+a single input. See [examples/blockchart/concat.json](../examples/blockchart/concat.json).
 
 Omit widths for abstract concatenation. If any Concat port lacks a width, skip the sum
 check and preserve unknown widths. Only when every input and the output have explicit
@@ -256,7 +256,7 @@ After ELK placement the runtime restores these physical anchors and reroutes aff
 connections; it does not treat the surrounding text envelope as the Concat body.
 This applies to Auto, Grid and scoped layouts without authoring new coordinates.
 
-Concat cannot convert to a Boundary group. See [concat-feedback.json](../examples/concat-feedback.json).
+Concat cannot convert to a Boundary group. See [concat-feedback.json](../examples/blockchart/concat-feedback.json).
 
 ### Block appearance and signal notation
 
@@ -268,7 +268,7 @@ Only keys for the selected type are accepted. Geometry controls title, side-port
 and the full footprint; text and relative minimum sizes can enlarge it. Routing uses
 conservative rectangular bounds. Stacked is visual only: no members, count, expand action
 or endpoint projection. Groups reject `appearance`; reset a module to Rectangle before
-converting it to a Boundary group. See [block appearances](../examples/block-appearances.json).
+converting it to a Boundary group. See [block appearances](../examples/blockchart/block-appearances.json).
 
 Every text style accepts boolean `hidden`, default `false`. Terminal and individual Port
 use `style.hidden`; Block/Group/Connection names use `style.label.hidden`. Shared Port
@@ -280,7 +280,7 @@ Hidden text includes backgrounds and bus notation and reserves no text space. Pr
 original name, IDs, endpoints and owning object. Terminal anchors and real Port targets remain
 usable. Omitted labels still use ID fallback where supported; blank labels remain invalid.
 `showPortLabels` is removed with no compatibility handling; update input files to text-style
-`hidden`. See [hidden labels](../examples/hidden-labels.json).
+`hidden`. See [hidden labels](../examples/blockchart/hidden-labels.json).
 
 `diagram.style.connection.endArrow` and connection `style.endArrow` accept `none` (default)
 or `triangle`. The arrow points into the destination along the final routed segment and
@@ -295,7 +295,7 @@ terminal, boundary-scope and group-view fallbacks still apply. This is a diagram
 Container headings do not block the endpoint access segments, including Down flow.
 Actual hardware and reserved signal-name nodes remain obstacles; Boundary headers
 and collapsed frames retain their protection.
-See [signal schematic](../examples/signal-schematic.json) for all four features together.
+See [signal schematic](../examples/blockchart/signal-schematic.json) for all four features together.
 
 ### Portable style fields
 
@@ -309,15 +309,15 @@ are unsupported. `borderWidth`, `strokeWidth` and text `fontSize` must be positi
 numbers; text `padding` is finite and non-negative. `opacity`, `borderOpacity`,
 `fillOpacity` and text `backgroundOpacity` range from `0` to `1`, inclusive.
 Omit overrides to inherit; do not write normalized defaults back into the input. See
-[the styled example](../examples/style-gallery.json) and Schema definitions for exact keys.
+[the styled example](../examples/blockchart/style-gallery.json) and Schema definitions for exact keys.
 
 ## Validate, render, inspect
 
 From the repository root, install with `npm.cmd ci` (Node 22.12+), then run:
 
 ```powershell
-npm.cmd run validate:diagram -- examples/agent-minimal.json
-npm.cmd run validate:diagram -- examples/agent-minimal.json --svg output/agent-minimal.svg
+npm.cmd run validate:diagram -- examples/blockchart/agent-minimal.json
+npm.cmd run validate:diagram -- examples/blockchart/agent-minimal.json --svg output/agent-minimal.svg
 ```
 
 Other shells may use `npm` instead of `npm.cmd`. Pass several JSON paths to validate a batch;
@@ -359,7 +359,7 @@ Collections have ordinary Container connectivity. No homogeneous-member check is
 
 Every real width, driver and boundary check runs before projection, even for hidden data.
 The shared visual anchor has no width. Edges retain separate identities, labels and styles;
-coincident paths can overlap. See [the 16-instance example](../examples/collection-instances.json).
+coincident paths can overlap. See [the 16-instance example](../examples/blockchart/collection-instances.json).
 
 Canonical types are `container` (default), `boundary`, `collection`. The old `portMode` field is rejected. Only Boundary ports are real endpoints.
 
@@ -389,7 +389,7 @@ Explicit text backgrounds still paint normally. Layout bounds and saved JSON are
 Ordinary Blocks without visible Port names use title-driven Auto sizing (minimum
 64 x 36, text clearance 12/8 plus label padding and border). Receiver names and Port
 slots may enlarge the face. Explicit width/height units remain 140 x 84; Concat keeps
-its separate thin-bar geometry. See [the title-sized example](../examples/compact-labels.json).
+its separate thin-bar geometry. See [the title-sized example](../examples/blockchart/compact-labels.json).
 
 Use `layout.direction: "down"` for Top to bottom. Keep all module, port, terminal and
 connection identities, widths and Concat input order. Inputs use top ports and outputs bottom
@@ -403,7 +403,7 @@ the same axis. Terminals appear above/below the diagram.
 Down exterior routing uses `feedbackSide: "auto"`, `"left"` or `"right"`; use `top`/`bottom`
 only for horizontal flow. The editor maps sides when its Flow select changes axes; raw JSON
 must already be consistent. Scoped/boundary/terminal and blocked-access fallbacks still
-apply. See [vertical-flow.json](../examples/vertical-flow.json).
+apply. See [vertical-flow.json](../examples/blockchart/vertical-flow.json).
 
 ## Grid and overview additions
 
@@ -415,7 +415,7 @@ controls external spacing. Grid `rowGap`/`columnGap` remain independent. Group v
 retain inheritance, and collapsed groups preserve inactive overrides. Derived values
 never enter saved group configs. `resolveLayoutSpacing(document, groupId)` from the
 pure library resolves both values without mutation. See
-[local-layout-spacing.json](../examples/local-layout-spacing.json) and
+[local-layout-spacing.json](../examples/blockchart/local-layout-spacing.json) and
 [spacing contracts](layout-defaults.md#container-local-auto-spacing).
 
 Root `layout` and group `layout` support `type: "auto"` (default) or `"grid"`. Grid requires
@@ -431,8 +431,8 @@ flow bands, using existing local/inherited layer spacing and adding only missing
 This first phase handles congested forward facing-Port links inside one Container;
 cross-Container, skipped-band, feedback and side-facing links retain general routing.
 Grid-controlled and protected subtrees retain their rules. See
-[auto-routing-channels.json](../examples/auto-routing-channels.json),
-[grid-routing-channels.json](../examples/grid-routing-channels.json)
+[auto-routing-channels.json](../examples/blockchart/auto-routing-channels.json),
+[grid-routing-channels.json](../examples/blockchart/grid-routing-channels.json)
 and [routing contracts](layout-defaults.md#grid-routing-channels).
 Cell sizes are measured, contents centered, and all connections rerouted orthogonally around
 obstacles. Increase gaps/change sides when access is obstructed. Nested grids and scoped
@@ -441,7 +441,7 @@ The selected Grid is measured first and placed as one temporary rectangle among 
 neighbors using real placement-affecting connections. Auto never enters the Grid rectangle,
 including its empty tracks. No group or fake signal is added to JSON. An all-null Grid
 reserves no rectangle and leaves every member automatic. New/moved-in members stay Auto;
-deletion commands must explicitly replace removed references with nulls. See [partial-grid.json](../examples/partial-grid.json).
+deletion commands must explicitly replace removed references with nulls. See [partial-grid.json](../examples/blockchart/partial-grid.json).
 
 Grid expansion is inferred entirely from `cells`. Place a nonempty direct Container ID
 to keep it atomic, or replace it with all of its direct children, exactly once each, to
@@ -455,7 +455,7 @@ Group membership, Port identity and real signals are unchanged. The ancestor Gri
 positions while expanded; the Container's saved `layout` is retained for standalone group
 views. All scopes remain validated. Adding an expanded Container member requires placing
 it before exporting; ordinary unselected direct members remain Auto.
-See [processor-cross-group-grid.json](../examples/processor-cross-group-grid.json).
+See [processor-cross-group-grid.json](../examples/blockchart/processor-cross-group-grid.json).
 
 Ordinary blocks may omit `ports` or use `[]`; Concat keeps its port-count/sum rules.
 Port `side` optionally fixes left/right/top/bottom; omission follows Flow. Input/output roles
@@ -473,7 +473,7 @@ and rendered after layout. Its drivers, widths and boundary checks are unchanged
 
 `diagram.caption` supplies a multiline footer; `diagram.style.caption` is a direct portable
 text style, including hidden. It participates in image bounds and scoped exports.
-See [Processor cluster overview](../examples/processor-overview.json), which demonstrates nested
+See [Processor cluster overview](../examples/blockchart/processor-overview.json), which demonstrates nested
 Grids, a transparent layout-only Container, isolated portless blocks, an upper-side
 non-constraining bidirectional link, styles and a caption.
 
@@ -491,7 +491,7 @@ contracted segment is non-constraining, keep the contracted edge non-constrainin
 Use abstract concat for actual signal collections; omit widths when xN means signal or
 instance count. External endpoints can use hidden Terminals and visible edge labels.
 Keep global collections outside their original group so scoped views retain the boundary.
-See [processor-components.json](../examples/processor-components.json): 13 physical blocks, three
+See [processor-components.json](../examples/blockchart/processor-components.json): 13 physical blocks, three
 abstract concats, nine rounded Containers, five Terminals, 20 Nets and 34 receiving branches.
 It uses nested Auto layout without Grid. External interfaces use visible Terminals without duplicate Connection labels. Processor/ALU
 repetition is documented by labels/caption rather than duplicating hardware instances.
@@ -518,7 +518,7 @@ increase. A deterministic search (four passes, 128 trials maximum) accepts impro
 bends, displacement, then length. Reserved Inline names follow their Ports; final arrows follow adjustment. This applies to
 Auto, Grid and group views; saved JSON contains settings, never adjusted coordinates.
 Set `layout.portAdjustment: "fixed"` to disable sliding. An obstacle or disjoint ranges can require bends even with adjustment.
-Use examples/port-adjustment.json for a six-interface reference.
+Use examples/blockchart/port-adjustment.json for a six-interface reference.
 
 Reduce-bends prioritizes fewer bends, then less total displacement from initial
 Port/Terminal anchors, then shorter routed length. It does not move an initially
@@ -585,7 +585,7 @@ The editor exposes them in Connection style > Label; blank values inherit defaul
 }
 ```
 
-The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
+The snippet is the value of `style.label`. See `examples/blockchart/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
 
 ## Runtime ownership
@@ -618,4 +618,11 @@ can specialize them. Collapsed Collection virtual Ports use the same resolution.
 Individual Style dialogs show the inherited value and its source. Blank controls remain
 blank; placeholders and help are informative, never authored values. Defaults also show
 the next inherited value, ending at the built-in style. Diagram styling does not change
-editor chrome or application preferences. See [the defaults example](../examples/default-styles.json).
+editor chrome or application preferences. See [the defaults example](../examples/blockchart/default-styles.json).
+
+## Text alignment
+
+Text styles accept `textAlign: "left" | "center" | "right"` for lines inside the
+existing text block. Omission preserves current alignment; geometry and single-line
+placement stay unchanged. See [the shared alignment contract](text-alignment.md)
+for inheritance, field paths and Statechart description alignment.

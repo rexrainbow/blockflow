@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { checkLayout, freeze } from './helpers.js';
-const fixture = JSON.parse(await readFile(new URL('../../examples/grouped-feedback.json', import.meta.url), 'utf8'));
+const fixture = JSON.parse(await readFile(new URL('../../examples/blockchart/grouped-feedback.json', import.meta.url), 'utf8'));
 
 test('single-level groups validate without mutating raw data; ungrouped blocks remain roots', () => {
   const raw = structuredClone(fixture), before = structuredClone(raw);

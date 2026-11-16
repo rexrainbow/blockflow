@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Batch task controller",
+    "style": {
+      "state": {
+        "fontSize": 12,
+        "fillColor": "#eef4ff",
+        "borderColor": "#506680",
+        "textAlign": "center",
+        "descriptionAlign": "left"
+      },
+      "transition": {
+        "fontSize": 11,
+        "labelBackgroundColor": "#fff5d6",
+        "textAlign": "left"
+      }
+    }
+  },
+  "layout": {
+    "direction": "down",
+    "labelMaxWidth": 240
+  },
+  "states": [
+    {
+      "id": "Idle",
+      "label": "Idle",
+      "description": "awaiting a new batch"
+    },
+    {
+      "id": "Preparing",
+      "label": "Preparing",
+      "description": "initialize the batch"
+    },
+    {
+      "id": "Running",
+      "label": "Running",
+      "description": "process work steps",
+      "style": {
+        "fillColor": "#e6f5ec",
+        "borderColor": "#44805b"
+      }
+    },
+    {
+      "id": "Waiting",
+      "label": "Waiting",
+      "description": "between work steps"
+    },
+    {
+      "id": "PreparingPaused",
+      "label": "Paused",
+      "description": "from Preparing",
+      "style": {
+        "fillColor": "#f3f0f8",
+        "borderColor": "#8f7caf"
+      }
+    },
+    {
+      "id": "RunningPaused",
+      "label": "Paused",
+      "description": "from Running",
+      "style": {
+        "fillColor": "#f3f0f8",
+        "borderColor": "#8f7caf"
+      }
+    },
+    {
+      "id": "WaitingPaused",
+      "label": "Paused",
+      "description": "from Waiting",
+      "style": {
+        "fillColor": "#f3f0f8",
+        "borderColor": "#8f7caf"
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "from": "Idle",
+      "to": "Preparing",
+      "label": "Start requested && preparation is enabled"
+    },
+    {
+      "from": "Idle",
+      "to": "Running",
+      "label": "Start requested && preparation is disabled"
+    },
+    {
+      "from": "Preparing",
+      "to": "Running",
+      "label": "Preparation complete"
+    },
+    {
+      "from": "Running",
+      "to": "Waiting",
+      "label": "Step complete && interval is enabled"
+    },
+    {
+      "from": "Waiting",
+      "to": "Running",
+      "label": "Interval complete && (repeat forever || steps remain)"
+    },
+    {
+      "from": "Running",
+      "to": "Idle",
+      "label": "Batch complete && interval is disabled"
+    },
+    {
+      "from": "Waiting",
+      "to": "Idle",
+      "label": "Interval complete && batch complete"
+    },
+    {
+      "from": "Preparing",
+      "to": "Idle",
+      "label": "Stop requested && stop mode is Reset",
+      "style": {
+        "strokeColor": "#b54747",
+        "color": "#963e3e"
+      }
+    },
+    {
+      "from": "Running",
+      "to": "Idle",
+      "label": "Stop requested && stop mode is Reset",
+      "style": {
+        "strokeColor": "#b54747",
+        "color": "#963e3e"
+      }
+    },
+    {
+      "from": "Waiting",
+      "to": "Idle",
+      "label": "Stop requested && stop mode is Reset",
+      "style": {
+        "strokeColor": "#b54747",
+        "color": "#963e3e"
+      }
+    },
+    {
+      "from": "Preparing",
+      "to": "PreparingPaused",
+      "label": "Stop requested && stop mode is Pause",
+      "style": {
+        "strokeColor": "#5371a8",
+        "color": "#45618f"
+      }
+    },
+    {
+      "from": "Running",
+      "to": "RunningPaused",
+      "label": "Stop requested && stop mode is Pause",
+      "style": {
+        "strokeColor": "#5371a8",
+        "color": "#45618f"
+      }
+    },
+    {
+      "from": "Waiting",
+      "to": "WaitingPaused",
+      "label": "Stop requested && stop mode is Pause",
+      "style": {
+        "strokeColor": "#5371a8",
+        "color": "#45618f"
+      }
+    },
+    {
+      "from": "PreparingPaused",
+      "to": "Preparing",
+      "label": "Resume requested",
+      "style": {
+        "strokeColor": "#3b7a57",
+        "color": "#326849"
+      }
+    },
+    {
+      "from": "RunningPaused",
+      "to": "Running",
+      "label": "Resume requested",
+      "style": {
+        "strokeColor": "#3b7a57",
+        "color": "#326849"
+      }
+    },
+    {
+      "from": "WaitingPaused",
+      "to": "Waiting",
+      "label": "Resume requested",
+      "style": {
+        "strokeColor": "#3b7a57",
+        "color": "#326849"
+      }
+    }
+  ]
+}

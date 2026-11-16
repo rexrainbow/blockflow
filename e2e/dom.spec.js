@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { readFile } from 'node:fs/promises';
-import { convertToBoundaryGroup } from '../src/editor/state/commands.js';
+import { convertToBoundaryGroup } from '../src/editor/blockchart/commands.js';
 const file = new URL('../dist-dom/dom-viewer.html', import.meta.url).href;
 
 test('DOM resolves diagram Text, Group and Terminal defaults with the shared renderer', async ({ page }) => {
-  const raw = JSON.parse(await readFile(new URL('../examples/default-styles.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/default-styles.json', import.meta.url), 'utf8'),
+  );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
     const layout = await layoutDiagram(createDiagramModel(raw));
@@ -26,7 +28,7 @@ test('DOM resolves diagram Text, Group and Terminal defaults with the shared ren
 
 test('DOM adjusted Port anchors retain activation and straight route endpoints', async ({ page }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/port-adjustment.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/port-adjustment.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -58,7 +60,7 @@ test('Net DOM keeps branch identity and one source label without exposing layout
   page,
 }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/net-bidirectional.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/net-bidirectional.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -195,7 +197,10 @@ test('rounded group DOM remains selectable and rejects unsafe radii atomically',
 
 test('cross-group Grid retains group and port activation after scoped layout changes', async ({ page }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+    await readFile(
+      new URL('../examples/blockchart/processor-cross-group-grid.json', import.meta.url),
+      'utf8',
+    ),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo,
@@ -218,7 +223,9 @@ test('cross-group Grid retains group and port activation after scoped layout cha
 });
 
 test('partial Grid preserves real DOM identities for automatic and fixed members', async ({ page }) => {
-  const raw = JSON.parse(await readFile(new URL('../examples/partial-grid.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/partial-grid.json', import.meta.url), 'utf8'),
+  );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
     const before = JSON.stringify(raw);
@@ -243,7 +250,7 @@ test('partial Grid preserves real DOM identities for automatic and fixed members
 
 test('ComputeCluster fixed Grid and inout ports retain DOM selection and captions', async ({ page }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/processor-overview.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/processor-overview.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -262,7 +269,9 @@ test('ComputeCluster fixed Grid and inout ports retain DOM selection and caption
 test('vertical geometry keeps DOM port activation and connection selection through direction changes', async ({
   page,
 }) => {
-  const raw = JSON.parse(await readFile(new URL('../examples/vertical-flow.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/vertical-flow.json', import.meta.url), 'utf8'),
+  );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
     view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
@@ -279,7 +288,9 @@ test('vertical geometry keeps DOM port activation and connection selection throu
 });
 
 test('Concat bar keeps block and port identity in the DOM viewer', async ({ page }) => {
-  const raw = JSON.parse(await readFile(new URL('../examples/concat.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/concat.json', import.meta.url), 'utf8'),
+  );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
     view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
@@ -299,7 +310,9 @@ test('Concat bar keeps block and port identity in the DOM viewer', async ({ page
 });
 
 test('hidden labels retain DOM terminal, group and port targets without invisible text', async ({ page }) => {
-  const raw = JSON.parse(await readFile(new URL('../examples/hidden-labels.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/hidden-labels.json', import.meta.url), 'utf8'),
+  );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
     view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
@@ -325,7 +338,7 @@ test('hidden labels retain DOM terminal, group and port targets without invisibl
 
 test('appearance bodies and arrows mount in DOM and retain block selection', async ({ page }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/block-appearances.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/block-appearances.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -342,7 +355,9 @@ test('appearance bodies and arrows mount in DOM and retain block selection', asy
 test('terminal DOM targets emit terminalclick and keep endpoint identities when reordered', async ({
   page,
 }) => {
-  const raw = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/terminals.json', import.meta.url), 'utf8'),
+  );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
     view.setLayout(await layoutDiagram(createDiagramModel(raw)), { fit: true });
@@ -369,7 +384,7 @@ test('Group view layouts mount with original boundary port identities and prune 
   page,
 }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/boundary-groups.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/boundary-groups.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -409,7 +424,7 @@ test('converted block emits groupclick and retains port keys while ownerType cha
   page,
 }) => {
   const original = JSON.parse(
-    await readFile(new URL('../examples/block-sizes.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/block-sizes.json', import.meta.url), 'utf8'),
   );
   const converted = structuredClone(original);
   convertToBoundaryGroup(converted, 'Mux');
@@ -448,7 +463,7 @@ test('collapsed group body remains groupclick; hidden targets and runtime states
   page,
 }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/boundary-groups.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/boundary-groups.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -508,7 +523,7 @@ test('boundary group ports expose owner identity, events, values and state acros
   page,
 }) => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/boundary-groups.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/boundary-groups.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (input) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;
@@ -841,7 +856,7 @@ test('Collection virtual anchors are group targets and connection identities sur
   page,
 }) => {
   const raw = JSON.parse(
-    await readFile(new URL('../examples/collection-instances.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/collection-instances.json', import.meta.url), 'utf8'),
   );
   const result = await page.evaluate(async (raw) => {
     const { view, createDiagramModel, layoutDiagram } = portsketchDemo;

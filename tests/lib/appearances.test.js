@@ -8,10 +8,10 @@ import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { connectionArrow } from '../../src/lib/blockchart/layout/arrows.js';
 import { fixture, checkLayout, freeze } from './helpers.js';
-import { convertToBoundaryGroup } from '../../src/editor/state/commands.js';
+import { convertToBoundaryGroup } from '../../src/editor/blockchart/commands.js';
 import { routeOuterFeedback } from '../../src/lib/blockchart/layout/outer-feedback.js';
 
-const load = async name => JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+const load = async name => JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
 const schema = JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({ strict: true, allErrors: true }).compile(schema);
 

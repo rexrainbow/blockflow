@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel, DiagramValidationError, layoutDiagram } from '../../src/lib/index.js';
 import { routeOuterFeedback } from '../../src/lib/blockchart/layout/outer-feedback.js';
-import { measureLayout } from '../../examples/metrics.js';
+import { measureLayout } from '../../examples/blockchart/metrics.js';
 import { checkLayout, freeze, fixture } from './helpers.js';
 
 const load = async (name) =>
-  JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+  JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
 
 for (const name of ['feedback', 'stress']) {
   test(`${name}: exterior feedback, unchanged geometry and native other routes`, async () => {

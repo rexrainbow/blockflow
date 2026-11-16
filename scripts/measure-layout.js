@@ -9,7 +9,9 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../src/lib/index.j
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
 const input = resolve(
-  args[0] && !args[0].startsWith('--') ? args.shift() : join(root, 'examples/processor-components.json'),
+  args[0] && !args[0].startsWith('--')
+    ? args.shift()
+    : join(root, 'examples/blockchart/processor-components.json'),
 );
 let output = join(root, 'output/layout'),
   direction;

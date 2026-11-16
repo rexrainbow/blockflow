@@ -194,8 +194,14 @@ export function showMenu(anchor, items, extra = {}) {
   const w = menu.offsetWidth,
     hgt = menu.offsetHeight;
   let x = extra.align === 'right' ? rect.right - w : rect.left;
-  let y = rect.bottom + 4;
-  if (y + hgt > innerHeight - 8) y = Math.max(8, rect.top - hgt - 4);
+  // Open below the anchor, or above when only that side fits. A menu taller than either
+  // side takes the roomier one and scrolls inside it, so every item stays reachable.
+  const below = innerHeight - 8 - (rect.bottom + 4),
+    above = rect.top - 4 - 8;
+  const down = hgt <= below || (hgt > above && below >= above);
+  const room = Math.max(0, down ? below : above);
+  if (hgt > room) menu.style.maxHeight = room + 'px';
+  const y = down ? rect.bottom + 4 : rect.top - 4 - Math.min(hgt, room);
   x = Math.max(8, Math.min(x, innerWidth - w - 8));
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';

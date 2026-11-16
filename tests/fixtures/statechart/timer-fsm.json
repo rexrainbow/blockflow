@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Timer FSM"
+  },
+  "layout": {
+    "direction": "down"
+  },
+  "states": [
+    {
+      "id": "initial_1",
+      "kind": "initial"
+    },
+    {
+      "id": "IDLE",
+      "label": "IDLE",
+      "description": "idle-output"
+    },
+    {
+      "id": "INIT",
+      "label": "INIT",
+      "description": "idle-output"
+    },
+    {
+      "id": "HI",
+      "label": "HI",
+      "description": "output = 1"
+    },
+    {
+      "id": "LO",
+      "label": "LO",
+      "description": "output = 0"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "initial_1",
+      "to": "IDLE"
+    },
+    {
+      "from": "IDLE",
+      "to": "INIT",
+      "label": "Function-Start &&\nHas Initial-delay",
+      "style": {
+        "strokeColor": "#c62828"
+      }
+    },
+    {
+      "from": "IDLE",
+      "to": "HI",
+      "label": "Function-Start &&\nNo Initial-delay",
+      "style": {
+        "strokeColor": "#c62828"
+      }
+    },
+    {
+      "from": "INIT",
+      "to": "HI"
+    },
+    {
+      "from": "HI",
+      "to": "LO"
+    },
+    {
+      "from": "LO",
+      "to": "HI",
+      "label": "Not last-cycle"
+    },
+    {
+      "from": "LO",
+      "to": "IDLE",
+      "label": "Is last-cycle &&\nNot continue-mode",
+      "style": {
+        "strokeColor": "#1565c0"
+      }
+    },
+    {
+      "from": "LO",
+      "to": "INIT",
+      "label": "Is last-cycle &&\ncontinue-mode &&\nHas Initial-delay",
+      "style": {
+        "strokeColor": "#1565c0"
+      }
+    },
+    {
+      "from": "LO",
+      "to": "HI",
+      "label": "Is last-cycle &&\ncontinue-mode &&\nNo Initial-delay",
+      "style": {
+        "strokeColor": "#1565c0"
+      }
+    },
+    {
+      "from": "INIT",
+      "to": "IDLE",
+      "label": "Function-Stop",
+      "style": {
+        "lineStyle": "dashed"
+      }
+    },
+    {
+      "from": "HI",
+      "to": "IDLE",
+      "label": "Function-Stop",
+      "style": {
+        "lineStyle": "dashed"
+      }
+    },
+    {
+      "from": "LO",
+      "to": "IDLE",
+      "label": "Function-Stop",
+      "style": {
+        "lineStyle": "dashed"
+      }
+    }
+  ]
+}

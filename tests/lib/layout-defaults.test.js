@@ -9,7 +9,7 @@ import { buildElkGraph } from '../../src/lib/blockchart/layout/elk-graph.js';
 import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
 
 const load = async (name) =>
-  JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+  JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
 const validate = new Ajv2020({ strict: true }).compile(
   JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8')),
 );

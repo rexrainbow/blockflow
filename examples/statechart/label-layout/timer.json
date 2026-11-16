@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Timer FSM with reserved transition labels"
+  },
+  "layout": {
+    "direction": "down",
+    "labelMaxWidth": 240
+  },
+  "states": [
+    {
+      "id": "IDLE",
+      "label": "IDLE",
+      "description": "(idle-output)"
+    },
+    {
+      "id": "INIT",
+      "label": "INIT",
+      "description": "(idle-output)"
+    },
+    {
+      "id": "HI",
+      "label": "HI",
+      "description": "(1)"
+    },
+    {
+      "id": "LO",
+      "label": "LO",
+      "description": "(0)"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "IDLE",
+      "to": "INIT",
+      "label": "Function-Start && Has Initial-delay"
+    },
+    {
+      "from": "IDLE",
+      "to": "HI",
+      "label": "Function-start && No Initial-delay"
+    },
+    {
+      "from": "INIT",
+      "to": "HI"
+    },
+    {
+      "from": "HI",
+      "to": "LO"
+    },
+    {
+      "from": "LO",
+      "to": "HI",
+      "label": "Not last-cycle"
+    },
+    {
+      "from": "LO",
+      "to": "IDLE",
+      "label": "Is last-cycle && Not continue-mode"
+    },
+    {
+      "from": "LO",
+      "to": "INIT",
+      "label": "Is last-cycle && continue-mode && Has Initial-delay"
+    },
+    {
+      "from": "LO",
+      "to": "HI",
+      "label": "Is last-cycle && continue-mode && No Initial-delay"
+    },
+    {
+      "from": "INIT",
+      "to": "IDLE",
+      "label": "Function-Stop"
+    },
+    {
+      "from": "HI",
+      "to": "IDLE",
+      "label": "Function-Stop"
+    },
+    {
+      "from": "LO",
+      "to": "IDLE",
+      "label": "Function-Stop"
+    }
+  ]
+}

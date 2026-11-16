@@ -36,7 +36,7 @@ calculation. Hidden Port text reserves no phantom lane. Any visible Port name ke
 the text-aware sizing path. Hidden Ports require 16-unit pitch and 8-unit corner
 reservation, enlarged for border width. Receiver names, Port counts, stacked plates
 and tapered faces may enlarge the node. Ordinary Bar appearances, synthetic labels
-and Concat retain their separate geometry. See [the title-sized example](../examples/compact-labels.json).
+and Concat retain their separate geometry. See [the title-sized example](../examples/blockchart/compact-labels.json).
 
 ## Shared routing clearances
 
@@ -191,7 +191,7 @@ points. It accepts validated authoring or normalized documents and returns a new
 `{ moduleSpacing, layerSpacing }` object; empty scope means root. Unknown/non-string
 scope throws `RangeError`. It does not validate draft numeric values, mutate data,
 insert defaults on groups or persist inherited settings. Use `createDiagramModel` for
-authoritative validation. See `examples/local-layout-spacing.json`.
+authoritative validation. See `examples/blockchart/local-layout-spacing.json`.
 
 ## Adjacent Auto routing channels
 
@@ -234,7 +234,7 @@ Successful branches publish `routingInfo.method: "auto-channel"`, reason
 `channelTrack`, `channelTrackCount`, `channelStatus: "routed"` and translated
 `waypoints`. Blocked attempts retain the previous method with `channelStatus: "blocked"`.
 These diagnostics and actual gaps never enter saved JSON. See
-`examples/auto-routing-channels.json`; changing direction needs no cell transposition.
+`examples/blockchart/auto-routing-channels.json`; changing direction needs no cell transposition.
 
 ## Grid routing channels
 
@@ -268,7 +268,7 @@ Successful branches publish `routingInfo.method: "grid-channel"`, reason
 `channelTrackCount`, `channelStatus: "routed"` and two translated `waypoints` describing
 the assigned span. Fallbacks keep the previous method and set `channelStatus: "blocked"`.
 These are derived diagnostics, not authoring fields. Synthetic plans are removed from
-the public layout. See `examples/grid-routing-channels.json` for four crowded Nets,
+the public layout. See `examples/blockchart/grid-routing-channels.json` for four crowded Nets,
 shared fan-out and an unaffected short Audit connection.
 
 ## Measurements

@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rexrainbow.github.io/blockflow/schema/statechart.schema.json",
+  "title": "Flat Statechart authoring document",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "diagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "caption": {
+          "$ref": "#/$defs/text"
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "$ref": "#/$defs/nodeStyle"
+            },
+            "transition": {
+              "$ref": "#/$defs/edgeStyle"
+            }
+          }
+        }
+      },
+      "required": ["name"]
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": ["down", "right", "left", "up"],
+          "default": "down"
+        },
+        "nodeSpacing": {
+          "$ref": "#/$defs/positive"
+        },
+        "layerSpacing": {
+          "$ref": "#/$defs/positive"
+        },
+        "noteGap": {
+          "$ref": "#/$defs/positive"
+        },
+        "labelMaxWidth": {
+          "$ref": "#/$defs/positive",
+          "default": 240,
+          "description": "Target width for display-only wrapping of transition conditions, in SVG units. A glyph wider than this value is kept intact."
+        }
+      }
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/state"
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition"
+      }
+    }
+  },
+  "required": ["version", "diagram", "states", "transitions"],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "positive": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^(transparent|#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))$"
+    },
+    "nodeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fillColor": {
+          "$ref": "#/$defs/color",
+          "default": "#eaf2ff"
+        },
+        "borderColor": {
+          "$ref": "#/$defs/color",
+          "default": "#52606d"
+        },
+        "borderWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.1
+        },
+        "borderStyle": {
+          "enum": ["solid", "dashed", "dotted"],
+          "default": "solid"
+        },
+        "borderRadius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "color": {
+          "$ref": "#/$defs/color",
+          "default": "#243b53"
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 12
+        },
+        "padding": {
+          "type": "number",
+          "minimum": 0,
+          "default": 12
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "Align lines within the existing measured text block; omission preserves current alignment."
+        },
+        "descriptionAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "State description line alignment; inherits textAlign when unset."
+        }
+      }
+    },
+    "edgeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strokeColor": {
+          "$ref": "#/$defs/color",
+          "default": "#34495e"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.2
+        },
+        "lineStyle": {
+          "enum": ["solid", "dashed", "dotted"],
+          "default": "solid"
+        },
+        "color": {
+          "$ref": "#/$defs/color",
+          "default": "#34495e"
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 11
+        },
+        "labelBackgroundColor": {
+          "$ref": "#/$defs/color",
+          "default": "#ffffff"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "Align lines within the existing measured text block; omission preserves current alignment."
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "width": {
+          "$ref": "#/$defs/positive"
+        },
+        "height": {
+          "$ref": "#/$defs/positive"
+        },
+        "style": {
+          "$ref": "#/$defs/nodeStyle"
+        },
+        "kind": {
+          "enum": ["state", "initial", "final"]
+        },
+        "description": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": ["id"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["initial", "final"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "label": false,
+              "description": false,
+              "width": false,
+              "height": false
+            }
+          }
+        }
+      ]
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "from": {
+          "$ref": "#/$defs/id"
+        },
+        "to": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "$ref": "#/$defs/text"
+        },
+        "kind": {
+          "enum": ["flow", "loop"]
+        },
+        "fromSide": {
+          "enum": ["left", "right", "top", "bottom"]
+        },
+        "toSide": {
+          "enum": ["left", "right", "top", "bottom"]
+        },
+        "style": {
+          "$ref": "#/$defs/edgeStyle"
+        }
+      },
+      "required": ["from", "to"]
+    }
+  }
+}

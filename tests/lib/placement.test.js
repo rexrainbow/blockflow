@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import { measureLayout } from '../../examples/metrics.js';
+import { measureLayout } from '../../examples/blockchart/metrics.js';
 import { checkLayout, freeze } from './helpers.js';
 
 const names = ['placement-branch', 'placement-feedback', 'placement-stress'];
-const load = async name => JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+const load = async name => JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
 
 for (const name of names) test(`${name}: all three placements preserve geometry and route correctly`, async () => {
   const input = await load(name);

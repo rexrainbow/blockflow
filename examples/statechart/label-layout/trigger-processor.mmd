@@ -1,0 +1,34 @@
+stateDiagram-v2
+    direction TB
+    %% Flat FSM; no initial transition is inferred from DOT's IDLE shape.
+    %% DOT colors and fills are omitted in the supported Mermaid subset.
+
+    IDLE
+    InitSkip: Init-skip
+    Sample
+    Skip
+    state "Pause" as InitSkipPause
+    InitSkipPause: from Init-skip
+    state "Pause" as SamplePause
+    SamplePause: from Sample
+    state "Pause" as SkipPause
+    SkipPause: from Skip
+
+    IDLE --> InitSkip: (Turn on) && (Has Init-skip)
+    IDLE --> Sample: (Turn on) && (No Init-skip)
+    InitSkip --> Sample
+    Sample --> Skip: (Has skip)
+    Skip --> Sample: (Infinity cycles) || (Has next-cycle)
+    Sample --> IDLE: (No skip) && (Cycle end)
+    Skip --> IDLE: (Has skip) && (Cycle end)
+
+    InitSkip --> IDLE: (Turn off) && (Stop mode is RESET)
+    Sample --> IDLE: (Turn off) && (Stop mode is RESET)
+    Skip --> IDLE: (Turn off) && (Stop mode is RESET)
+
+    InitSkip --> InitSkipPause: (Turn off) && (Stop mode is PAUSE)
+    Sample --> SamplePause: (Turn off) && (Stop mode is PAUSE)
+    Skip --> SkipPause: (Turn off) && (Stop mode is PAUSE)
+    InitSkipPause --> InitSkip: (Turn on)
+    SamplePause --> Sample: (Turn on)
+    SkipPause --> Skip: (Turn on)

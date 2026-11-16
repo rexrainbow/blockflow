@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Door controller",
+    "caption": "A flat state machine: conditions and outputs are plain text."
+  },
+  "layout": { "direction": "right" },
+  "states": [
+    { "id": "start", "kind": "initial" },
+    { "id": "Closed", "label": "Closed", "description": "lock = 1" },
+    { "id": "Opening", "label": "Opening", "description": "motor = up" },
+    { "id": "Open", "label": "Open", "description": "timer = 10 s" },
+    { "id": "Closing", "label": "Closing", "description": "motor = down" },
+    { "id": "Fault", "label": "Fault", "description": "alarm = 1", "style": { "fillColor": "#fde8e8", "borderColor": "#b42318" } },
+    { "id": "off", "kind": "final" }
+  ],
+  "transitions": [
+    { "from": "start", "to": "Closed" },
+    { "from": "Closed", "to": "Opening", "label": "button" },
+    { "from": "Opening", "to": "Open", "label": "top switch" },
+    { "from": "Open", "to": "Closing", "label": "timer expired" },
+    { "from": "Open", "to": "Open", "label": "button /\nrestart timer" },
+    { "from": "Closing", "to": "Closed", "label": "bottom switch" },
+    { "from": "Closing", "to": "Opening", "label": "obstacle", "kind": "loop" },
+    { "from": "Opening", "to": "Fault", "label": "motor timeout", "style": { "strokeColor": "#b42318" } },
+    { "from": "Closing", "to": "Fault", "label": "motor timeout", "style": { "strokeColor": "#b42318" } },
+    { "from": "Fault", "to": "Closed", "label": "reset", "style": { "lineStyle": "dashed" } },
+    { "from": "Closed", "to": "off", "label": "power off" }
+  ]
+}

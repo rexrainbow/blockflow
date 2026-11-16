@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { reconcileGrids } from '../../src/lib/blockchart/grid.js';
 import { createDiagramModel } from '../../src/lib/index.js';
-import { placeBlock, removeGroup, setGroupType } from '../../src/editor/state/commands.js';
+import { placeBlock, removeGroup, setGroupType } from '../../src/editor/blockchart/commands.js';
 import {
   addBlock,
   deleteSelection,
   duplicateBlock,
   groupItems,
   deleteGroupDeep,
-} from '../../src/studio/state/actions.js';
-import { syncGridMembership } from '../../src/studio/state/grid-sync.js';
+} from '../../src/studio/blockchart/state/actions.js';
+import { syncGridMembership } from '../../src/studio/blockchart/state/grid-sync.js';
 
 const source = JSON.parse(
-  await readFile(new URL('../../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/processor-cross-group-grid.json', import.meta.url), 'utf8'),
 );
 // Clock      ALU0  .
 // Controller ALU1  ALU2

@@ -83,7 +83,7 @@ test('multiline rendering preserves blank rows and escapes markup as literal tex
 });
 
 test('multiline geometry works in once layout and final outer feedback routes', async () => {
-  const raw=JSON.parse(await readFile(new URL('../../examples/placement-feedback.json', import.meta.url),'utf8'));
+  const raw=JSON.parse(await readFile(new URL('../../examples/blockchart/placement-feedback.json', import.meta.url),'utf8'));
   raw.layout.feedbackRouting='outer';
   raw.modules[0].label='Controller\nChannel A';
   raw.modules[0].ports[0].label='Return\nFeedback';

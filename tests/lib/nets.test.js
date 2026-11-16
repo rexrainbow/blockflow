@@ -10,7 +10,7 @@ import {
   removeModule,
   removeTerminal,
   saveTerminal,
-} from '../../src/editor/state/commands.js';
+} from '../../src/editor/blockchart/commands.js';
 const sample = (both = false) => ({
   version: 1,
   diagram: { name: 'Net' },

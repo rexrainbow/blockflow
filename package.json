@@ -19,7 +19,12 @@
     "./flowchart/node": {
       "node": "./src/lib/flowchart/node.js"
     },
-    "./flowchart/browser": "./src/lib/flowchart/browser.js"
+    "./flowchart/browser": "./src/lib/flowchart/browser.js",
+    "./statechart": "./src/lib/statechart/index.js",
+    "./statechart/browser": "./src/lib/statechart/browser.js",
+    "./statechart/node": {
+      "node": "./src/lib/statechart/node.js"
+    }
   },
   "engines": {
     "node": ">=22.12.0"
@@ -34,21 +39,22 @@
     "test:e2e": "playwright test",
     "check": "node scripts/check.js",
     "check:design": "node scripts/check-design.js",
-    "format": "prettier --write src/editor src/lib/browser.js src/lib/shared src/lib/flowchart src/lib/blockchart/browser.js src/lib/blockchart/layout tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/blockchart/view src/lib/blockchart/export/dom.js examples/dom-viewer.html examples/dom-viewer.js examples/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md src/agent-kit docs/blockchart-agent-kit-readme.md tests/agent-kit.test.js docs/flowchart.md docs/blockchart-layout.md tests/flowchart docs/agent-kit-readme.md docs/flowchart-agent-kit-readme.md tests/flowchart-agent-kit.test.js",
-    "format:check": "prettier --check src/editor src/lib/browser.js src/lib/shared src/lib/flowchart src/lib/blockchart/browser.js src/lib/blockchart/layout tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/blockchart/view src/lib/blockchart/export/dom.js examples/dom-viewer.html examples/dom-viewer.js examples/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md src/agent-kit docs/blockchart-agent-kit-readme.md tests/agent-kit.test.js docs/flowchart.md docs/blockchart-layout.md tests/flowchart docs/agent-kit-readme.md docs/flowchart-agent-kit-readme.md tests/flowchart-agent-kit.test.js",
-    "examples": "node examples/generate.js",
-    "examples:styles": "node examples/generate-styles.js",
-    "compare:placement": "node examples/compare-placement.js",
-    "compare:feedback": "node examples/compare-feedback.js",
+    "format": "prettier --write src/editor src/lib/browser.js src/lib/shared src/lib/flowchart src/lib/blockchart/browser.js src/lib/blockchart/layout tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/blockchart/view src/lib/blockchart/export/dom.js examples/blockchart/dom-viewer.html examples/blockchart/dom-viewer.js examples/blockchart/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md src/agent-kit docs/blockchart-agent-kit-readme.md tests/agent-kit.test.js docs/flowchart.md docs/blockchart-layout.md tests/flowchart docs/agent-kit-readme.md docs/flowchart-agent-kit-readme.md tests/flowchart-agent-kit.test.js",
+    "format:check": "prettier --check src/editor src/lib/browser.js src/lib/shared src/lib/flowchart src/lib/blockchart/browser.js src/lib/blockchart/layout tests/editor tests/schema schema docs/agent-guide.md e2e scripts index.html vite.config.js playwright.config.js DESIGN.md UX-CONTRACT.md premium-ui.json vite.offline.config.js playwright.offline.config.js src/lib/export/dom.js src/lib/blockchart/view src/lib/blockchart/export/dom.js examples/blockchart/dom-viewer.html examples/blockchart/dom-viewer.js examples/blockchart/dom-viewer.css vite.dom.config.js playwright.dom.config.js docs/dom-viewer.md src/agent-kit docs/blockchart-agent-kit-readme.md tests/agent-kit.test.js docs/flowchart.md docs/blockchart-layout.md tests/flowchart docs/agent-kit-readme.md docs/flowchart-agent-kit-readme.md tests/flowchart-agent-kit.test.js",
+    "examples": "node examples/blockchart/generate.js",
+    "examples:styles": "node examples/blockchart/generate-styles.js",
+    "compare:placement": "node examples/blockchart/compare-placement.js",
+    "compare:feedback": "node examples/blockchart/compare-feedback.js",
     "build:offline": "vite build --config vite.offline.config.js",
     "test:e2e:offline": "npm run build:offline && playwright test --config playwright.offline.config.js",
     "build:dom-example": "vite build --config vite.dom.config.js",
     "test:e2e:dom": "npm run build:dom-example && playwright test --config playwright.dom.config.js",
-    "compare:collapse": "node examples/compare-collapse.js",
-    "compare:collection": "node examples/compare-collection.js",
-    "compare:views": "node examples/compare-group-view.js",
+    "compare:collapse": "node examples/blockchart/compare-collapse.js",
+    "compare:collection": "node examples/blockchart/compare-collection.js",
+    "compare:views": "node examples/blockchart/compare-group-view.js",
     "flowchart": "node scripts/flowchart-convert.js",
-    "build:agent-kit:blockchart": "node scripts/build-agent-kit.js"
+    "build:agent-kit:blockchart": "node scripts/build-agent-kit.js",
+    "statechart": "node scripts/statechart-convert.js"
   },
   "dependencies": {
     "elkjs": "0.12.1",

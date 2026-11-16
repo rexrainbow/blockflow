@@ -1,22 +1,24 @@
 # Blockflow Agent Kit
 
-Blockflow combines **Blockchart** (hardware block diagrams) and **Flowchart** (process
-diagrams). This offline kit contains five files. Choose the converter and Schema for the
+Blockflow combines **Blockchart** (hardware block diagrams), **Flowchart** (process
+diagrams) and **Statechart** (flat FSM diagrams). This offline kit contains seven files. Choose the converter and Schema for the
 diagram domain; their JSON formats are separate.
 
 | Domain                     | Converter                | Schema                   | Input                                      | Output    |
 | -------------------------- | ------------------------ | ------------------------ | ------------------------------------------ | --------- |
 | Hardware / signal diagrams | `blockchart-convert.mjs` | `blockchart.schema.json` | Blockchart JSON                            | JSON, SVG |
 | Process / control flow     | `flowchart-convert.mjs`  | `flowchart.schema.json`  | Mermaid Flowchart subset or Flowchart JSON | JSON, SVG |
+| Flat state machines        | `statechart-convert.mjs` | `statechart.schema.json` | stateDiagram-v2 subset or Statechart JSON  | JSON, SVG |
 
-Both converters contain their own validator, ELK layout and SVG renderer. Requires
+All converters contain their own validator, ELK layout and SVG renderer. Requires
 **Node.js 22.12+**; no npm install, project source, browser, server or network is needed.
-Move this folder to any location. Either converter can run independently; its Schema and
+Move this folder to any location. Each converter can run independently; its Schema and
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-c9c32e029712c82a08f0`
-- Flowchart build: `flowchart-agent-kit-f8623c400a643a618d81`
+- Blockchart build: `blockchart-agent-kit-b62d6c5b4d0f269645c9`
+- Flowchart build: `flowchart-agent-kit-d4880e8aa375e97772df`
+- Statechart build: `statechart-agent-kit-12b3480a3a3188e5e6b5`
 
 ## Quick start
 
@@ -31,23 +33,22 @@ node flowchart-convert.mjs process.mmd --output - --format svg
 ```
 
 Run `node <converter>.mjs --help` for flags and `--version` for its build ID. The Flowchart
-text syntax is a documented subset, not the complete Mermaid language. Both standalone
+text syntax is a documented subset, not the complete Mermaid language. All standalone
 tools export JSON and SVG. For PNG, the full project offers SVG-to-PNG exports and the
 Flowchart project CLI (`npm run flowchart -- process.json --output process.png --scale 2`).
 Native Sharp dependencies are intentionally kept outside these single-file converters.
 
 ## Maintainers
 
-In the source checkout, `npm run build:agent-kit` regenerates both converters, both Schemas
+In the source checkout, `npm run build:agent-kit` regenerates all converters and Schemas
 and this README together. `build:agent-kit:blockchart` remains an alias for this complete
-build, so it cannot overwrite the shared guide with an incomplete version. The two
-domain guides below are generated from maintained templates. Each bundle embeds the ELK
+build, so it cannot overwrite the shared guide with an incomplete version. The domain guides below are generated from maintained templates. Each bundle embeds the ELK
 license attribution; its full license appears at the end of this README.
 
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-c9c32e029712c82a08f0`
+Build: `blockchart-agent-kit-b62d6c5b4d0f269645c9`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -658,7 +659,7 @@ Omit individual fields to inherit diagram defaults or built-in values.
 }
 ```
 
-The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
+The snippet is the value of `style.label`. See `examples/blockchart/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
 
 ### Diagram domain
@@ -702,12 +703,26 @@ can specialize them. Collapsed Collection virtual Ports use the same resolution.
 Inheritance is resolved when validating and rendering; JSON export preserves the
 authored values and omissions without inserting computed defaults. These fields style
 the diagram, independently of Studio theme or application preferences. The repository's
-examples/default-styles.json demonstrates these settings.
+examples/blockchart/default-styles.json demonstrates these settings.
+
+### Text alignment
+
+Text-bearing styles accept `textAlign` as `left`, `center` or `right`. It aligns
+multiline text inside its existing measured text block; it does not move the label,
+change geometry or reposition a single line. Omit the field to retain current
+alignment/inherit; null and `inherit` are invalid. Use existing global/local style
+paths. Blockchart uses text styles (including module/group label and port-label
+sections, connection.label, terminals and caption); Flowchart uses node/note/edge/
+group styles; Statechart uses state/transition styles. Statechart state styles also
+accept `descriptionAlign`, inherited globally/locally and falling back to resolved
+state `textAlign` when omitted. This separately aligns the description below the
+name; it is invalid on transitions and in the other diagram domains. JSON only;
+no new Mermaid alignment directive is supported.
 
 
 ## Flowchart Agent Kit
 
-Build: `flowchart-agent-kit-f8623c400a643a618d81`
+Build: `flowchart-agent-kit-d4880e8aa375e97772df`
 
 Use `flowchart-convert.mjs` for process diagrams. `flowchart.schema.json` is the standalone
 JSON Schema Draft 2020-12; it has no dependency on the Blockchart Schema. The validator
@@ -823,9 +838,22 @@ condition labels. Flowchart has no hardware Ports, bit widths, Nets or Concat no
 
 Layout: `direction` down/right/up/left, positive `nodeSpacing` (40), `layerSpacing` (60),
 `noteGap` (40), and `loopSide` auto/left/right/top/bottom. Loop side must be perpendicular
-to flow; auto uses right for vertical flow or bottom for horizontal flow. Notes default to
+to flow; auto compares both perpendicular sides using route length and bend cost,
+preferring local corridors with all node/note obstacles retained and full outer
+routes available as fallbacks. Ties prefer right for vertical flow or bottom for
+horizontal flow. Fixed loop sides and explicit endpoint sides remain respected.
+Group auto loops reserve room on both sides. Notes default to
 right for vertical flow or bottom for horizontal flow. Use larger spacing, shorter labels
 or explicit sides if rendering reports `FLOW_LABEL_OVERLAP`.
+Condition labels prefer the middle of an exclusive straight wire section, clear
+of shared trunks, intersections, bends and arrows. Junction clearance scales with
+font size (at least 14 layout units). Labels stay horizontal; the existing
+`labelBackgroundColor` rectangle masks the owning wire under the text. Other
+wires, nodes, titles and labels remain obstacles. If needed, bounded local
+rerouting is attempted without moving nodes or changing endpoint sides. Failed
+trials retain original paths. A final beside-wire fallback emits
+`FLOW_LABEL_OVERLAP`, as do unresolved collisions; short connections may warn even
+when their fallback does not overlap anything. No authoring fields are added.
 
 Node/group styles: `fillColor`, `borderColor`, positive `borderWidth`, `borderStyle`,
 non-negative `borderRadius`, `color`, positive `fontSize`, non-negative `padding`, `opacity`.
@@ -852,6 +880,102 @@ Strings default to Mermaid; objects default to JSON. For a JSON string, pass
 `{inputFormat:"json"}`. `convertFlowchart` returns `{format,text,warnings}` and supports
 only JSON/SVG. Input objects remain unchanged. Errors include `stage`, and syntax errors
 include `line` / `column`. Importing the module does not run the CLI or write files.
+
+### Text alignment
+
+Text-bearing styles accept `textAlign` as `left`, `center` or `right`. It aligns
+multiline text inside its existing measured text block; it does not move the label,
+change geometry or reposition a single line. Omit the field to retain current
+alignment/inherit; null and `inherit` are invalid. Use existing global/local style
+paths. Blockchart uses text styles (including module/group label and port-label
+sections, connection.label, terminals and caption); Flowchart uses node/note/edge/
+group styles; Statechart uses state/transition styles. Statechart state styles also
+accept `descriptionAlign`, inherited globally/locally and falling back to resolved
+state `textAlign` when omitted. This separately aligns the description below the
+name; it is invalid on transitions and in the other diagram domains. JSON only;
+no new Mermaid alignment directive is supported.
+
+
+## Statechart Agent Kit
+
+Build: `statechart-agent-kit-12b3480a3a3188e5e6b5`; bundled ELK: `0.12.1`.
+
+Use `statechart-convert.mjs` with `statechart.schema.json` to generate flat FSM
+diagrams. Input is Statechart JSON or the documented `stateDiagram-v2` subset;
+output is JSON or SVG. No project files, npm installation or network is required.
+
+```sh
+node statechart-convert.mjs task-controller.mmd --output task-controller.json
+node statechart-convert.mjs task-controller.json --output task-controller.svg
+node statechart-convert.mjs task-controller.json --check
+```
+
+Text starts with `stateDiagram-v2`. Supports bare IDs, `state "Name" as ID`,
+`ID: Description`, `A --> B: condition`, `[*] --> A`, `A --> [*]`, directions
+TB/TD/LR/BT/RL and standalone `%%` comments. Repeated `ID: ...` lines use the first
+as the display name and later lines as the state's description; a quoted name
+keeps its name and all description lines become body text. Quoted names accept
+JSON escapes. Transition labels are literal text; HTML and actions are never run.
+Composite states, concurrency, choice/fork/join, notes, styling directives,
+frontmatter, chained transitions and semicolon statements are rejected with a
+line/column error. Use JSON for styles, multiline transition labels and side hints.
+
+Required JSON root: `version: 1`, `diagram: {name}`, nonempty `states`, `transitions`.
+State: `id`, optional `kind` (state/initial/final), `label`, `description`, `width`,
+`height`, `style`. Initial/final pseudostates have fixed dimensions and no text.
+Transition: `from`, `to`, optional `id`, `label`, `kind` (flow/loop), `fromSide`,
+`toSide`, `style`. Omitted IDs become `transition_N` in normalized data; parallel
+transitions are distinct. Final states cannot be sources; initial states cannot
+be targets. Layout direction is down/right/up/left; node/layer spacing fields
+match Flowchart. Global `layout.loopSide` is unsupported, including `auto`; delete
+it from Statechart JSON. Individual transition endpoint sides remain supported.
+Diagram defaults are `diagram.style.state` and `.transition`.
+Styles use hex colors or transparent; unsupported properties are errors.
+
+`layout.labelMaxWidth` is a positive finite target width for condition display
+wrapping (default 240 SVG units). JSON conditions stay unchanged; SVG uses derived
+display text. Explicit line breaks are preserved. Long tokens can break at Unicode
+code points; a single oversized glyph is not clipped. JSON export preserves the
+original strings and does not add defaults or layout-only fields.
+
+Statechart uses label-aware layered placement. Temporary label rectangles reserve
+space and state ports are distributed per transition; parallel and self transitions
+remain distinct. Text is centered over its own horizontal or vertical wire segment.
+Foreign wires, states and other labels cannot enter its label rectangle. Fixed
+endpoint-side hints remain respected. Layout retries with increased spacing
+in up to three spacing rounds; unresolved collisions produce a layout error with a transition
+path, not a warning and overlapping output. Flowchart's routing algorithm is unchanged.
+
+Placement first analyzes distinct-neighbor structure, repeated incoming text and
+strongly connected circuits. Core states get ordering/straightness preferences;
+single-owner bidirectional satellites are placed with lower priority. State names
+are not interpreted. Up to four candidates per spacing round are compared, retaining
+ordinary declaration ordering as a baseline. Mandatory label/state avoidance comes
+first, then collinear overlap, crossings/contacts, wire/bend cost and area. At most
+twelve placements are attempted. No role, priority or fixed-coordinate fields are
+added to JSON; coordinates remain free and zero crossings are not universally guaranteed.
+
+Conditions, outputs and actions are display text, not executable FSM semantics.
+Layout back-edge detection does not change persisted transition kinds. No groups
+or nested state semantics are supported. Use the selected domain's schema.
+
+JS exports: `parseMermaid`, `validateStatechart`, `convertStatechart`, `KIT_VERSION`.
+`convertStatechart(input, {format: 'json' | 'svg'})` returns `{format,text,warnings}`.
+String input defaults to Mermaid; use `{inputFormat:'json'}` for JSON strings.
+
+### Text alignment
+
+Text-bearing styles accept `textAlign` as `left`, `center` or `right`. It aligns
+multiline text inside its existing measured text block; it does not move the label,
+change geometry or reposition a single line. Omit the field to retain current
+alignment/inherit; null and `inherit` are invalid. Use existing global/local style
+paths. Blockchart uses text styles (including module/group label and port-label
+sections, connection.label, terminals and caption); Flowchart uses node/note/edge/
+group styles; Statechart uses state/transition styles. Statechart state styles also
+accept `descriptionAlign`, inherited globally/locally and falling back to resolved
+state `textAlign` when omitted. This separately aligns the description below the
+name; it is invalid on transitions and in the other diagram domains. JSON only;
+no new Mermaid alignment directive is supported.
 
 
 ## Bundled elkjs license

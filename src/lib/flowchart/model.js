@@ -58,11 +58,12 @@ function number(v, path, zero = false) {
 }
 export function parseFlowStyle(raw = {}, kind = 'node', path = 'style') {
   const defaults = kind === 'edge' ? EDGE_STYLE : NODE_STYLE;
-  object(raw, Object.keys(defaults), path);
+  object(raw, [...Object.keys(defaults), 'textAlign'], path);
   const result = {};
   for (const [k, v] of Object.entries(raw)) {
     const p = path + '.' + k;
-    if (k.endsWith('Color') || k === 'color') {
+    if (k === 'textAlign') result[k] = choice(v, ['left', 'center', 'right'], p);
+    else if (k.endsWith('Color') || k === 'color') {
       if (v === 'transparent') result[k] = '#00000000';
       else {
         if (typeof v !== 'string' || !/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(v))

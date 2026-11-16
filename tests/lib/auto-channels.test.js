@@ -7,7 +7,7 @@ import { channelAssignments, parallelOverlap } from '../../src/lib/blockchart/la
 import { groupGeometry } from '../../src/lib/blockchart/layout/groups.js';
 
 const example = JSON.parse(
-  await readFile(new URL('../../examples/auto-routing-channels.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/auto-routing-channels.json', import.meta.url), 'utf8'),
 );
 const parts = (edge) => edge.sections.flatMap((s) => s.points.slice(1).map((p, i) => [s.points[i], p]));
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-5, `${a} != ${b}`);

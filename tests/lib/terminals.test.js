@@ -12,10 +12,10 @@ import {
   removeTerminal,
   renameModule,
   removeModule,
-} from '../../src/editor/state/commands.js';
+} from '../../src/editor/blockchart/commands.js';
 import { endpointKey } from '../../src/lib/blockchart/endpoints.js';
 
-const example = JSON.parse(await readFile(new URL('../../examples/terminals.json', import.meta.url), 'utf8'));
+const example = JSON.parse(await readFile(new URL('../../examples/blockchart/terminals.json', import.meta.url), 'utf8'));
 const schema = JSON.parse(
   await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),
 );

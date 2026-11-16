@@ -19,12 +19,12 @@ import {
 const root = new URL('../../', import.meta.url);
 const schema = JSON.parse(await readFile(new URL('schema/blockchart.schema.json', root), 'utf8'));
 const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
-const minimal = JSON.parse(await readFile(new URL('examples/agent-minimal.json', root), 'utf8'));
+const minimal = JSON.parse(await readFile(new URL('examples/blockchart/agent-minimal.json', root), 'utf8'));
 const run = promisify(execFile);
 const cli = fileURLToPath(new URL('scripts/validate-diagram.js', root));
 
 test('Net schema accepts common labels and per-target line options, rejects malformed targets and repeat controls', async () => {
-  const raw = JSON.parse(await readFile(new URL('examples/net-fanout.json', root), 'utf8'));
+  const raw = JSON.parse(await readFile(new URL('examples/blockchart/net-fanout.json', root), 'utf8'));
   assert.equal(validate(raw), true, JSON.stringify(validate.errors));
   const invalid = [
     (d) => {
@@ -55,10 +55,12 @@ test('Net schema accepts common labels and per-target line options, rejects malf
 });
 
 test('every JSON example satisfies the schema and authoritative model without mutation', async () => {
-  const files = (await readdir(new URL('examples/', root))).filter((file) => file.endsWith('.json'));
+  const files = (await readdir(new URL('examples/blockchart/', root))).filter((file) =>
+    file.endsWith('.json'),
+  );
   assert.ok(files.length >= 14);
   for (const file of files) {
-    const input = JSON.parse(await readFile(new URL(`examples/${file}`, root), 'utf8'));
+    const input = JSON.parse(await readFile(new URL(`examples/blockchart/${file}`, root), 'utf8'));
     const before = structuredClone(input);
     assert.equal(validate(input), true, `${file}: ${JSON.stringify(validate.errors)}`);
     createDiagramModel(input);
@@ -78,8 +80,14 @@ test('guide JSON is executable and matches the copyable minimal example', async 
 
 test('schema style keys cover exactly the portable library style surface', () => {
   const keys = (definition) => Object.keys(schema.$defs[definition].properties).sort();
-  assert.deepEqual(keys('textStyle'), Object.keys(TEXT_STYLE).sort());
-  assert.deepEqual(keys('connectionLabelStyle'), Object.keys(CONNECTION_LABEL_STYLE).sort());
+  // Alignment is supported but has no universal built-in default: existing roles
+  // retain their own anchors when the property is omitted.
+  assert.deepEqual(keys('textStyle'), [...Object.keys(TEXT_STYLE), 'textAlign'].sort());
+  assert.deepEqual(
+    keys('connectionLabelStyle'),
+    [...Object.keys(CONNECTION_LABEL_STYLE), 'textAlign'].sort(),
+  );
+  assert.equal(Object.hasOwn(TEXT_STYLE, 'textAlign'), false);
   assert.deepEqual(keys('connectionStyle'), [...Object.keys(connectionStyle(1)), 'label'].sort());
   assert.deepEqual(
     keys('moduleStyle'),

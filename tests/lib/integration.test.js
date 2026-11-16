@@ -11,7 +11,7 @@ import { checkLayout } from './helpers.js';
 for (const name of ['uart-data-path', 'placement-feedback', 'placement-stress']) test(`${name} JSON → model → layout → SVG + PNG from the same result`, async t => {
   const dir = await mkdtemp(join(tmpdir(), 'rtl-e2e-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
-  const input = JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+  const input = JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
   const model = createDiagramModel(input);
   const layout = await layoutDiagram(model);
   checkLayout(model, layout);

@@ -112,7 +112,7 @@ test('ordinary Container gutters use only incident routes; Boundary geometry is 
 
 test('Default routing retains the receiver name and clear foreign Nets in the processor reference', async () => {
   const raw = JSON.parse(
-    await readFile(new URL('../../examples/processor-components.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../../examples/blockchart/processor-components.json', import.meta.url), 'utf8'),
   );
   const source = raw.connections.find((edge) => edge.from === 'InputLogic.combined');
   source.style ??= {};

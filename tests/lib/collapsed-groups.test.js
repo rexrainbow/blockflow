@@ -7,7 +7,7 @@ import {createDiagramModel,layoutDiagram,renderSvg} from '../../src/lib/index.js
 import {moduleGeometry} from '../../src/lib/blockchart/geometry.js';
 import {copyLayout} from '../../src/lib/blockchart/view/layout.js';
 import {freeze} from './helpers.js';
-const fixture=JSON.parse(await readFile(new URL('../../examples/boundary-groups.json',import.meta.url),'utf8'));
+const fixture=JSON.parse(await readFile(new URL('../../examples/blockchart/boundary-groups.json',import.meta.url),'utf8'));
 const schema=JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json',import.meta.url),'utf8'));
 const validate=new Ajv({strict:true,allErrors:true}).compile(schema);
 const near=(a,b)=>Math.abs(a-b)<1e-6;

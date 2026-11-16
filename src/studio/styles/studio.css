@@ -489,6 +489,11 @@ kbd {
   box-shadow: var(--pop-shadow);
   padding: 4px;
 }
+.menu {
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .menu-item {
   width: 100%;
   display: flex;
@@ -848,9 +853,23 @@ kbd {
   flex: 0 0 auto;
   max-width: calc(100% - 72px);
 }
-.row.problem .row-label {
+.row.problem .problem-text {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.row.problem .problem-item {
+  color: var(--ink);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row.problem .row-label {
   max-width: none;
+  white-space: normal;
 }
 .row-key {
   font: var(--fs-xs) var(--font-mono);
@@ -1981,6 +2000,9 @@ button.ovr.on:hover {
 /* ---------------- responsive ---------------- */
 .studio.narrow .workspace {
   grid-template-columns: minmax(0, 1fr);
+  /* Closed drawers wait off-canvas: clip them so nothing can scroll the page sideways. */
+  overflow: hidden;
+  overflow: clip;
 }
 .studio.narrow .outline,
 .studio.narrow .inspector {
@@ -1991,7 +2013,11 @@ button.ovr.on:hover {
   z-index: 30;
   width: min(340px, 88vw);
   box-shadow: var(--pop-shadow);
-  transition: transform 0.18s ease;
+  /* Hidden while closed (out of the tab order and accessibility tree) after sliding out. */
+  visibility: hidden;
+  transition:
+    transform 0.18s ease,
+    visibility 0s linear 0.18s;
 }
 .studio.narrow .outline {
   left: 0;
@@ -2004,6 +2030,10 @@ button.ovr.on:hover {
 .studio.narrow[data-drawer='outline'] .outline,
 .studio.narrow[data-drawer='inspector'] .inspector {
   transform: none;
+  visibility: visible;
+  transition:
+    transform 0.18s ease,
+    visibility 0s;
 }
 .studio.narrow[data-drawer='outline'] .scrim,
 .studio.narrow[data-drawer='inspector'] .scrim {
@@ -2035,8 +2065,23 @@ button.ovr.on:hover {
   .bar-sep {
     display: none;
   }
+  /* Phone widths: every remaining top-bar control must stay on screen. File and Theme are
+     in the command palette; the kind chip and Export keep their icons and accessible names. */
+  .brand,
+  .theme-btn,
+  .kind-chip-text,
+  .export-btn span {
+    display: none;
+  }
+  .topbar {
+    gap: 4px;
+    padding: 0 6px;
+  }
   .doc-name {
-    width: 12ch;
+    flex: 1 1 0;
+    width: auto;
+    min-width: 48px;
+    max-width: none;
   }
   .minimap {
     display: none;
@@ -2059,4 +2104,84 @@ button.ovr.on:hover {
   .row.selected {
     outline: 2px solid Highlight;
   }
+}
+
+/* ---------------- diagram kinds ---------------- */
+.kind-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.kind-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+.kind-chip .icon {
+  color: var(--accent);
+}
+
+/* ---------------- flowchart ---------------- */
+.node-ico.flow {
+  color: var(--accent);
+}
+.node-ico.flow-decision {
+  color: var(--warn);
+}
+.node-ico.flow-start,
+.node-ico.flow-end,
+.node-ico.flow-terminator {
+  color: var(--output);
+}
+.node-ico.flow-note {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: transparent;
+}
+.hit-handle {
+  fill: var(--overlay-select);
+  fill-opacity: 0.85;
+  stroke: #fff;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  cursor: crosshair;
+}
+.hit-handle:hover {
+  fill-opacity: 1;
+  stroke-width: 2.5;
+}
+.hit-handle.edge-end {
+  fill: #fff;
+  stroke: var(--overlay-select);
+  stroke-width: 2;
+  cursor: move;
+}
+.canvas.connecting .hit-node {
+  stroke: rgba(36, 87, 214, 0.25);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.link-row .muted {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.link-row .edge-dir {
+  width: 12px;
+  color: var(--accent);
+  flex: none;
 }

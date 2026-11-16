@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createDiagramModel, layoutDiagram } from '../../src/lib/index.js';
 import { checkLayout, freeze } from './helpers.js';
 
-const example = JSON.parse(await readFile(new URL('../../examples/feedback-priority.json', import.meta.url), 'utf8'));
+const example = JSON.parse(await readFile(new URL('../../examples/blockchart/feedback-priority.json', import.meta.url), 'utf8'));
 
 test('feedback is optional, boolean, defaults false in once layout', () => {
   const raw = structuredClone(example);

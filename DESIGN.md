@@ -251,7 +251,7 @@ selection, state and focus overlays. It does not import editor CSS. Default acce
 colors follow this document's primary/amber/output/danger/muted palette; consumers can set
 --portsketch-accent and --portsketch-background on the host. Graph styles remain document data.
 
-The runnable examples/dom-viewer surface reuses editor tokens, shared button markup and
+The runnable examples/blockchart/dom-viewer surface reuses editor tokens, shared button markup and
 button CSS. It uses one diagram viewport and one bounded event log, with native labeled
 controls and a single live status. Narrow screens stack these panels. There are no new
 dialogs, CRUD flows, data-entry widgets, network requests or simulation behavior.

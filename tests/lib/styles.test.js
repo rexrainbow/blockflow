@@ -226,7 +226,7 @@ test('JSON to PNG preserves inward border, fill alpha, text colors and padded la
 });
 
 test('once layout and outer feedback preserve resolved styles and label bounds', async () => {
-  const input=JSON.parse(await readFile(new URL('../../examples/placement-stress.json',import.meta.url),'utf8'));
+  const input=JSON.parse(await readFile(new URL('../../examples/blockchart/placement-stress.json',import.meta.url),'utf8'));
   input.diagram.style={connection:{strokeColor:'#078',strokeWidth:4,lineStyle:'dashed'},module:{label:{fontSize:18,padding:4,backgroundColor:'#eee'},inputPortLabel:{fontSize:14,padding:2}}};
   input.layout.feedbackRouting='outer';const model=createDiagramModel(input),result=await layoutDiagram(model);
   for(const node of result.modules) {inside(node.labelBounds,node);for(const port of node.ports)inside(port.labelBounds,node);}

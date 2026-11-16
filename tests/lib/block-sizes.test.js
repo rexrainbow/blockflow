@@ -7,7 +7,7 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { moduleGeometry } from '../../src/lib/blockchart/geometry.js';
 import { fixture, freeze, checkLayout } from './helpers.js';
 
-const sample=JSON.parse(await readFile(new URL('../../examples/block-sizes.json',import.meta.url),'utf8'));
+const sample=JSON.parse(await readFile(new URL('../../examples/blockchart/block-sizes.json',import.meta.url),'utf8'));
 const schema=JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json',import.meta.url),'utf8'));
 const validate=new Ajv2020({strict:true}).compile(schema);
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);

@@ -36,8 +36,8 @@ export const connectionStyle = (width) => ({
 
 const TEXT_GROUPS = ['label', 'portLabel', 'inputPortLabel', 'outputPortLabel'];
 const KEYS = {
-  text: Object.keys(TEXT_STYLE),
-  connectionLabel: Object.keys(CONNECTION_LABEL_STYLE),
+  text: [...Object.keys(TEXT_STYLE), 'textAlign'],
+  connectionLabel: [...Object.keys(CONNECTION_LABEL_STYLE), 'textAlign'],
   group: [...Object.keys(GROUP_STYLE), ...TEXT_GROUPS],
   connection: [...Object.keys(connectionStyle(1)), 'label'],
   module: [...Object.keys(BLOCK_STYLE), ...TEXT_GROUPS],
@@ -71,6 +71,9 @@ export function parseStyle(value, kind, path, fail) {
     } else if (kind === 'connectionLabel' && key === 'repeatAtEnd') {
       const choices = ['auto', 'always', 'never'];
       if (!choices.includes(item)) fail(`Expected ${choices.join(', ')}`, location);
+      result[key] = item;
+    } else if (key === 'textAlign') {
+      if (!['left', 'center', 'right'].includes(item)) fail('Expected left, center or right', location);
       result[key] = item;
     } else if (key === 'hidden') {
       if (typeof item !== 'boolean') fail('Expected a boolean', location);

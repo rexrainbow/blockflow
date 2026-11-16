@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Order approval",
+    "caption": "Orders over the limit need a manager; rejected orders can be revised and resubmitted."
+  },
+  "layout": { "direction": "down" },
+  "nodes": [
+    { "id": "Received", "type": "start", "label": "Order received" },
+    { "id": "Validate", "label": "Validate order\nand stock" },
+    { "id": "Valid", "type": "decision", "label": "Valid?" },
+    { "id": "OverLimit", "type": "decision", "label": "Over the\napproval limit?" },
+    { "id": "ManagerReview", "label": "Manager review", "style": { "fillColor": "#e8d9f5", "borderColor": "#7b1fa2" } },
+    { "id": "Approved", "type": "decision", "label": "Approved?" },
+    { "id": "Revise", "label": "Ask the customer\nto revise", "style": { "fillColor": "#fff4d6", "borderColor": "#d48a00" } },
+    { "id": "Fulfil", "label": "Reserve stock\nand ship", "style": { "fillColor": "#eaf7ee", "borderColor": "#3b7a57" } },
+    { "id": "Done", "type": "end", "label": "Done" },
+    { "id": "LimitNote", "type": "note", "label": "Limit is set\nper customer", "attachTo": "OverLimit" }
+  ],
+  "edges": [
+    { "from": "Received", "to": "Validate" },
+    { "from": "Validate", "to": "Valid" },
+    { "from": "Valid", "to": "OverLimit", "label": "Yes" },
+    { "from": "Valid", "to": "Revise", "label": "No" },
+    { "from": "OverLimit", "to": "ManagerReview", "label": "Yes" },
+    { "from": "OverLimit", "to": "Fulfil", "fromSide": "left", "toSide": "left", "label": "No" },
+    { "from": "ManagerReview", "to": "Approved" },
+    { "from": "Approved", "to": "Fulfil", "label": "Yes" },
+    { "from": "Approved", "to": "Revise", "label": "No" },
+    { "from": "Revise", "to": "Validate", "kind": "loop", "label": "Resubmitted" },
+    { "from": "Fulfil", "to": "Done" }
+  ],
+  "groups": [
+    { "id": "Approval", "label": "Approval", "members": ["OverLimit", "LimitNote", "ManagerReview", "Approved"] }
+  ]
+}

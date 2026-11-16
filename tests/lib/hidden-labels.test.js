@@ -7,7 +7,7 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { fixture } from './helpers.js';
 
-const raw = JSON.parse(await readFile(new URL('../../examples/hidden-labels.json', import.meta.url), 'utf8'));
+const raw = JSON.parse(await readFile(new URL('../../examples/blockchart/hidden-labels.json', import.meta.url), 'utf8'));
 const schema = JSON.parse(await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'));
 const validate = new Ajv2020({strict:true}).compile(schema);
 

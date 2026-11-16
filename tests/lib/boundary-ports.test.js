@@ -6,7 +6,7 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { freeze } from './helpers.js';
 const fixture = JSON.parse(await readFile(new URL('../fixtures/boundary-minimal.json', import.meta.url), 'utf8'));
-const example = JSON.parse(await readFile(new URL('../../examples/boundary-groups.json', import.meta.url), 'utf8'));
+const example = JSON.parse(await readFile(new URL('../../examples/blockchart/boundary-groups.json', import.meta.url), 'utf8'));
 const near = (a,b) => Math.abs(a-b)<1e-6;
 const pointEqual = (a,b) => near(a.x,b.x)&&near(a.y,b.y);
 

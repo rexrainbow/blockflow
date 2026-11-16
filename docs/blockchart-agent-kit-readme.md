@@ -611,7 +611,7 @@ Omit individual fields to inherit diagram defaults or built-in values.
 }
 ```
 
-The snippet is the value of `style.label`. See `examples/connection-labels.json` for a
+The snippet is the value of `style.label`. See `examples/blockchart/connection-labels.json` for a
 complete diagram (Agent Kit users can author the same style directly).
 
 ## Diagram domain
@@ -655,4 +655,18 @@ can specialize them. Collapsed Collection virtual Ports use the same resolution.
 Inheritance is resolved when validating and rendering; JSON export preserves the
 authored values and omissions without inserting computed defaults. These fields style
 the diagram, independently of Studio theme or application preferences. The repository's
-examples/default-styles.json demonstrates these settings.
+examples/blockchart/default-styles.json demonstrates these settings.
+
+## Text alignment
+
+Text-bearing styles accept `textAlign` as `left`, `center` or `right`. It aligns
+multiline text inside its existing measured text block; it does not move the label,
+change geometry or reposition a single line. Omit the field to retain current
+alignment/inherit; null and `inherit` are invalid. Use existing global/local style
+paths. Blockchart uses text styles (including module/group label and port-label
+sections, connection.label, terminals and caption); Flowchart uses node/note/edge/
+group styles; Statechart uses state/transition styles. Statechart state styles also
+accept `descriptionAlign`, inherited globally/locally and falling back to resolved
+state `textAlign` when omitted. This separately aligns the description below the
+name; it is invalid on transitions and in the other diagram domains. JSON only;
+no new Mermaid alignment directive is supported.

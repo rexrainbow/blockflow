@@ -61,6 +61,8 @@ test('copied standalone Flowchart kit compiles Mermaid to portable JSON and exac
     'blockchart.schema.json',
     'flowchart-convert.mjs',
     'flowchart.schema.json',
+    'statechart-convert.mjs',
+    'statechart.schema.json',
   ]);
   const json = run(['source.mmd', '--output', '-', '--format', 'json']);
   assert.equal(json.status, 0, json.stderr);

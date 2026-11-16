@@ -145,6 +145,10 @@
           "minimum": 0,
           "maximum": 1,
           "default": 1
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "Align lines within the existing measured text block; omission preserves current alignment."
         }
       }
     },
@@ -183,6 +187,10 @@
           "minimum": 0,
           "maximum": 1,
           "default": 1
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"],
+          "description": "Align lines within the existing measured text block; omission preserves current alignment."
         }
       }
     },

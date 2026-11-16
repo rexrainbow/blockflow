@@ -10,7 +10,7 @@ import {
 } from '../../src/lib/blockchart/layout/grid-channels.js';
 
 const example = JSON.parse(
-  await readFile(new URL('../../examples/grid-routing-channels.json', import.meta.url), 'utf8'),
+  await readFile(new URL('../../examples/blockchart/grid-routing-channels.json', import.meta.url), 'utf8'),
 );
 const parts = (e) => e.sections.flatMap((s) => s.points.slice(1).map((p, i) => [s.points[i], p]));
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-5, `${a} != ${b}`);

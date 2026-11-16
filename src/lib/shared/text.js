@@ -37,3 +37,13 @@ export function textBounds(value, position, style) {
     height: size.height + 2 * style.padding,
   };
 }
+
+/** Align lines inside their measured block, without moving its existing bounds. */
+export function alignedTextPosition(value, position, style, align = style.textAlign) {
+  if (align === undefined || textLines(value).length === 1) return position;
+  const width = textSize(value, style).width;
+  const left =
+    position.x - (position.anchor === 'middle' ? width / 2 : position.anchor === 'end' ? width : 0);
+  const anchor = { left: 'start', center: 'middle', right: 'end' }[align];
+  return { ...position, anchor, x: left + (align === 'center' ? width / 2 : align === 'right' ? width : 0) };
+}

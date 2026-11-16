@@ -116,9 +116,22 @@ condition labels. Flowchart has no hardware Ports, bit widths, Nets or Concat no
 
 Layout: `direction` down/right/up/left, positive `nodeSpacing` (40), `layerSpacing` (60),
 `noteGap` (40), and `loopSide` auto/left/right/top/bottom. Loop side must be perpendicular
-to flow; auto uses right for vertical flow or bottom for horizontal flow. Notes default to
+to flow; auto compares both perpendicular sides using route length and bend cost,
+preferring local corridors with all node/note obstacles retained and full outer
+routes available as fallbacks. Ties prefer right for vertical flow or bottom for
+horizontal flow. Fixed loop sides and explicit endpoint sides remain respected.
+Group auto loops reserve room on both sides. Notes default to
 right for vertical flow or bottom for horizontal flow. Use larger spacing, shorter labels
 or explicit sides if rendering reports `FLOW_LABEL_OVERLAP`.
+Condition labels prefer the middle of an exclusive straight wire section, clear
+of shared trunks, intersections, bends and arrows. Junction clearance scales with
+font size (at least 14 layout units). Labels stay horizontal; the existing
+`labelBackgroundColor` rectangle masks the owning wire under the text. Other
+wires, nodes, titles and labels remain obstacles. If needed, bounded local
+rerouting is attempted without moving nodes or changing endpoint sides. Failed
+trials retain original paths. A final beside-wire fallback emits
+`FLOW_LABEL_OVERLAP`, as do unresolved collisions; short connections may warn even
+when their fallback does not overlap anything. No authoring fields are added.
 
 Node/group styles: `fillColor`, `borderColor`, positive `borderWidth`, `borderStyle`,
 non-negative `borderRadius`, `color`, positive `fontSize`, non-negative `padding`, `opacity`.
@@ -145,3 +158,17 @@ Strings default to Mermaid; objects default to JSON. For a JSON string, pass
 `{inputFormat:"json"}`. `convertFlowchart` returns `{format,text,warnings}` and supports
 only JSON/SVG. Input objects remain unchanged. Errors include `stage`, and syntax errors
 include `line` / `column`. Importing the module does not run the CLI or write files.
+
+## Text alignment
+
+Text-bearing styles accept `textAlign` as `left`, `center` or `right`. It aligns
+multiline text inside its existing measured text block; it does not move the label,
+change geometry or reposition a single line. Omit the field to retain current
+alignment/inherit; null and `inherit` are invalid. Use existing global/local style
+paths. Blockchart uses text styles (including module/group label and port-label
+sections, connection.label, terminals and caption); Flowchart uses node/note/edge/
+group styles; Statechart uses state/transition styles. Statechart state styles also
+accept `descriptionAlign`, inherited globally/locally and falling back to resolved
+state `textAlign` when omitted. This separately aligns the description below the
+name; it is invalid on transitions and in the other diagram domains. JSON only;
+no new Mermaid alignment directive is supported.

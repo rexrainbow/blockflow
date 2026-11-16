@@ -1,8 +1,12 @@
 import { escapeXml as escape, fillAttributes as fill, strokeAttributes as stroke } from '../../shared/svg.js';
-import { textLines } from '../../shared/text.js';
+import { textLines, alignedTextPosition } from '../../shared/text.js';
 
 /** Render existing Flowchart geometry without executing HTML or measuring browser text. */
 export function renderFlowchartSvg(layout) {
+  return renderGraphSvg(layout);
+}
+/** Internal node-rendering seam; edges, labels and SVG escaping stay shared. */
+export function renderGraphSvg(layout, renderNode) {
   const out = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">`,
     `<title>${escape(layout.diagram.name)}</title>`,
@@ -10,6 +14,7 @@ export function renderFlowchartSvg(layout) {
   ];
   function text(value, position, style) {
     const rows = textLines(value);
+    position = alignedTextPosition(value, position, style);
     out.push(
       `<text x="${position.x}" y="${position.y}" text-anchor="${position.anchor}" dominant-baseline="central" font-family="monospace" font-size="${style.fontSize}" ${fill(style.color, style.opacity ?? 1)} xml:space="preserve">${rows.map((row, i) => `<tspan x="${position.x}" y="${position.y + (i - (rows.length - 1) / 2) * style.fontSize * 1.5}">${escape(row)}</tspan>`).join('')}</text>`,
     );
@@ -49,6 +54,10 @@ export function renderFlowchartSvg(layout) {
     out.push('</g>');
   }
   for (const n of layout.nodes) {
+    if (renderNode) {
+      out.push(renderNode(n));
+      continue;
+    }
     const s = n.style,
       h = s.borderWidth / 2,
       x = n.x + h,
@@ -85,7 +94,7 @@ export function renderFlowchartSvg(layout) {
       out.push(
         `<g data-role="flow-edge-label" data-id="${escape(e.id)}"><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" ${fill(s.labelBackgroundColor, s.opacity)}/>`,
       );
-      text(e.label, e.labelPosition, s);
+      text(e.displayLabel ?? e.label, e.labelPosition, s);
       out.push('</g>');
     }
   for (const g of layout.groups) text(g.label, g.labelPosition, g.style);

@@ -8,7 +8,7 @@ import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/inde
 import { copyLayout } from '../../src/lib/blockchart/view/layout.js';
 import { setDirection } from '../../src/lib/blockchart/direction.js';
 const load = async (name) =>
-  JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+  JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
 const schema = JSON.parse(
   await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),
 );

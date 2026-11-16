@@ -6,7 +6,7 @@ import { fixture, freeze, checkLayout } from './helpers.js';
 
 for (const direction of ['right']) {
   for (const name of ['uart-data-path', 'direct-feedback', 'cyclic-feedback']) test(`${name} ${direction}: bounds, anchors, routes and no mutation`, async () => {
-    const input = JSON.parse(await readFile(new URL(`../../examples/${name}.json`, import.meta.url), 'utf8'));
+    const input = JSON.parse(await readFile(new URL(`../../examples/blockchart/${name}.json`, import.meta.url), 'utf8'));
     input.layout = { ...input.layout, direction };
     const model = createDiagramModel(input);
     const before = structuredClone(model);

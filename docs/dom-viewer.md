@@ -82,7 +82,7 @@ include `ownerType: "group"`, `ownerId` and `groupId`; block ports include
 `ownerType: "block"`, `ownerId` and the existing `blockId`. Selection, `getElement`,
 `setPortValue` and layout replacement support both owners. Use
 `view.setGroupState('Outer', { status: 'running' })` to update a group outline. Render
-[boundary-groups.json](../examples/boundary-groups.json) to try nested group ports.
+[boundary-groups.json](../examples/blockchart/boundary-groups.json) to try nested group ports.
 
 When the input group has `collapsed: true`, its whole body is a `group` target and still
 emits `groupclick` with `data.collapsed === true`; its ports keep the same owner IDs.
@@ -182,9 +182,9 @@ npm.cmd run build:dom-example
 Open `dist-dom/dom-viewer.html` directly. Keep its neighboring `app.js` and `style.css`.
 The three-file example is offline and needs no server. It demonstrates selection, event
 logging, status updates and port values; its buttons are display controls, not a simulator.
-During development, `npm.cmd run dev` also serves `/examples/dom-viewer.html`.
+During development, `npm.cmd run dev` also serves `/examples/blockchart/dom-viewer.html`.
 
-Source: `examples/dom-viewer.html`, `examples/dom-viewer.js`, `examples/dom-viewer.css`.
+Source: `examples/blockchart/dom-viewer.html`, `examples/blockchart/dom-viewer.js`, `examples/blockchart/dom-viewer.css`.
 Verification: `npm.cmd run test:e2e:dom`.
 
 ### Collection groups
@@ -198,14 +198,14 @@ External edges remain selectable by original endpoint key, such as
 `Source.out->PE_0.in`, even when paths share an anchor. Selection/state survive expansion
 when that key stays visible. Layout edge `source`/`target` preserve original endpoints;
 `routingSource`/`routingTarget` name visible virtual anchors. No edge aggregation.
-See `examples/collection-instances.json`.
+See `examples/blockchart/collection-instances.json`.
 
 ### Scoped layouts
 
 Ordinary block appearance bodies (Stacked and Trapezoid), hidden port labels and connection
 destination arrows use the shared layout/SVG geometry. Block selection includes the complete
 appearance footprint. Hidden labels keep their real port hit targets and identities; arrows
-remain part of their owning connection. See `examples/block-appearances.json`.
+remain part of their owning connection. See `examples/blockchart/block-appearances.json`.
 
 Pass the optional second argument {rootGroupId: 'Inner'} to layoutDiagram(model), then use
 that result with mountDiagram/exportDom/setLayout as usual. The result's rootGroupId records
@@ -219,7 +219,7 @@ Layouts produced with `layout.direction: "down"` retain horizontal text, top/bot
 anchors, left-to-right port order and horizontal Concat bars. The viewer uses those computed
 bodies, labels and routes directly. Port/connection keys and event payload identities do not
 change when relaying out another direction. Use `setLayout(nextLayout, {fit: true})` to fit
-a new axis explicitly. See `examples/vertical-flow.json`.
+a new axis explicitly. See `examples/blockchart/vertical-flow.json`.
 
 ## Repeated connection labels
 

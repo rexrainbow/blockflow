@@ -15,6 +15,8 @@ const names = [
   'blockchart.schema.json',
   'flowchart-convert.mjs',
   'flowchart.schema.json',
+  'statechart-convert.mjs',
+  'statechart.schema.json',
 ];
 const permissionFlag = process.allowedNodeEnvironmentFlags.has('--permission')
   ? '--permission'
@@ -25,7 +27,9 @@ before(async () => {
   kit = join(directory, 'kit');
   built = await buildAgentKit(kit);
   cli = join(kit, 'blockchart-convert.mjs');
-  raw = JSON.parse(await readFile(new URL('../examples/vertical-flow.json', import.meta.url), 'utf8'));
+  raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/vertical-flow.json', import.meta.url), 'utf8'),
+  );
   await writeFile(join(directory, 'diagram.json'), JSON.stringify(raw), 'utf8');
 });
 after(async () => {
@@ -64,7 +68,7 @@ function run(args, input) {
 
 test('isolated kit renders Net label frames with the shared SVG renderer', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/connection-labels.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/connection-labels.json', import.meta.url), 'utf8'),
   );
   const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
   assert.equal(result.status, 0, result.stderr);
@@ -78,7 +82,7 @@ test('isolated kit renders Net label frames with the shared SVG renderer', async
 
 test('isolated kit renders default layout and preserves authored settings without runtime slots', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/compact-layout.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/compact-layout.json', import.meta.url), 'utf8'),
   );
   const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
   assert.equal(result.status, 0, result.stderr);
@@ -95,7 +99,7 @@ test('isolated kit renders default layout and preserves authored settings withou
 
 test('isolated kit renders compact title-sized Blocks without changing relative size units or authoring JSON', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/compact-labels.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/compact-labels.json', import.meta.url), 'utf8'),
   );
   const layout = await layoutDiagram(createDiagramModel(input));
   assert.equal(layout.modules.find((n) => n.id === 'ALU').width, 64);
@@ -110,7 +114,10 @@ test('isolated kit renders compact title-sized Blocks without changing relative 
 
 test('isolated kit infers cross-Container Grids without persisting runtime plans or accepting old fields', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+    await readFile(
+      new URL('../examples/blockchart/processor-cross-group-grid.json', import.meta.url),
+      'utf8',
+    ),
   );
   const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
   assert.equal(svg.status, 0, svg.stderr);
@@ -126,7 +133,7 @@ test('isolated kit infers cross-Container Grids without persisting runtime plans
 
 test('isolated kit resolves shared Text, Group and Terminal defaults without authoring normalized values', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/default-styles.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/default-styles.json', import.meta.url), 'utf8'),
   );
   const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
   assert.equal(svg.status, 0, svg.stderr);
@@ -138,7 +145,9 @@ test('isolated kit resolves shared Text, Group and Terminal defaults without aut
 });
 
 test('isolated kit exports adjusted Terminal names and matching endpoints', async () => {
-  const input = JSON.parse(await readFile(new URL('../examples/terminals.json', import.meta.url), 'utf8'));
+  const input = JSON.parse(
+    await readFile(new URL('../examples/blockchart/terminals.json', import.meta.url), 'utf8'),
+  );
   input.layout = { ...input.layout, maxPortShift: 120 };
   const layout = await layoutDiagram(createDiagramModel(input));
   const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
@@ -152,7 +161,7 @@ test('isolated kit exports adjusted Terminal names and matching endpoints', asyn
 
 test('isolated kit uses the same Port adjustment and preserves authoring JSON without coordinates', async () => {
   const document = JSON.parse(
-    await readFile(new URL('../examples/port-adjustment.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/port-adjustment.json', import.meta.url), 'utf8'),
   );
   await writeFile(join(directory, 'ports.json'), JSON.stringify(document));
   const svg = run(['ports.json', '--output', '-', '--format', 'svg']);
@@ -163,7 +172,7 @@ test('isolated kit uses the same Port adjustment and preserves authoring JSON wi
   assert.deepEqual(JSON.parse(json.stdout), document);
 });
 
-test('five matched artifacts are reproducible, current and contain no extra runtime files', async () => {
+test('seven matched artifacts are reproducible, current and contain no extra runtime files', async () => {
   assert.deepEqual((await readdir(kit)).sort(), names);
   assert.match(built.version, /^blockchart-agent-kit-/);
   assert.match(built.flowchartVersion, /^flowchart-agent-kit-/);
@@ -231,7 +240,7 @@ test('stdin/stdout are clean for both formats and UTF-8 BOM input is accepted', 
 
 test('isolated CLI preserves and renders ComputeCluster Grid, sides, double arrows and caption', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/processor-overview.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/processor-overview.json', import.meta.url), 'utf8'),
   );
   const saved = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
   assert.equal(saved.status, 0, saved.stderr);
@@ -253,7 +262,9 @@ test('scoped SVG validates the full graph and exports only the selected group', 
 });
 
 test('isolated CLI renders partial Grids with automatic neighbors without rewriting the graph', async () => {
-  const input = JSON.parse(await readFile(new URL('../examples/partial-grid.json', import.meta.url), 'utf8'));
+  const input = JSON.parse(
+    await readFile(new URL('../examples/blockchart/partial-grid.json', import.meta.url), 'utf8'),
+  );
   for (const format of ['json', 'svg']) {
     const result = run(['-', '--output', '-', '--format', format], JSON.stringify(input));
     assert.equal(result.status, 0, result.stderr);
@@ -287,7 +298,7 @@ test('semantic and syntax errors have actionable stages/paths and preserve exist
 
 test('isolated kit preserves Container-local overrides, inherited omissions and scoped SVG', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/local-layout-spacing.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/local-layout-spacing.json', import.meta.url), 'utf8'),
   );
   const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
   assert.equal(svg.status, 0, svg.stderr);
@@ -307,7 +318,7 @@ test('isolated kit preserves Container-local overrides, inherited omissions and 
 
 test('isolated kit renders adjacent Auto Container channels with local spacing and scoped names', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/auto-routing-channels.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/auto-routing-channels.json', import.meta.url), 'utf8'),
   );
   for (const direction of ['down', 'right']) {
     input.layout.direction = direction;
@@ -328,7 +339,7 @@ test('isolated kit renders adjacent Auto Container channels with local spacing a
 
 test('isolated kit renders rounded components and preserves signal/concat authoring', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/processor-components.json', import.meta.url), 'utf8'),
+    await readFile(new URL('../examples/blockchart/processor-components.json', import.meta.url), 'utf8'),
   );
   const result = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
   assert.equal(result.status, 0, result.stderr);
@@ -351,7 +362,10 @@ test('isolated kit renders rounded components and preserves signal/concat author
 
 test('isolated CLI exports cross-group Grid JSON and aligned SVG with real group identity', async () => {
   const input = JSON.parse(
-    await readFile(new URL('../examples/processor-cross-group-grid.json', import.meta.url), 'utf8'),
+    await readFile(
+      new URL('../examples/blockchart/processor-cross-group-grid.json', import.meta.url),
+      'utf8',
+    ),
   );
   const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
   assert.equal(json.status, 0, json.stderr);

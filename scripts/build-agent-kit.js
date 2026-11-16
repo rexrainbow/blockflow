@@ -33,6 +33,7 @@ async function buildDomain(domain, overview) {
     entry,
     fileURLToPath(import.meta.url),
     ...(await sources(join(root, `src/lib/${domain}`))),
+    ...(domain === 'statechart' ? await sources(join(root, 'src/lib/flowchart')) : []),
     ...(await sources(join(root, 'src/lib/shared'))),
   ].sort())
     hash.update(path.slice(root.length).replaceAll('\\', '/')).update(lf(await readFile(path, 'utf8')));
@@ -42,8 +43,7 @@ async function buildDomain(domain, overview) {
     root,
     logLevel: 'error',
     define: {
-      [domain === 'blockchart' ? '__BLOCKCHART_KIT_VERSION__' : '__FLOWCHART_KIT_VERSION__']:
-        JSON.stringify(version),
+      [`__${domain.toUpperCase()}_KIT_VERSION__`]: JSON.stringify(version),
     },
     build: {
       write: false,
@@ -67,14 +67,16 @@ async function buildDomain(domain, overview) {
   return { domain, schema, bundle, guide, version, license, bytes: Buffer.byteLength(bundle) };
 }
 
-/** Generate both domains together so the shared guide and their build IDs stay matched. */
+/** Generate all domains together so the shared guide and build IDs stay matched. */
 export async function buildAgentKit(target = join(root, 'agent-kit')) {
   const overview = lf(await readFile(join(root, 'docs/agent-kit-readme.md'), 'utf8'));
   const block = await buildDomain('blockchart', overview);
   const flow = await buildDomain('flowchart', overview);
+  const state = await buildDomain('statechart', overview);
   const versions = overview
     .replaceAll('{{BLOCKCHART_KIT_VERSION}}', block.version)
-    .replaceAll('{{FLOWCHART_KIT_VERSION}}', flow.version);
+    .replaceAll('{{FLOWCHART_KIT_VERSION}}', flow.version)
+    .replaceAll('{{STATECHART_KIT_VERSION}}', state.version);
   const section = (guide) => guide.replace(/^(#{1,5}) /gm, '#$1 ');
   const readme =
     versions +
@@ -82,11 +84,13 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
     section(block.guide) +
     '\n\n' +
     section(flow.guide) +
+    '\n\n' +
+    section(state.guide) +
     '\n\n## Bundled elkjs license\n\n' +
     block.license +
     '\n';
   await mkdir(target, { recursive: true });
-  for (const item of [block, flow]) {
+  for (const item of [block, flow, state]) {
     await writeFile(join(target, `${item.domain}.schema.json`), item.schema, 'utf8');
     await writeFile(join(target, `${item.domain}-convert.mjs`), item.bundle, 'utf8');
   }
@@ -94,15 +98,17 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
   return {
     version: block.version,
     flowchartVersion: flow.version,
+    statechartVersion: state.version,
     directory: target,
     bytes: block.bytes,
     flowchartBytes: flow.bytes,
+    statechartBytes: state.bytes,
   };
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const result = await buildAgentKit();
   console.log(
-    `${result.version}\n${result.flowchartVersion}\nGenerated five files in ${result.directory} (${result.bytes} / ${result.flowchartBytes} JS bytes).`,
+    `${result.version}\n${result.flowchartVersion}\n${result.statechartVersion}\nGenerated seven files in ${result.directory}.`,
   );
 }
