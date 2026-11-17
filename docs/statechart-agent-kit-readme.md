@@ -78,3 +78,11 @@ accept `descriptionAlign`, inherited globally/locally and falling back to resolv
 state `textAlign` when omitted. This separately aligns the description below the
 name; it is invalid on transitions and in the other diagram domains. JSON only;
 no new Mermaid alignment directive is supported.
+
+### Rounded transition corners
+
+Statechart SVG rounds transition turns with a default radius of 8 layout units.
+Short segments, arrowhead access and nearby states, condition labels or other
+wires limit the radius; unsafe corners remain angular. Stored/layout points,
+endpoints, arrowheads and label positions are unchanged. This render-only default
+adds no JSON field and does not change Flowchart or Blockchart paths.

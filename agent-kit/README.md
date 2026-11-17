@@ -16,9 +16,9 @@ Move this folder to any location. Each converter can run independently; its Sche
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-b62d6c5b4d0f269645c9`
-- Flowchart build: `flowchart-agent-kit-d4880e8aa375e97772df`
-- Statechart build: `statechart-agent-kit-12b3480a3a3188e5e6b5`
+- Blockchart build: `blockchart-agent-kit-47c4fbae24a1cefe4be0`
+- Flowchart build: `flowchart-agent-kit-2c6b7be3b0c138083374`
+- Statechart build: `statechart-agent-kit-0fc674edd8310f1dd198`
 
 ## Quick start
 
@@ -48,7 +48,7 @@ license attribution; its full license appears at the end of this README.
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-b62d6c5b4d0f269645c9`
+Build: `blockchart-agent-kit-47c4fbae24a1cefe4be0`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -722,7 +722,7 @@ no new Mermaid alignment directive is supported.
 
 ## Flowchart Agent Kit
 
-Build: `flowchart-agent-kit-d4880e8aa375e97772df`
+Build: `flowchart-agent-kit-2c6b7be3b0c138083374`
 
 Use `flowchart-convert.mjs` for process diagrams. `flowchart.schema.json` is the standalone
 JSON Schema Draft 2020-12; it has no dependency on the Blockchart Schema. The validator
@@ -898,7 +898,7 @@ no new Mermaid alignment directive is supported.
 
 ## Statechart Agent Kit
 
-Build: `statechart-agent-kit-12b3480a3a3188e5e6b5`; bundled ELK: `0.12.1`.
+Build: `statechart-agent-kit-0fc674edd8310f1dd198`; bundled ELK: `0.12.1`.
 
 Use `statechart-convert.mjs` with `statechart.schema.json` to generate flat FSM
 diagrams. Input is Statechart JSON or the documented `stateDiagram-v2` subset;
@@ -976,6 +976,14 @@ accept `descriptionAlign`, inherited globally/locally and falling back to resolv
 state `textAlign` when omitted. This separately aligns the description below the
 name; it is invalid on transitions and in the other diagram domains. JSON only;
 no new Mermaid alignment directive is supported.
+
+#### Rounded transition corners
+
+Statechart SVG rounds transition turns with a default radius of 8 layout units.
+Short segments, arrowhead access and nearby states, condition labels or other
+wires limit the radius; unsafe corners remain angular. Stored/layout points,
+endpoints, arrowheads and label positions are unchanged. This render-only default
+adds no JSON field and does not change Flowchart or Blockchart paths.
 
 
 ## Bundled elkjs license

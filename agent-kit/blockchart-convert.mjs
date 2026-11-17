@@ -1,4 +1,4 @@
-/* blockchart-agent-kit-b62d6c5b4d0f269645c9
+/* blockchart-agent-kit-47c4fbae24a1cefe4be0
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
 Full third-party license is in the accompanying README.md. */
@@ -51022,7 +51022,7 @@ function On(e, t, n) {
 	return r > 0 ? `rx="${r}" ry="${r}" ` : "";
 }
 // src/agent-kit/blockchart-converter.js
-var kn = "blockchart-agent-kit-b62d6c5b4d0f269645c9";
+var kn = "blockchart-agent-kit-47c4fbae24a1cefe4be0";
 function An(e, t) {
 	try {
 		return t();

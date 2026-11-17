@@ -144,3 +144,15 @@ Text styles accept `textAlign: "left" | "center" | "right"` for lines inside the
 existing text block. Omission preserves current alignment; geometry and single-line
 placement stay unchanged. See [the shared alignment contract](text-alignment.md)
 for inheritance, field paths and Statechart description alignment.
+
+## Transition corner rendering
+
+Statechart SVG/PNG rounds orthogonal transition corners with quadratic curves,
+using a default radius of 8 layout units. Short adjacent segments reduce the
+radius; a straight final run is retained for the existing arrowhead. Corners
+near states, condition-label bounds or other transition wires shrink further or
+remain angular to preserve clearance. Straight runs are unchanged.
+This is rendering only: layout `sections[].points`, state/label positions, bounds,
+transition IDs and endpoints retain their orthogonal geometry. Arrowheads use
+the original endpoint direction and size. No authoring/schema setting is added.
+Flowchart and Blockchart paths retain their existing rendering.

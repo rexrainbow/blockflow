@@ -5,8 +5,8 @@ import { textLines, alignedTextPosition } from '../../shared/text.js';
 export function renderFlowchartSvg(layout) {
   return renderGraphSvg(layout);
 }
-/** Internal node-rendering seam; edges, labels and SVG escaping stay shared. */
-export function renderGraphSvg(layout, renderNode) {
+/** Internal rendering seams; labels, arrows and SVG escaping stay shared. */
+export function renderGraphSvg(layout, renderNode, renderEdgePath) {
   const out = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">`,
     `<title>${escape(layout.diagram.name)}</title>`,
@@ -31,8 +31,11 @@ export function renderGraphSvg(layout, renderNode) {
     out.push(`<g data-role="flow-edge" data-id="${escape(e.id)}" data-kind="${e.kind}">`);
     for (const section of e.sections) {
       const p = section.points;
+      const path = renderEdgePath
+        ? renderEdgePath(p, e)
+        : p.map((q, i) => (i ? 'L' : 'M') + ' ' + q.x + ' ' + q.y).join(' ');
       out.push(
-        `<path d="${p.map((q, i) => (i ? 'L' : 'M') + ' ' + q.x + ' ' + q.y).join(' ')}" fill="none" stroke-linejoin="round" ${stroke(s.strokeColor, s.opacity, s.strokeWidth, s.lineStyle)}/>`,
+        `<path d="${path}" fill="none" stroke-linejoin="round" ${stroke(s.strokeColor, s.opacity, s.strokeWidth, s.lineStyle)}/>`,
       );
     }
     if (e.arrow) {

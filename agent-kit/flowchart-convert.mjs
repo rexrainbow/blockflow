@@ -1,4 +1,4 @@
-/* flowchart-agent-kit-d4880e8aa375e97772df
+/* flowchart-agent-kit-2c6b7be3b0c138083374
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
 Full third-party license is in the accompanying README.md. */
@@ -48180,71 +48180,71 @@ function Ge(e, t, n, r) {
 function Ke(e) {
 	return qe(e);
 }
-function qe(e, t) {
-	let n = [
+function qe(e, t, n) {
+	let r = [
 		`<svg xmlns="http://www.w3.org/2000/svg" width="${e.width}" height="${e.height}" viewBox="0 0 ${e.width} ${e.height}">`,
 		`<title>${Ue(e.diagram.name)}</title>`,
 		`<rect width="${e.width}" height="${e.height}" fill="#ffffff"/>`
 	];
-	function r(e, t, r) {
+	function i(e, t, n) {
 		let i = me(e);
-		t = _e(e, t, r), n.push(`<text x="${t.x}" y="${t.y}" text-anchor="${t.anchor}" dominant-baseline="central" font-family="monospace" font-size="${r.fontSize}" ${We(r.color, r.opacity ?? 1)} xml:space="preserve">${i.map((e, n) => `<tspan x="${t.x}" y="${t.y + (n - (i.length - 1) / 2) * r.fontSize * 1.5}">${Ue(e)}</tspan>`).join("")}</text>`);
+		t = _e(e, t, n), r.push(`<text x="${t.x}" y="${t.y}" text-anchor="${t.anchor}" dominant-baseline="central" font-family="monospace" font-size="${n.fontSize}" ${We(n.color, n.opacity ?? 1)} xml:space="preserve">${i.map((e, r) => `<tspan x="${t.x}" y="${t.y + (r - (i.length - 1) / 2) * n.fontSize * 1.5}">${Ue(e)}</tspan>`).join("")}</text>`);
 	}
 	for (let t of e.groups) {
-		let e = t.style, r = e.borderWidth / 2;
-		n.push(`<rect data-role="flow-group" data-id="${Ue(t.id)}" x="${t.x + r}" y="${t.y + r}" width="${Math.max(0, t.width - e.borderWidth)}" height="${Math.max(0, t.height - e.borderWidth)}" rx="${Math.min(e.borderRadius, t.width / 2, t.height / 2)}" ${We(e.fillColor, e.opacity)} ${Ge(e.borderColor, e.opacity, e.borderWidth, e.borderStyle)}/>`);
+		let e = t.style, n = e.borderWidth / 2;
+		r.push(`<rect data-role="flow-group" data-id="${Ue(t.id)}" x="${t.x + n}" y="${t.y + n}" width="${Math.max(0, t.width - e.borderWidth)}" height="${Math.max(0, t.height - e.borderWidth)}" rx="${Math.min(e.borderRadius, t.width / 2, t.height / 2)}" ${We(e.fillColor, e.opacity)} ${Ge(e.borderColor, e.opacity, e.borderWidth, e.borderStyle)}/>`);
 	}
 	for (let t of e.edges) {
 		let e = t.style;
-		n.push(`<g data-role="flow-edge" data-id="${Ue(t.id)}" data-kind="${t.kind}">`);
-		for (let r of t.sections) {
-			let t = r.points;
-			n.push(`<path d="${t.map((e, t) => (t ? "L" : "M") + " " + e.x + " " + e.y).join(" ")}" fill="none" stroke-linejoin="round" ${Ge(e.strokeColor, e.opacity, e.strokeWidth, e.lineStyle)}/>`);
+		r.push(`<g data-role="flow-edge" data-id="${Ue(t.id)}" data-kind="${t.kind}">`);
+		for (let i of t.sections) {
+			let a = i.points, o = n ? n(a, t) : a.map((e, t) => (t ? "L" : "M") + " " + e.x + " " + e.y).join(" ");
+			r.push(`<path d="${o}" fill="none" stroke-linejoin="round" ${Ge(e.strokeColor, e.opacity, e.strokeWidth, e.lineStyle)}/>`);
 		}
 		if (t.arrow) {
-			let r = t.sections.at(-1).points, i = r.at(-1), a = [...r.slice(0, -1)].reverse().find((e) => Math.hypot(i.x - e.x, i.y - e.y) > 1e-6);
+			let n = t.sections.at(-1).points, i = n.at(-1), a = [...n.slice(0, -1)].reverse().find((e) => Math.hypot(i.x - e.x, i.y - e.y) > 1e-6);
 			if (a) {
-				let t = Math.hypot(i.x - a.x, i.y - a.y), r = Math.min(Math.max(8, e.strokeWidth * 3), t), o = (i.x - a.x) / t, s = (i.y - a.y) / t, c = i.x - o * r, l = i.y - s * r;
-				n.push(`<polygon data-role="flow-arrow" points="${i.x},${i.y} ${c - s * r / 2},${l + o * r / 2} ${c + s * r / 2},${l - o * r / 2}" ${We(e.strokeColor, e.opacity)}/>`);
+				let t = Math.hypot(i.x - a.x, i.y - a.y), n = Math.min(Math.max(8, e.strokeWidth * 3), t), o = (i.x - a.x) / t, s = (i.y - a.y) / t, c = i.x - o * n, l = i.y - s * n;
+				r.push(`<polygon data-role="flow-arrow" points="${i.x},${i.y} ${c - s * n / 2},${l + o * n / 2} ${c + s * n / 2},${l - o * n / 2}" ${We(e.strokeColor, e.opacity)}/>`);
 			}
 		}
-		n.push("</g>");
+		r.push("</g>");
 	}
-	for (let i of e.nodes) {
+	for (let n of e.nodes) {
 		if (t) {
-			n.push(t(i));
+			r.push(t(n));
 			continue;
 		}
-		let e = i.style, a = e.borderWidth / 2, o = i.x + a, s = i.y + a, c = Math.max(0, i.width - e.borderWidth), l = Math.max(0, i.height - e.borderWidth);
-		n.push(`<g data-role="flow-node" data-id="${Ue(i.id)}" data-type="${i.type}">`);
+		let e = n.style, a = e.borderWidth / 2, o = n.x + a, s = n.y + a, c = Math.max(0, n.width - e.borderWidth), l = Math.max(0, n.height - e.borderWidth);
+		r.push(`<g data-role="flow-node" data-id="${Ue(n.id)}" data-type="${n.type}">`);
 		let u = `${We(e.fillColor, e.opacity)} ${Ge(e.borderColor, e.opacity, e.borderWidth, e.borderStyle)}`;
-		if (i.type === "decision") n.push(`<polygon points="${o + c / 2},${s} ${o + c},${s + l / 2} ${o + c / 2},${s + l} ${o},${s + l / 2}" ${u}/>`);
-		else if (i.type === "note") {
+		if (n.type === "decision") r.push(`<polygon points="${o + c / 2},${s} ${o + c},${s + l / 2} ${o + c / 2},${s + l} ${o},${s + l / 2}" ${u}/>`);
+		else if (n.type === "note") {
 			let t = Math.min(14, c / 3, l / 3);
-			n.push(`<path d="M ${o} ${s} L ${o + c - t} ${s} L ${o + c} ${s + t} L ${o + c} ${s + l} L ${o} ${s + l} Z" ${u}/>`), n.push(`<path d="M ${o + c - t} ${s} L ${o + c - t} ${s + t} L ${o + c} ${s + t}" fill="none" ${Ge(e.borderColor, e.opacity, e.borderWidth, e.borderStyle)}/>`);
+			r.push(`<path d="M ${o} ${s} L ${o + c - t} ${s} L ${o + c} ${s + t} L ${o + c} ${s + l} L ${o} ${s + l} Z" ${u}/>`), r.push(`<path d="M ${o + c - t} ${s} L ${o + c - t} ${s + t} L ${o + c} ${s + t}" fill="none" ${Ge(e.borderColor, e.opacity, e.borderWidth, e.borderStyle)}/>`);
 		} else {
 			let t = [
 				"terminator",
 				"start",
 				"end"
-			].includes(i.type) ? l / 2 : Math.min(e.borderRadius, c / 2, l / 2);
-			n.push(`<rect x="${o}" y="${s}" width="${c}" height="${l}" rx="${t}" ${u}/>`);
+			].includes(n.type) ? l / 2 : Math.min(e.borderRadius, c / 2, l / 2);
+			r.push(`<rect x="${o}" y="${s}" width="${c}" height="${l}" rx="${t}" ${u}/>`);
 		}
-		r(i.label, i.labelPosition, e), n.push("</g>");
+		i(n.label, n.labelPosition, e), r.push("</g>");
 	}
 	for (let t of e.edges) if (t.label !== void 0) {
-		let e = t.labelBounds, i = t.style;
-		n.push(`<g data-role="flow-edge-label" data-id="${Ue(t.id)}"><rect x="${e.x}" y="${e.y}" width="${e.width}" height="${e.height}" ${We(i.labelBackgroundColor, i.opacity)}/>`), r(t.displayLabel ?? t.label, t.labelPosition, i), n.push("</g>");
+		let e = t.labelBounds, n = t.style;
+		r.push(`<g data-role="flow-edge-label" data-id="${Ue(t.id)}"><rect x="${e.x}" y="${e.y}" width="${e.width}" height="${e.height}" ${We(n.labelBackgroundColor, n.opacity)}/>`), i(t.displayLabel ?? t.label, t.labelPosition, n), r.push("</g>");
 	}
-	for (let t of e.groups) r(t.label, t.labelPosition, t.style);
-	return e.caption && r(e.caption.text, e.caption.position, {
+	for (let t of e.groups) i(t.label, t.labelPosition, t.style);
+	return e.caption && i(e.caption.text, e.caption.position, {
 		fontSize: 11,
 		color: "#52606D",
 		opacity: 1
-	}), n.push("</svg>"), n.join("\n");
+	}), r.push("</svg>"), r.join("\n");
 }
 // src/agent-kit/flowchart-converter.js
-var Je = "flowchart-agent-kit-d4880e8aa375e97772df", Ye = class extends Error {
+var Je = "flowchart-agent-kit-2c6b7be3b0c138083374", Ye = class extends Error {
 	constructor(e) {
 		super(e), this.stage = "arguments";
 	}
