@@ -86,3 +86,16 @@ Short segments, arrowhead access and nearby states, condition labels or other
 wires limit the radius; unsafe corners remain angular. Stored/layout points,
 endpoints, arrowheads and label positions are unchanged. This render-only default
 adds no JSON field and does not change Flowchart or Blockchart paths.
+
+### Staggered labels and compact channels
+
+After safe placement, the runtime can stagger labels along their own wire sections
+and compress empty parallel-channel gaps. Text boxes may overlap in X when their
+Y ranges are separated (or the transposed arrangement for horizontal flow), but
+foreign wires must still avoid them. State sizes, relative ordering, endpoint sides
+and port positions within each state are preserved, as is configured spacing
+between same-row states. Absolute positions and diagram
+bounds can change. Text, wrapping and source JSON remain unchanged.
+The pass is bounded to two sweeps and 96 trials. It accepts only smaller bounds
+without increasing either dimension, crossings, overlaps, bends or wire length;
+unsafe or non-improving trials retain the selected layout. No new JSON fields.

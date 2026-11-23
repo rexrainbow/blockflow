@@ -1,0 +1,448 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Scoped Grid with fanout input",
+    "style": {
+      "module": {
+        "fillColor": "#ffffff",
+        "borderColor": "#64748b"
+      },
+      "connection": {
+        "strokeColor": "#1d4ed8",
+        "endArrow": "triangle",
+        "label": {
+          "repeatAtEnd": "never"
+        }
+      }
+    }
+  },
+  "layout": {
+    "moduleSpacing": 36,
+    "layerSpacing": 45
+  },
+  "modules": [
+    {
+      "id": "StartEvent",
+      "label": "TriggerSample · TP 0",
+      "ports": [
+        {
+          "id": "waveform",
+          "direction": "input",
+          "label": "Timer0 TOUT",
+          "width": 1
+        },
+        {
+          "id": "rise",
+          "direction": "output",
+          "label": "Every rising edge",
+          "width": 1
+        }
+      ]
+    },
+    {
+      "id": "StopEvent",
+      "label": "TriggerDone · TP 1",
+      "ports": [
+        {
+          "id": "waveform",
+          "direction": "input",
+          "label": "Timer0 TOUT",
+          "width": 1
+        },
+        {
+          "id": "done",
+          "direction": "output",
+          "label": "128th falling edge",
+          "width": 1
+        }
+      ]
+    },
+    {
+      "id": "Clock",
+      "label": "Timer0 · Unit 0\n128 TX slots",
+      "ports": [
+        {
+          "id": "tout",
+          "direction": "output",
+          "width": 1,
+          "label": "TOUT"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        }
+      ]
+    },
+    {
+      "id": "TransmitQueue",
+      "label": "FIFO0 · Unit 1",
+      "ports": [
+        {
+          "id": "sample",
+          "direction": "input",
+          "label": "Sample / TEN",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop / CEN",
+          "width": 1
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        },
+        {
+          "id": "dir",
+          "direction": "output",
+          "width": 1,
+          "label": "DIR"
+        }
+      ]
+    },
+    {
+      "id": "ClockOutput",
+      "label": "Overlay output 0\nx8 clock",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "pad",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    },
+    {
+      "id": "DataOutput",
+      "label": "Overlay output 1\ndata",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "dir",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "pad",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    },
+    {
+      "id": "SerialInput",
+      "label": "Overlay input 1\nNRZI data",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "output",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        },
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "ReceiveEvent",
+      "label": "RX TriggerReSyncInput · TP 4",
+      "ports": [
+        {
+          "id": "overlay",
+          "direction": "input",
+          "label": "SRC=5",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Disarm",
+          "width": 1
+        },
+        {
+          "id": "edge",
+          "direction": "output",
+          "label": "Rising or falling",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "ReceiveComplete",
+      "label": "RX TriggerDone · TP 5",
+      "ports": [
+        {
+          "id": "last",
+          "direction": "input",
+          "label": "SRC=11",
+          "width": 1
+        },
+        {
+          "id": "done",
+          "direction": "output",
+          "label": "Stop pulse",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "ReceiveDelay",
+      "label": "RX Timer · Unit 2\nResync + half-bit delay",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "label": "Restart / TM=2",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop / CEN",
+          "width": 1
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "label": "Go to HI",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "CaptureQueue",
+      "label": "RX FIFO · Unit 3\n21-bit NRZI capture",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "input",
+          "label": "Data / INSEL=1",
+          "width": 1
+        },
+        {
+          "id": "sample",
+          "direction": "input",
+          "label": "Buddy TOUTSTART",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop / CEN",
+          "width": 1
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "label": "21st sample",
+          "width": 1
+        },
+        {
+          "id": "readback",
+          "direction": "output",
+          "label": "FIFODATA3",
+          "width": 21
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "Device",
+      "label": "Bank 0 : FC",
+      "members": ["Controllers", "Workers", "OutputInterfaces", "InputInterfaces"],
+      "style": {
+        "borderColor": "#8ea8d6",
+        "fillColor": "#eff6ff",
+        "borderStyle": "solid"
+      }
+    },
+    {
+      "id": "Controllers",
+      "label": "Trigger processors",
+      "members": ["StartEvent", "StopEvent", "ReceiveEvent", "ReceiveComplete"],
+      "layout": {
+        "type": "grid",
+        "cells": [["StartEvent"], ["StopEvent"], ["ReceiveEvent"], ["ReceiveComplete"]]
+      }
+    },
+    {
+      "id": "Workers",
+      "label": "Functions",
+      "members": ["Clock", "TransmitQueue", "ReceiveDelay", "CaptureQueue"],
+      "style": {
+        "fillColor": "#f9f9f0"
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [["Clock"], ["TransmitQueue"], ["ReceiveDelay"], ["CaptureQueue"]]
+      }
+    },
+    {
+      "id": "OutputInterfaces",
+      "label": "Overlay outputs",
+      "members": ["ClockOutput", "DataOutput"]
+    },
+    {
+      "id": "InputInterfaces",
+      "label": "Overlay inputs",
+      "members": ["SerialInput"]
+    }
+  ],
+  "connections": [
+    {
+      "from": "Clock.tout",
+      "to": [
+        {
+          "endpoint": "StartEvent.waveform",
+          "constraint": false,
+          "feedback": true
+        },
+        {
+          "endpoint": "StopEvent.waveform",
+          "constraint": false,
+          "feedback": true
+        }
+      ],
+      "label": "waveform",
+      "id": "connection_0"
+    },
+    {
+      "from": "StartEvent.rise",
+      "to": ["TransmitQueue.sample"],
+      "feedback": true,
+      "id": "connection_1"
+    },
+    {
+      "from": "StopEvent.done",
+      "to": ["TransmitQueue.stop"],
+      "feedback": true,
+      "id": "connection_2"
+    },
+    {
+      "from": "Clock.out",
+      "to": ["ClockOutput.input"],
+      "label": "waveform",
+      "id": "connection_3"
+    },
+    {
+      "from": "TransmitQueue.out",
+      "to": ["DataOutput.input"],
+      "label": "data",
+      "style": {
+        "strokeColor": "#047857"
+      },
+      "id": "connection_4"
+    },
+    {
+      "from": "TransmitQueue.dir",
+      "to": ["DataOutput.dir"],
+      "style": {
+        "strokeColor": "#64748b",
+        "lineStyle": "dashed"
+      },
+      "id": "connection_5"
+    },
+    {
+      "from": "SerialInput.output",
+      "to": ["ReceiveEvent.overlay", "CaptureQueue.data"],
+      "style": {
+        "strokeColor": "#047857"
+      },
+      "id": "connection_17"
+    },
+    {
+      "from": "ReceiveEvent.edge",
+      "to": ["ReceiveDelay.start"],
+      "id": "connection_18"
+    },
+    {
+      "from": "ReceiveDelay.tout",
+      "to": [
+        {
+          "endpoint": "CaptureQueue.sample",
+          "constraint": false,
+          "feedback": true
+        }
+      ],
+      "label": "buddy",
+      "id": "connection_19"
+    },
+    {
+      "from": "CaptureQueue.tout",
+      "to": [
+        {
+          "endpoint": "ReceiveComplete.last",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "label": "last bit",
+      "id": "connection_20"
+    },
+    {
+      "from": "ReceiveComplete.done",
+      "to": [
+        {
+          "endpoint": "ReceiveDelay.stop",
+          "feedback": true,
+          "constraint": false
+        },
+        {
+          "endpoint": "CaptureQueue.stop",
+          "feedback": true,
+          "constraint": false
+        },
+        {
+          "endpoint": "ReceiveEvent.stop",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "id": "connection_21"
+    }
+  ]
+}

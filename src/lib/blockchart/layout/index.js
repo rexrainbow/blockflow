@@ -1,19 +1,8 @@
-import ELK from 'elkjs/lib/elk.bundled.js';
 import { scopeModel } from './scope.js';
 import { visibleModel } from './visibility.js';
-import { signalModel, finishSignals, receiverLabels } from './signals.js';
-import { buildElkGraph } from './elk-graph.js';
-import { readElkResult } from './elk-result.js';
-import { restoreConcatAnchors } from './concat-anchors.js';
-import { preserveGroupPortOrder } from './groups.js';
-import { arrangeGrids } from './grid-layout.js';
-import { routeFixed } from './fixed.js';
-import { planAutoChannels } from './auto-channels.js';
-import { alignTerminals } from './terminal-alignment.js';
-import { alignReceivers } from './receiver-layout.js';
-import { adjustPorts } from './port-adjustment.js';
-import { routeOuterFeedback } from './outer-feedback.js';
-import { finalizeLayout } from './finalize.js';
+import { receiverLabels } from './signals.js';
+import { layoutPass } from './pipeline.js';
+import { withGridBlockMinimums } from './grid-minimums.js';
 
 export class DiagramLayoutError extends Error {
   constructor(message, options) {
@@ -22,46 +11,10 @@ export class DiagramLayoutError extends Error {
   }
 }
 
-/** One complete pass; synthetic nodes stay present until every geometry adjustment finishes. */
-async function layoutPass(input, receivers) {
-  const model = signalModel(input, receivers);
-  const elk = new ELK();
-  const result = readElkResult(await elk.layout(buildElkGraph(model)), model);
-
-  const concatEdges = restoreConcatAnchors(result, model);
-  preserveGroupPortOrder(result.groups, result.connections, model.layout.direction);
-  const grid =
-    (!model.rootGroupId && model.layout.type === 'grid') ||
-    model.groups.some((group) => !group.collapsed && group.layout?.type === 'grid');
-  if (grid) {
-    await arrangeGrids(result, model, elk);
-    routeFixed(result, model);
-  } else {
-    if (model.connections.some((edge) => edge.constraint === false)) {
-      routeFixed(result, model, true);
-      for (const edge of model.connections) if (edge.constraint === false) concatEdges.delete(edge.id);
-    }
-    if (concatEdges.size) routeFixed(result, model, false, concatEdges, 'concat-anchors');
-  }
-
-  if (planAutoChannels(result, model)) routeFixed(result, model);
-  alignTerminals(result, model);
-  alignReceivers(result, model);
-  adjustPorts(result, model);
-  routeFixed(result, model, false, null, 'container-entry');
-  if (model.layout.feedbackRouting === 'outer') routeOuterFeedback(result, model);
-  if (grid) routeFixed(result, model, false, null, 'grid-channels');
-  if (result._autoChannels.length) routeFixed(result, model, false, null, 'auto-channels');
-
-  finishSignals(result, model);
-  const layout = finalizeLayout(result, model);
-  return model.rootGroupId ? { ...layout, rootGroupId: model.rootGroupId } : layout;
-}
-
 /** Scope and project once; Auto receiver labels may request exactly one additional pass. */
 export async function layoutDiagram(model, options = {}) {
   try {
-    model = visibleModel(scopeModel(model, options.rootGroupId));
+    model = visibleModel(scopeModel(withGridBlockMinimums(model), options.rootGroupId));
     const selected = receiverLabels(model);
     const first = await layoutPass(model, selected);
     const final = receiverLabels(model, first);

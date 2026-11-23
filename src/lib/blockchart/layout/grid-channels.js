@@ -1,3 +1,4 @@
+import { allocateTracks, requiredTrackSpace, TRACK_GAP } from './channel-allocation.js';
 import { routeOrthogonal } from '../../shared/orthogonal.js';
 import { lineWidth, endpointEscape, obstacleClearance } from './routing-spacing.js';
 
@@ -12,31 +13,6 @@ const cross = (a, b, r) =>
       a.x < r.x + r.width - eps &&
       Math.max(a.y, b.y) > r.y + eps &&
       Math.min(a.y, b.y) < r.y + r.height - eps;
-
-/** Interval coloring is deterministic; one Net shares its union interval. */
-export function allocateTracks(branches) {
-  const nets = new Map();
-  for (const branch of branches) {
-    const key = branch.net;
-    const entry = nets.get(key) ?? { key, lo: Infinity, hi: -Infinity, width: 0, branches: [] };
-    entry.lo = Math.min(entry.lo, branch.lo);
-    entry.hi = Math.max(entry.hi, branch.hi);
-    entry.width = Math.max(entry.width, branch.width);
-    entry.branches.push(branch.id);
-    nets.set(key, entry);
-  }
-  const tracks = [];
-  for (const entry of nets.values()) entry.branches.sort();
-  for (const entry of [...nets.values()].sort(
-    (a, b) => a.lo - b.lo || a.hi - b.hi || a.key.localeCompare(b.key, 'en'),
-  )) {
-    let track = tracks.find((t) => t.nets.every((n) => n.hi < entry.lo || entry.hi < n.lo));
-    if (!track) tracks.push((track = { width: 0, nets: [] }));
-    track.width = Math.max(track.width, entry.width);
-    track.nets.push(entry);
-  }
-  return tracks;
-}
 
 /** Plan before placing tracks. Keep live node references so ancestor moves are safe. */
 export function planGridChannels(rows, nodes, children, connections, direction) {
@@ -84,10 +60,7 @@ export function planGridChannels(rows, nodes, children, connections, direction) 
   for (const channel of channels.values()) {
     for (const [id, node] of owners) if (slots.get(id).flow === channel.index) channel.nodes.push(node);
     channel.tracks = allocateTracks(channel.branches);
-    channel.required =
-      2 * channel.margin +
-      channel.tracks.reduce((n, t) => n + t.width, 0) +
-      6 * Math.max(0, channel.tracks.length - 1);
+    channel.required = requiredTrackSpace(channel.tracks, channel.margin);
   }
   return [...channels.values()];
 }
@@ -119,7 +92,7 @@ export function channelAssignments(channels) {
             count: channel.tracks.length,
             ...(channel.kind === 'auto' ? { owner: channel.owner } : {}),
           });
-      offset += track.width + 6;
+      offset += track.width + TRACK_GAP;
     });
   }
   return result;

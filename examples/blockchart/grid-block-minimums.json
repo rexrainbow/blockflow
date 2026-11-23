@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Grid Block minimum dimensions",
+    "style": { "module": { "portLabel": { "hidden": true } } }
+  },
+  "layout": {
+    "type": "grid",
+    "cells": [
+      ["ALU", "Processor"],
+      ["Decoder", "Status"]
+    ],
+    "blockMinWidth": 1.8,
+    "blockMinHeight": 1.25,
+    "rowGap": 56,
+    "columnGap": 85
+  },
+  "modules": [
+    { "id": "ALU", "ports": [{ "id": "result", "direction": "output" }] },
+    {
+      "id": "Processor",
+      "label": "Processor\nCustom width",
+      "width": 2.4,
+      "ports": [{ "id": "data", "direction": "input" }]
+    },
+    { "id": "Decoder", "ports": [{ "id": "command", "direction": "output" }] },
+    {
+      "id": "Status",
+      "ports": [
+        { "id": "command", "direction": "input" },
+        { "id": "state", "direction": "output" }
+      ]
+    },
+    {
+      "id": "Monitor",
+      "label": "Auto-sized\nOutside Grid",
+      "ports": [{ "id": "state", "direction": "input" }]
+    }
+  ],
+  "connections": [
+    { "from": "ALU.result", "to": ["Processor.data"] },
+    { "from": "Decoder.command", "to": ["Status.command"] },
+    { "from": "Status.state", "to": ["Monitor.state"] }
+  ]
+}

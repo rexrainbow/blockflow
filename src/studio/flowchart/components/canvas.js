@@ -39,6 +39,11 @@ export class FlowchartCanvas extends CanvasBase {
   }
 
   /* ---------------- overlay ---------------- */
+  /** Path data for one edge's hit area and selection outline: the routed sections. */
+  edgePaths(e) {
+    return e.sections.map((section) => pathOf(section.points));
+  }
+
   buildHits(L, doc) {
     const hits = [];
     const rect = (b, props) => s('rect', { x: b.x, y: b.y, width: Math.max(1, b.width), height: Math.max(1, b.height), ...props });
@@ -50,8 +55,8 @@ export class FlowchartCanvas extends CanvasBase {
       hits.push(rect(title, { class: 'hit hit-group-title', 'data-hit': 'group-title', 'data-id': g.id }));
     }
     for (const e of L.edges) {
-      for (const section of e.sections)
-        hits.push(s('path', { d: pathOf(section.points), class: 'hit hit-net', 'data-hit': 'edge', 'data-key': e.editorKey, 'vector-effect': 'non-scaling-stroke' }));
+      for (const d of this.edgePaths(e))
+        hits.push(s('path', { d, class: 'hit hit-net', 'data-hit': 'edge', 'data-key': e.editorKey, 'vector-effect': 'non-scaling-stroke' }));
       if (e.labelBounds) hits.push(rect(pad(e.labelBounds, 2), { class: 'hit hit-label', 'data-hit': 'edge', 'data-key': e.editorKey }));
     }
     for (const n of L.nodes) hits.push(rect(n, { class: ['hit hit-node', n.type === 'note' && 'hit-note'].filter(Boolean).join(' '), 'data-hit': n.type === 'note' ? 'note' : 'node', 'data-id': n.id }));
@@ -112,8 +117,7 @@ export class FlowchartCanvas extends CanvasBase {
     if (sel.type !== 'edge') return super.selectionShapes(sel, L);
     const out = [];
     for (const e of L.edges.filter((x) => x.editorKey === sel.key))
-      for (const section of e.sections) {
-        const d = pathOf(section.points);
+      for (const d of this.edgePaths(e)) {
         out.push(s('path', { d, class: 'sel-net-halo', 'vector-effect': 'non-scaling-stroke' }));
         out.push(s('path', { d, class: 'sel-net', 'vector-effect': 'non-scaling-stroke' }));
       }

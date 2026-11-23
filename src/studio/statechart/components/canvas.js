@@ -25,6 +25,17 @@ export class StatechartCanvas extends FlowchartCanvas {
     super.setLayout({ ...result, layout: { ...L, nodes: L.states, edges: L.transitions, groups: [] } });
   }
 
+  /**
+   * Transitions are drawn with rounded corners; the hit area and selection outline use the
+   * drawn path so they follow the curve at any zoom. Falls back to the routed sections.
+   */
+  edgePaths(e) {
+    const art = this.stage.querySelector('.art:not(.leaving)');
+    const path = art?.querySelector(`g[data-role="flow-edge"][data-id="${CSS.escape(e.editorKey)}"] > path`);
+    const d = path?.getAttribute('d');
+    return d ? [d] : super.edgePaths(e);
+  }
+
   /** States have no groups to move into: dragging a state pans, handles still connect. */
   dragKind(hit) {
     const kind = super.dragKind(hit);

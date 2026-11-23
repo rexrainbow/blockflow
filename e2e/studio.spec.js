@@ -792,3 +792,258 @@ test('group spacing: inherited vs set per property, clear, invalid, root and mod
   expect(saved.groups.find((g) => g.id === 'Regular').layout).toEqual({ layerSpacing: 12.5 });
   expect(saved.layout).toEqual({ moduleSpacing: 40, layerSpacing: 30 });
 });
+
+test('Grid block minimums: per-axis Auto, fractions, invalid values, Auto cleanup, Undo, save, group view, Flow', async ({
+  page,
+}) => {
+  const source = await readExample('grid-block-minimums');
+  await page.evaluate(async (doc) => window.__studio.replaceKeepingUndo(doc, 'test'), source);
+  await page.waitForTimeout(250);
+  await ready(page);
+  const doc = () => page.evaluate(() => window.__studio.store.document);
+  const box = (id) =>
+    page.evaluate((id) => {
+      const m = window.__studio.store.layout.layout.modules.find((n) => n.id === id);
+      return m && [m.width, Math.round(m.height)];
+    }, id);
+  // Ports stay on the border of their (resized) block.
+  const portsAttached = () =>
+    page.evaluate(() =>
+      window.__studio.store.layout.layout.modules.every((m) =>
+        (m.ports ?? []).every((p) =>
+          p.side === 'left' || p.side === 'right'
+            ? Math.abs(p.x - (p.side === 'left' ? m.x : m.x + m.width)) < 0.01 &&
+              p.y >= m.y &&
+              p.y <= m.y + m.height
+            : Math.abs(p.y - (p.side === 'top' ? m.y : m.y + m.height)) < 0.01 &&
+              p.x >= m.x &&
+              p.x <= m.x + m.width,
+        ),
+      ),
+    );
+  const svgMatches = async (options = {}) => {
+    await page.waitForTimeout(250);
+    await ready(page);
+    const reference = await convertDiagram(await doc(), { format: 'svg', ...options });
+    expect(await page.evaluate(() => window.__studio.store.layout.svg)).toBe(reference.text.trimEnd());
+  };
+  const bmw = page.locator('input[data-fid="grid-bmw"]'),
+    bmh = page.locator('input[data-fid="grid-bmh"]');
+  const set = async (input, value) => {
+    await input.fill(value);
+    await input.press('Enter');
+  };
+  await svgMatches();
+  expect(await box('ALU')).toEqual([252, 105]);
+  expect(await box('Status')).toEqual([252, 105]);
+  expect(await box('Processor')).toEqual([336, 105]);
+  expect(await box('Monitor')).toEqual([122, 54]);
+  expect(await portsAttached()).toBe(true);
+
+  await page.evaluate(() => window.__studio.select(null));
+  await page.getByRole('tab', { name: 'Layout' }).click();
+  await expect(bmw).toHaveValue('1.8');
+  await expect(bmh).toHaveValue('1.25');
+  await expect(page.locator('[data-hint="grid-block-min"]')).toHaveCount(1);
+
+  // Clearing one axis removes only that key; the other stays.
+  await set(bmh, '');
+  await expect.poll(async () => Object.hasOwn((await doc()).layout, 'blockMinHeight')).toBe(false);
+  expect((await doc()).layout.blockMinWidth).toBe(1.8);
+  await expect(bmh).toHaveAttribute('placeholder', 'Auto');
+  await svgMatches();
+  expect((await box('ALU'))[0]).toBe(252);
+  expect((await box('ALU'))[1]).toBeLessThan(105);
+
+  // Invalid values keep the field and write nothing.
+  for (const bad of ['0', '-1']) {
+    await set(bmw, bad);
+    await expect(page.locator('.field-error')).toContainText('Block min width must be a positive number');
+    expect((await doc()).layout.blockMinWidth).toBe(1.8);
+    await bmw.press('Escape');
+  }
+
+  // A fraction; Undo and Redo follow the history.
+  await set(bmw, '2.25');
+  await expect.poll(async () => (await doc()).layout.blockMinWidth).toBe(2.25);
+  await svgMatches();
+  expect((await box('ALU'))[0]).toBe(315);
+  await page.evaluate(() => window.__studio.undo());
+  await expect.poll(async () => (await doc()).layout.blockMinWidth).toBe(1.8);
+  await page.evaluate(() => window.__studio.redo());
+  await expect.poll(async () => (await doc()).layout.blockMinWidth).toBe(2.25);
+
+  // Down flow uses the same physical units for each axis.
+  await page.locator('[data-fid="l-dir-down"]').click();
+  await expect.poll(async () => (await doc()).layout.direction).toBe('down');
+  await svgMatches();
+  expect((await box('ALU'))[0]).toBe(315);
+  expect(await portsAttached()).toBe(true);
+  await page.locator('[data-fid="l-dir-right"]').click();
+  await ready(page);
+
+  // Save keeps the authored values and omissions exactly.
+  await set(bmh, '1.25');
+  await expect.poll(async () => (await doc()).layout.blockMinHeight).toBe(1.25);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
+  const saved = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(saved).toEqual(await doc());
+  expect(saved.modules.find((m) => m.id === 'Processor').width).toBe(2.4);
+  expect(
+    Object.hasOwn(
+      saved.modules.find((m) => m.id === 'ALU'),
+      'width',
+    ),
+  ).toBe(false);
+
+  // Auto removes both bounds with the other Grid-only fields.
+  await page.locator('[data-fid="grid-mode-auto"]').click();
+  await expect
+    .poll(async () => Object.keys((await doc()).layout ?? {}).filter((k) => k !== 'direction'))
+    .toEqual([]);
+  await svgMatches();
+  expect(await box('ALU')).not.toEqual([315, 105]);
+
+  // A group Grid: only the blocks written in its cells get the floor, also in the group view.
+  const grouped = structuredClone(source);
+  grouped.groups = [
+    { id: 'Core', members: ['ALU', 'Decoder'], layout: { type: 'grid', cells: [['ALU'], ['Decoder']] } },
+  ];
+  delete grouped.layout;
+  await page.evaluate(async (doc) => window.__studio.replaceKeepingUndo(doc, 'test'), grouped);
+  await page.waitForTimeout(250);
+  await ready(page);
+  await page.evaluate(() => window.__studio.select({ type: 'group', id: 'Core' }));
+  await page.getByRole('tab', { name: 'Layout' }).click();
+  await set(bmw, '2');
+  await expect
+    .poll(async () => (await doc()).groups[0].layout)
+    .toEqual({ type: 'grid', cells: [['ALU'], ['Decoder']], blockMinWidth: 2 });
+  await svgMatches();
+  expect((await box('ALU'))[0]).toBe(280);
+  expect((await box('Status'))[0]).toBeLessThan(280);
+  await page.evaluate(() => window.__studio.enterGroup('Core'));
+  await svgMatches({ rootGroupId: 'Core' });
+  expect((await box('Decoder'))[0]).toBe(280);
+  await page.evaluate(() => window.__studio.enterGroup(''));
+  await ready(page);
+  await page.evaluate(() => window.__studio.select({ type: 'group', id: 'Core' }));
+  await page.getByRole('tab', { name: 'Layout' }).click();
+  await page.locator('[data-fid="grid-mode-auto"]').click();
+  await expect.poll(async () => (await doc()).groups[0].layout).toBeUndefined();
+});
+
+test('Grid block alignment: Left/Center/Right, default Center, Flow, group Grid and view, Undo, save, Auto cleanup', async ({
+  page,
+}) => {
+  const source = await readExample('grid-block-alignment');
+  await page.evaluate(async (doc) => window.__studio.replaceKeepingUndo(doc, 'test'), source);
+  await page.waitForTimeout(250);
+  await ready(page);
+  const doc = () => page.evaluate(() => window.__studio.store.document);
+  // Physical x-range and width of a block or group in the current drawing.
+  const span = (id) =>
+    page.evaluate((id) => {
+      const L = window.__studio.store.layout.layout;
+      const n = L.modules.find((m) => m.id === id) ?? L.groups.find((g) => g.id === id);
+      return { left: n.x, right: n.x + n.width, width: n.width };
+    }, id);
+  const svgMatches = async (options = {}) => {
+    await page.waitForTimeout(250);
+    await ready(page);
+    const reference = await convertDiagram(await doc(), { format: 'svg', ...options });
+    expect(await page.evaluate(() => window.__studio.store.layout.svg)).toBe(reference.text.trimEnd());
+  };
+  const near = (a, b) => Math.abs(a - b) < 0.01;
+  const check = async (align, a, b) => {
+    // Left/Right align body edges; Center keeps the runtime's label-envelope centering
+    // (bodies can differ by a label's overhang), so it is covered by converter parity.
+    const [p, q] = [await span(a), await span(b)];
+    if (align === 'left') expect(near(p.left, q.left)).toBe(true);
+    if (align === 'right') expect(near(p.right, q.right)).toBe(true);
+    return [p.width, q.width];
+  };
+  const radio = (v) => page.locator(`[data-fid="grid-align-${v}"]`);
+  const layoutTab = async (group) => {
+    await page.evaluate((id) => window.__studio.select(id ? { type: 'group', id } : null), group);
+    await page.getByRole('tab', { name: 'Layout' }).click();
+  };
+
+  // Unequal widths in one column (Source 140, Converter 308); the Core Container cell aligns whole.
+  await svgMatches();
+  await layoutTab(null);
+  await expect(radio('left')).toHaveAttribute('aria-checked', 'true');
+  expect(await check('left', 'Source', 'Converter')).toEqual([140, 308]);
+  await check('left', 'Core', 'Sink');
+  for (const align of ['right', 'center']) {
+    await radio(align).click();
+    await expect
+      .poll(async () => (await doc()).layout.blockAlign)
+      .toBe(align === 'center' ? undefined : align);
+    await svgMatches();
+    expect(await check(align, 'Source', 'Converter')).toEqual([140, 308]);
+    await check(align, 'Core', 'Sink');
+  }
+  // Omitted means Center; Undo/Redo follow the history.
+  expect(Object.hasOwn((await doc()).layout, 'blockAlign')).toBe(false);
+  await expect(radio('center')).toHaveAttribute('aria-checked', 'true');
+  await page.evaluate(() => window.__studio.undo());
+  await expect.poll(async () => (await doc()).layout.blockAlign).toBe('right');
+  await page.evaluate(() => window.__studio.redo());
+  await expect.poll(async () => Object.hasOwn((await doc()).layout, 'blockAlign')).toBe(false);
+
+  // Down flow: still physical horizontal alignment.
+  await radio('right').click();
+  await page.locator('[data-fid="l-dir-down"]').click();
+  await expect.poll(async () => (await doc()).layout.direction).toBe('down');
+  await svgMatches();
+  await check('right', 'Source', 'Converter');
+  await page.locator('[data-fid="l-dir-right"]').click();
+  await ready(page);
+
+  // A group Grid aligns its own cells, also in its group view; the root Grid is separate.
+  await page.evaluate(
+    async (doc) => {
+      doc.groups[0].layout = { type: 'grid', cells: [['Filter'], ['Scale']] };
+      doc.modules.find((m) => m.id === 'Scale').width = 1.8;
+      return window.__studio.replaceKeepingUndo(doc, 'test');
+    },
+    await doc(),
+  );
+  await page.waitForTimeout(250);
+  await ready(page);
+  await layoutTab('Core');
+  await expect(radio('center')).toHaveAttribute('aria-checked', 'true');
+  await radio('left').click();
+  await expect.poll(async () => (await doc()).groups[0].layout.blockAlign).toBe('left');
+  await svgMatches();
+  await check('left', 'Filter', 'Scale');
+  await check('right', 'Source', 'Converter');
+  await page.evaluate(() => window.__studio.enterGroup('Core'));
+  await svgMatches({ rootGroupId: 'Core' });
+  await check('left', 'Filter', 'Scale');
+  await page.evaluate(() => window.__studio.enterGroup(''));
+  await ready(page);
+
+  // Save keeps the authored values; Automatic removes blockAlign with the other Grid-only fields.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
+  const saved = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(saved).toEqual(await doc());
+  expect(saved.layout.blockAlign).toBe('right');
+  expect(saved.groups[0].layout.blockAlign).toBe('left');
+  await layoutTab('Core');
+  await page.locator('[data-fid="grid-mode-auto"]').click();
+  await expect.poll(async () => (await doc()).groups[0].layout).toBeUndefined();
+  await layoutTab(null);
+  await page.locator('[data-fid="grid-mode-auto"]').click();
+  await expect
+    .poll(async () => Object.keys((await doc()).layout ?? {}).filter((k) => k !== 'direction'))
+    .toEqual([]);
+  await svgMatches();
+});

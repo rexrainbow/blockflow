@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { containerEntryRoute, routeMetrics } from '../../src/lib/blockchart/layout/container-entry.js';
+import { containerEntryRoute } from '../../src/lib/blockchart/layout/container-entry.js';
+import { routeMetrics } from '../../src/lib/blockchart/layout/route-quality.js';
 import { routeFixed } from '../../src/lib/blockchart/layout/fixed.js';
 import { connectionStyle } from '../../src/lib/blockchart/styles.js';
 
@@ -166,9 +167,7 @@ for (const protectedFrame of [false, true])
     routeFixed(
       result,
       { modules, groups: [group], connections: [ref], layout: { direction: 'down', layerSpacing: 30 } },
-      false,
-      null,
-      'container-entry',
+      { strategy: 'container-entry' },
     );
     assert.equal(
       routeMetrics(result.connections[0].sections.flatMap((s) => s.points)).bends,

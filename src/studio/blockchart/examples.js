@@ -16,6 +16,8 @@ import gridChannels from '../../../examples/blockchart/grid-routing-channels.jso
 import localSpacing from '../../../examples/blockchart/local-layout-spacing.json';
 import autoChannels from '../../../examples/blockchart/auto-routing-channels.json';
 import portAdjust from '../../../examples/blockchart/port-adjustment.json';
+import gridMinimums from '../../../examples/blockchart/grid-block-minimums.json';
+import gridAlignment from '../../../examples/blockchart/grid-block-alignment.json';
 import appearances from '../../../examples/blockchart/block-appearances.json';
 
 /**
@@ -42,6 +44,8 @@ export const EXAMPLES = [
   { name: 'Grid: across containers', document: crossGrid }, // container blocks aligned in the parent Grid
   { name: 'Grid: with automatic blocks', document: partialGrid }, // unplaced members stay automatic
   { name: 'Grid: wire tracks', document: gridChannels }, // crowded gap widens; one track per net
+  { name: 'Grid: block minimum size', document: gridMinimums }, // Grid floors for the blocks it places
+  { name: 'Grid: block alignment', document: gridAlignment }, // blocks align left/center/right in their column
   { name: 'Wire tracks in a group', document: autoChannels }, // a crowded Auto group gives each net a track
   { name: 'Spacing per group', document: localSpacing }, // a group sets its own spacing; groups inside inherit it
   { name: 'Port adjustment', document: portAdjust }, // ports slide to straighten wires

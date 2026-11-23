@@ -421,11 +421,32 @@ test('standalone Blockchart guide JSON examples validate and render without upst
   const readme = await readFile(join(kit, 'README.md'), 'utf8'),
     guide = readme.split('## Blockchart Agent Kit')[1].split('## Flowchart Agent Kit')[0],
     examples = [...guide.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)];
-  assert.equal(examples.length, 3);
+  assert.equal(examples.length, 4);
   for (const match of examples) {
     const model = createDiagramModel(JSON.parse(match[1]));
     assert.ok(renderSvg(await layoutDiagram(model)).startsWith('<svg'));
   }
   assert.ok(!/\]\((?:\.\.\/|examples\/)/.test(readme));
   assert.ok(!readme.includes('{{KIT_VERSION}}'));
+});
+
+test('isolated kit applies Grid Block minima to SVG and preserves authored JSON without backfilling', async () => {
+  const input = JSON.parse(
+    await readFile(new URL('../examples/blockchart/grid-block-minimums.json', import.meta.url), 'utf8'),
+  );
+  const saved = structuredClone(input);
+  const svg = run(['-', '--output', '-', '--format', 'svg'], JSON.stringify(input));
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, renderSvg(await layoutDiagram(createDiagramModel(input))) + '\n');
+  const json = run(['-', '--output', '-', '--format', 'json'], JSON.stringify(input));
+  assert.equal(json.status, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), input);
+  assert.ok(!Object.hasOwn(JSON.parse(json.stdout).modules[0], 'width'));
+  assert.deepEqual(input, saved);
+  const invalid = structuredClone(input);
+  invalid.layout.blockMinWidth = 0;
+  const bad = run(['-', '--check', '--diagnostics', 'json'], JSON.stringify(invalid));
+  assert.equal(bad.status, 1);
+  assert.equal(JSON.parse(bad.stderr).stage, 'validation');
+  assert.equal(JSON.parse(bad.stderr).path, 'layout.blockMinWidth');
 });

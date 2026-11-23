@@ -4,6 +4,7 @@ import { applyGroups } from './groups.js';
 import { budgetContainerSpacing } from './container-spacing.js';
 import { moduleGeometry, textSize } from '../geometry.js';
 import { portSide } from '../direction.js';
+import { gridInternalEdges } from './grid-placement.js';
 
 export const terminalNodeId = (id) => `@terminal:${id}`;
 const ref = (endpoint) =>
@@ -29,6 +30,7 @@ const PLACEMENT_OPTIONS = {
 
 /** Build a fresh compound ELK graph from the routing model. */
 export function buildElkGraph(model) {
+  const deferred = gridInternalEdges(model);
   const geometry = new Map(
     model.modules.map((module) => [module.id, moduleGeometry(module, model.layout.direction)]),
   );
@@ -73,7 +75,7 @@ export function buildElkGraph(model) {
       };
     }),
     edges: model.connections
-      .filter((c) => c.constraint !== false)
+      .filter((c) => c.constraint !== false && !deferred.has(c.id))
       .map((connection) => ({
         id: `@${connection.id}`,
         sources: [ref(connection.source)],

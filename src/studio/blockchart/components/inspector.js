@@ -593,7 +593,7 @@ export class Inspector {
               const o = locate(d);
               if (v === 'auto') {
                 // Grid fields only: local Block/Layer spacing stays (runtime contract).
-                for (const k of ['type', 'cells', 'rowGap', 'columnGap']) delete o.layout?.[k];
+                for (const k of ['type', 'cells', 'rowGap', 'columnGap', 'blockMinWidth', 'blockMinHeight', 'blockAlign']) delete o.layout?.[k];
                 if (scope && o.layout && !Object.keys(o.layout).length) delete o.layout;
               } else {
                 o.layout ??= {};
@@ -633,6 +633,27 @@ export class Inspector {
                 field('Column gap', textInput({ value: layout.columnGap ?? '', placeholder: '80', type: 'number', min: 0, fidKey: 'cg', commit: (v) => this.commit((d) => setOrDelete(locate(d).layout, 'columnGap', v.trim() === '' ? undefined : Number(v))) })),
               ),
               h('p', { class: 'insp-hint', 'data-hint': 'gap-minimum' }, 'Gaps are minimums. A crowded gap widens so each net gets its own wire track; the saved value stays as typed.'),
+              h(
+                'div',
+                { class: 'grid2' },
+                field('Block min width', textInput({ value: layout.blockMinWidth ?? '', placeholder: 'Auto', type: 'number', min: 0, step: 'any', fidKey: 'grid-bmw', commit: (v) => this.commit((d) => setOrDelete(locate(d).layout, 'blockMinWidth', posNumber(v, 'Block min width'))) })),
+                field('Block min height', textInput({ value: layout.blockMinHeight ?? '', placeholder: 'Auto', type: 'number', min: 0, step: 'any', fidKey: 'grid-bmh', commit: (v) => this.commit((d) => setOrDelete(locate(d).layout, 'blockMinHeight', posNumber(v, 'Block min height'))) })),
+              ),
+              h('p', { class: 'insp-hint', 'data-hint': 'grid-block-min' }, 'Smallest size for the blocks written in Cells, in block units (width 1 = 140, height 1 = 84). Blocks can still grow for their content or their own size; blank is Auto.'),
+              field(
+                'Block alignment',
+                segmented(
+                  [
+                    { value: 'left', label: 'Left', title: 'Align block left edges in each column' },
+                    { value: 'center', label: 'Center', title: 'Center blocks in each column (default)' },
+                    { value: 'right', label: 'Right', title: 'Align block right edges in each column' },
+                  ],
+                  layout.blockAlign ?? 'center',
+                  (v) => this.tryCommit((d) => setOrDelete(locate(d).layout, 'blockAlign', v === 'center' ? undefined : v)),
+                  { ariaLabel: 'Block alignment', fidKey: 'grid-align' },
+                ),
+                { hint: 'Moves the blocks written in Cells within their column; sizes and label text alignment do not change.' },
+              ),
               h('p', { class: 'insp-hint' }, 'Members: ', h('span', { class: 'mono' }, members.join('  '))),
               containers.length
                 ? h(

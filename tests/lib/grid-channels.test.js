@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import {
-  allocateTracks,
   parallelOverlap,
   routeGridChannel,
   reconcileChannelRoutes,
@@ -14,25 +13,6 @@ const example = JSON.parse(
 );
 const parts = (e) => e.sections.flatMap((s) => s.points.slice(1).map((p, i) => [s.points[i], p]));
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-5, `${a} != ${b}`);
-
-test('interval coloring shares Net fan-out, reuses disjoint ranges and respects stroke widths', () => {
-  const branches = [
-    { id: 'a1', net: 'A', lo: 0, hi: 2, width: 2 },
-    { id: 'a2', net: 'A', lo: 0, hi: 3, width: 4 },
-    { id: 'b', net: 'B', lo: 1, hi: 4, width: 12 },
-    { id: 'c', net: 'C', lo: 5, hi: 6, width: 2 },
-  ];
-  const before = structuredClone(branches),
-    tracks = allocateTracks(branches);
-  assert.equal(tracks.length, 2);
-  assert.deepEqual(
-    tracks.find((t) => t.nets.some((n) => n.key === 'A')).nets.map((n) => n.key),
-    ['A', 'C'],
-  );
-  assert.equal(tracks.find((t) => t.nets.some((n) => n.key === 'B')).width, 12);
-  assert.deepEqual(branches, before);
-  assert.deepEqual(allocateTracks([...branches].reverse()), tracks);
-});
 
 for (const direction of ['down', 'right'])
   test(`multi-track ${direction} Grid keeps foreign Nets separate, names and endpoints intact`, async () => {

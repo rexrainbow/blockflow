@@ -495,6 +495,19 @@
           "description": "Minimum column gap; Right Grid routing expands only crowded gaps to reserve separate Net tracks.",
           "minimum": 0,
           "default": 80
+        },
+        "blockMinWidth": {
+          "$ref": "#/$defs/positive",
+          "description": "Grid-only minimum ordinary Block dimension in 140-unit increments, applied only to explicit module cells. Omit for Auto. Concat and Container cells are excluded; content and per-Block minima may require larger geometry."
+        },
+        "blockMinHeight": {
+          "$ref": "#/$defs/positive",
+          "description": "Grid-only minimum ordinary Block dimension in 84-unit increments, applied only to explicit module cells. Omit for Auto. Concat and Container cells are excluded; content and per-Block minima may require larger geometry."
+        },
+        "blockAlign": {
+          "enum": ["left", "center", "right"],
+          "default": "center",
+          "description": "Grid-only physical horizontal alignment of explicit cell Blocks or whole Containers. Omit for center; vertical alignment stays centered. Does not change text alignment or stretch Blocks."
         }
       },
       "allOf": [
@@ -547,6 +560,11 @@
               "properties": {
                 "cells": {}
               }
+            },
+            "properties": {
+              "blockMinWidth": false,
+              "blockMinHeight": false,
+              "blockAlign": false
             }
           }
         }
@@ -819,6 +837,19 @@
           "description": "Minimum column gap; Right Grid routing expands only crowded gaps to reserve separate Net tracks.",
           "minimum": 0,
           "default": 80
+        },
+        "blockMinWidth": {
+          "$ref": "#/$defs/positive",
+          "description": "Grid-only minimum ordinary Block dimension in 140-unit increments, applied only to explicit module cells. Omit for Auto. Concat and Container cells are excluded; content and per-Block minima may require larger geometry."
+        },
+        "blockMinHeight": {
+          "$ref": "#/$defs/positive",
+          "description": "Grid-only minimum ordinary Block dimension in 84-unit increments, applied only to explicit module cells. Omit for Auto. Concat and Container cells are excluded; content and per-Block minima may require larger geometry."
+        },
+        "blockAlign": {
+          "enum": ["left", "center", "right"],
+          "default": "center",
+          "description": "Grid-only physical horizontal alignment of explicit cell Blocks or whole Containers. Omit for center; vertical alignment stays centered. Does not change text alignment or stretch Blocks."
         }
       },
       "allOf": [
@@ -845,6 +876,11 @@
               "properties": {
                 "cells": {}
               }
+            },
+            "properties": {
+              "blockMinWidth": false,
+              "blockMinHeight": false,
+              "blockAlign": false
             }
           }
         }

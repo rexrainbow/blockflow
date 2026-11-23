@@ -103,6 +103,26 @@ safe result. Only when none is safe does it increase node/layer spacing (1x, 1.5
 exposes a transition path instead of emitting an ambiguous diagram. This does not
 guarantee zero crossings outside label regions or a smaller diagram for every FSM.
 
+After selecting a safe placement, a bounded channel-compaction pass can stagger
+condition labels along their existing supporting segments and shorten empty gaps
+between parallel tracks. Down/Up flow compresses X and slides labels in Y;
+Right/Left flow compresses Y and slides labels in X. Only gaps outside state bodies
+are shortened: state sizes, relative coordinate ordering, endpoint sides and port
+positions relative to their states stay fixed. Same-row states retain their
+configured node spacing (including any placement retry scale). Absolute state/route/label positions
+and diagram bounds can change. Label text, wrapping, dimensions and source JSON do
+not change. Captions remain within the exported bounds.
+
+The pass tries at most two sweeps and 96 compression trials, with no additional
+ELK placements. Full label ownership is rechecked after staggering; candidate bands
+use actual multiline dimensions and stroke-aware endpoint clearance. A monotone
+coordinate transform preserves the route topology. A result is accepted only if
+one dimension shrinks by at least one unit, neither dimension grows, and wire
+crossings, collinear overlaps, overlap length, bend count and wire length do not
+increase. Otherwise the selected placement is retained. This is best effort, not a
+guarantee that every chart becomes smaller. No authoring field or GUI option is
+added. `examples/statechart/task-controller.json` exercises this optimization.
+
 See `examples/statechart/label-layout/timer.mmd` and `.json`. Neither adds an initial
 state to the source Timer FSM. More separation can increase height and total wire
 length while improving ownership and reducing shared/overlapping paths.

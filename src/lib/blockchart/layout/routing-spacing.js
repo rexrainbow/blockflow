@@ -5,6 +5,13 @@ export const lineWidth = (edge) => Math.max(edge.style.strokeWidth, edge.netStyl
 export const obstacleClearance = (edge) =>
   edge._signalTrunk || edge._signalTail ? 1 : Math.max(3, lineWidth(edge) / 2 + 2);
 
+/** Preferred visual distance; the smaller obstacle clearance remains a narrow-space fallback. */
+export const preferredClearance = (edge) =>
+  edge._signalTrunk || edge._signalTail ? 1 : Math.max(8, lineWidth(edge) / 2 + 6);
+
+/** Outside Container corridors need a visible gap from the frame as well as ink. */
+export const containerClearance = (edge) => Math.max(12, obstacleClearance(edge));
+
 export function endpointEscape(edge, source) {
   if (edge._signalTrunk || edge._signalTail) return 3;
   const style = source ? (edge.netStyle ?? edge.style) : edge.style;

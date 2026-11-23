@@ -2,6 +2,7 @@ import { createStatechartModel, graphDocument } from './model.js';
 import { createFlowchartModel } from '../flowchart/model.js';
 import { placeStatechart, labelConflicts, StatechartLayoutError } from './label-layout.js';
 import { topologyPlans, routeQuality, compareQuality } from './topology.js';
+import { compactStatechartChannels } from './compact-channels.js';
 
 /** Label nodes exist only during placement; returned data keeps real states/transitions. */
 export async function layoutStatechart(input) {
@@ -11,7 +12,13 @@ export async function layoutStatechart(input) {
 }
 
 /** Internal retry seam: callers never receive unchecked label reservations. */
-export async function checkedPlacement(model, graph, place = placeStatechart, plans = [null]) {
+export async function checkedPlacement(
+  model,
+  graph,
+  place = placeStatechart,
+  plans = [null],
+  finalize = compactStatechartChannels,
+) {
   let conflicts;
   let placementError;
   for (const scale of [1, 1.5, 2.25]) {
@@ -29,7 +36,7 @@ export async function checkedPlacement(model, graph, place = placeStatechart, pl
       const quality = routeQuality(layout);
       if (!best || compareQuality(quality, best.quality) < 0) best = { layout, quality };
     }
-    if (best) return best.layout;
+    if (best) return finalize(best.layout, graph.layout?.direction, graph.layout?.nodeSpacing * scale);
   }
   if (!conflicts?.length)
     throw new StatechartLayoutError(

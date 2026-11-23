@@ -1,33 +1,6 @@
 import { routeOrthogonal } from '../../shared/orthogonal.js';
-
-const eps = 1e-6;
-const crosses = (a, b, r) =>
-  Math.abs(a.y - b.y) < eps
-    ? a.y > r.y + eps &&
-      a.y < r.y + r.height - eps &&
-      Math.max(a.x, b.x) > r.x + eps &&
-      Math.min(a.x, b.x) < r.x + r.width - eps
-    : a.x > r.x + eps &&
-      a.x < r.x + r.width - eps &&
-      Math.max(a.y, b.y) > r.y + eps &&
-      Math.min(a.y, b.y) < r.y + r.height - eps;
-
-export function routeMetrics(points) {
-  let length = 0,
-    bends = 0,
-    previous;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1],
-      b = points[i];
-    const distance = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-    if (distance < eps) continue;
-    const direction = { x: Math.sign(b.x - a.x), y: Math.sign(b.y - a.y) };
-    if (previous && (direction.x !== previous.x || direction.y !== previous.y)) bends++;
-    previous = direction;
-    length += distance;
-  }
-  return { length, bends };
-}
+import { EPS as eps, segmentCrossesInterior as crosses } from './routing-geometry.js';
+import { routeMetrics } from './route-quality.js';
 
 /** Compare whole attachments, including synthetic-label entry/exit stubs. */
 export function containerEntryRoute({

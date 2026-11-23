@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Grid block alignment",
+    "caption": "Blocks in a Grid column align left; widths stay as authored."
+  },
+  "layout": {
+    "type": "grid",
+    "cells": [
+      ["Source", "Core"],
+      ["Converter", "Sink"]
+    ],
+    "blockAlign": "left"
+  },
+  "groups": [{ "id": "Core", "label": "Core", "members": ["Filter", "Scale"] }],
+  "modules": [
+    { "id": "Source", "ports": [{ "id": "out", "direction": "output" }] },
+    {
+      "id": "Converter",
+      "label": "Sample rate\nconverter",
+      "width": 2.2,
+      "ports": [
+        { "id": "in", "direction": "input" },
+        { "id": "out", "direction": "output" }
+      ]
+    },
+    {
+      "id": "Filter",
+      "ports": [
+        { "id": "in", "direction": "input" },
+        { "id": "out", "direction": "output" }
+      ]
+    },
+    {
+      "id": "Scale",
+      "ports": [
+        { "id": "in", "direction": "input" },
+        { "id": "out", "direction": "output" }
+      ]
+    },
+    { "id": "Sink", "ports": [{ "id": "in", "direction": "input" }] }
+  ],
+  "connections": [
+    { "from": "Source.out", "to": ["Filter.in"], "label": "raw" },
+    { "from": "Filter.out", "to": ["Scale.in"] },
+    { "from": "Scale.out", "to": ["Converter.in"], "label": "scaled" },
+    { "from": "Converter.out", "to": ["Sink.in"], "label": "resampled" }
+  ]
+}

@@ -1,6 +1,7 @@
 import { absoluteGraph, groupResults } from './groups.js';
 import { moduleGeometry, textBounds, textSize } from '../geometry.js';
 import { terminalNodeId } from './elk-graph.js';
+import { gridInternalEdges } from './grid-placement.js';
 
 /** Own all mutable coordinates before Grid, alignment and routing adjustments. */
 export function readElkResult(laidOut, model) {
@@ -95,10 +96,11 @@ export function readElkResult(laidOut, model) {
     e.terminal !== undefined
       ? terminals.find((t) => t.id === e.terminal).anchor
       : anchorMap.get(e.moduleId + '.' + e.portId);
+  const deferred = gridInternalEdges(model);
   let connections = model.connections.map((connection) => {
     const edge =
       edges.get(connection.id) ??
-      (connection.constraint === false
+      (connection.constraint === false || deferred.has(connection.id)
         ? { sections: [{ startPoint: anchor(connection.source), endPoint: anchor(connection.target) }] }
         : undefined);
     if (!edge?.sections?.length) throw new Error(`Missing route: ${connection.id}`);

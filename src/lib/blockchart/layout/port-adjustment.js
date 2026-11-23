@@ -1,12 +1,17 @@
 import { LAYOUT_DEFAULTS } from '../layout-defaults.js';
 import { translateNode, translatePort } from './translate.js';
-import { routeFixed } from './fixed.js';
-import { finishSignals } from './signals.js';
-import { placeEdgeLabels } from './edge-labels.js';
-import { applyConnectionArrows } from './arrows.js';
-import { routeOuterFeedback } from './outer-feedback.js';
+import { commitRoutedTrial } from './routing-trial.js';
+import { labelWarnings } from './layout-preview.js';
 import { ancestors, parentOf } from '../hierarchy.js';
 import { defaultSide, sideVector } from '../port-sides.js';
+import {
+  rectanglesOverlap as overlap,
+  rectangleContains as contains,
+  samePoint,
+  segmentCrossesInterior as crossesBox,
+  sectionSegments,
+} from './routing-geometry.js';
+import { countStrokeContacts } from './route-quality.js';
 
 const EPS = 1e-6;
 const key = (p) => (p.terminal !== undefined ? '@terminal:' + p.terminal : p.moduleId + '.' + p.portId);
@@ -14,37 +19,8 @@ const recordPoint = (result, record) =>
   record.terminal !== undefined
     ? result.terminals.find((t) => t.id === record.terminal).anchor
     : result.modules.find((n) => n.id === record.owner).ports.find((p) => p.id === record.port);
-const overlap = (a, b, gap = 0) =>
-  a.x < b.x + b.width + gap - EPS &&
-  a.x + a.width + gap > b.x + EPS &&
-  a.y < b.y + b.height + gap - EPS &&
-  a.y + a.height + gap > b.y + EPS;
-const contains = (box, item) =>
-  item.x >= box.x - EPS &&
-  item.y >= box.y - EPS &&
-  item.x + item.width <= box.x + box.width + EPS &&
-  item.y + item.height <= box.y + box.height + EPS;
 const segments = (e) =>
-  e.sections
-    .flatMap((s) => s.points.slice(1).map((b, i) => [s.points[i], b]))
-    .filter(([a, b]) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > EPS);
-const strokeBox = (a, b, half) => ({
-  x: Math.min(a.x, b.x) - half,
-  y: Math.min(a.y, b.y) - half,
-  width: Math.abs(a.x - b.x) + 2 * half,
-  height: Math.abs(a.y - b.y) + 2 * half,
-});
-const samePoint = (a, b) => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
-const crossesBox = (a, b, r) =>
-  Math.abs(a.y - b.y) < EPS
-    ? a.y > r.y + EPS &&
-      a.y < r.y + r.height - EPS &&
-      Math.max(a.x, b.x) > r.x + EPS &&
-      Math.min(a.x, b.x) < r.x + r.width - EPS
-    : a.x > r.x + EPS &&
-      a.x < r.x + r.width - EPS &&
-      Math.max(a.y, b.y) > r.y + EPS &&
-      Math.min(a.y, b.y) < r.y + r.height - EPS;
+  sectionSegments(e.sections).filter(([a, b]) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > EPS);
 
 function quality(result, model, records) {
   let hits = 0,
@@ -88,27 +64,7 @@ function quality(result, model, records) {
           hits++;
     }
   }
-  for (let i = 0; i < paths.length; i++)
-    for (let j = i + 1; j < paths.length; j++) {
-      if (paths[i].edge.netId === paths[j].edge.netId) continue;
-      const ends = (p) => [p.edge.sections[0].points[0], p.edge.sections.at(-1).points.at(-1)];
-      const shared = ends(paths[i]).filter((a) => ends(paths[j]).some((b) => samePoint(a, b)));
-      for (const [a, b] of paths[i].parts)
-        for (const [c, d] of paths[j].parts) {
-          // Different boundary faces may legitimately join at the same fixed anchor.
-          if (
-            shared.some((p) => (samePoint(p, a) || samePoint(p, b)) && (samePoint(p, c) || samePoint(p, d)))
-          )
-            continue;
-          if (
-            overlap(
-              strokeBox(a, b, paths[i].edge.style.strokeWidth / 2 + 1),
-              strokeBox(c, d, paths[j].edge.style.strokeWidth / 2 + 1),
-            )
-          )
-            crossings++;
-        }
-    }
+  crossings = countStrokeContacts(result.connections);
   for (const record of records) {
     const p = recordPoint(result, record);
     shift += Math.abs(p[record.axis] - record.base);
@@ -122,16 +78,6 @@ const better = (a, b) =>
   (a.bends < b.bends ||
     (a.bends === b.bends &&
       (a.shift < b.shift - EPS || (Math.abs(a.shift - b.shift) < EPS && a.length < b.length - EPS))));
-
-// Terminal moves can affect reserved receiver nodes. Check on
-// a disposable finalized layout; routing-only signal nodes must not reach label placement.
-function labelWarnings(result, model) {
-  const trial = structuredClone(result);
-  if (model.layout.feedbackRouting === 'outer') routeOuterFeedback(trial, model);
-  finishSignals(trial, model);
-  applyConnectionArrows(trial.connections);
-  return placeEdgeLabels(trial).length;
-}
 
 /** Bounded, deterministic post-placement search. Authoring geometry is never mutated. */
 export function adjustPorts(result, model) {
@@ -479,14 +425,16 @@ function search(result, model, includeTerminals) {
             .filter((e) => moved.has(key(e.source)) || moved.has(key(e.target)))
             .map((e) => e.id),
         );
-        try {
-          routeFixed(trial, model, false, affected);
-        } catch {
-          continue;
-        }
-        const next = quality(trial, model, records);
-        if (better(next, score)) {
-          Object.assign(result, trial);
+        let next;
+        if (
+          commitRoutedTrial(result, trial, model, {
+            selected: affected,
+            accept: (candidate) => {
+              next = quality(candidate, model, records);
+              return better(next, score);
+            },
+          })
+        ) {
           score = next;
           changed = true;
           break;

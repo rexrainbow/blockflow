@@ -1,18 +1,7 @@
 import { translateNode } from './translate.js';
-import { routeFixed } from './fixed.js';
+import { commitRoutedTrial } from './routing-trial.js';
 import { ancestors, parentOf } from '../hierarchy.js';
-
-const EPS = 1e-6;
-const overlap = (a, b) =>
-  a.x < b.x + b.width - EPS &&
-  a.x + a.width > b.x + EPS &&
-  a.y < b.y + b.height - EPS &&
-  a.y + a.height > b.y + EPS;
-const contains = (a, b) =>
-  b.x >= a.x - EPS &&
-  b.y >= a.y - EPS &&
-  b.x + b.width <= a.x + a.width + EPS &&
-  b.y + b.height <= a.y + a.height + EPS;
+import { EPS, rectanglesOverlap as overlap, rectangleContains as contains } from './routing-geometry.js';
 
 /** Align local receiver nodes inside their reserved owner envelope, then repair only their routes. */
 export function alignReceivers(result, model) {
@@ -84,11 +73,7 @@ export function alignReceivers(result, model) {
         .filter((e) => e.source.moduleId === node.id || e.target.moduleId === node.id)
         .map((e) => e.id),
     );
-    try {
-      routeFixed(trial, model, false, selected);
-      Object.assign(result, trial);
-    } catch {
-      // ELK's valid route remains available if another Port's access lane blocks alignment.
-    }
+    // Preserve the valid baseline if another Port's access lane blocks alignment.
+    commitRoutedTrial(result, trial, model, { selected });
   }
 }

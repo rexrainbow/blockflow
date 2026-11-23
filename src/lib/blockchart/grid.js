@@ -129,9 +129,36 @@ export function parseGrid(value, members, path, fail, root = false, groups = [])
     fail('Expected auto or grid layout', path + '.type');
   if (!root)
     for (const key of Object.keys(value))
-      if (!['type', 'cells', 'rowGap', 'columnGap', 'moduleSpacing', 'layerSpacing'].includes(key))
+      if (
+        ![
+          'type',
+          'cells',
+          'rowGap',
+          'columnGap',
+          'moduleSpacing',
+          'layerSpacing',
+          'blockMinWidth',
+          'blockMinHeight',
+          'blockAlign',
+        ].includes(key)
+      )
         fail('Unsupported grid property: ' + key, path + '.' + key);
+  const alignment = {};
+  if (Object.hasOwn(value, 'blockAlign')) {
+    if (type !== 'grid') fail('Block alignment requires type grid', path + '.blockAlign');
+    if (!['left', 'center', 'right'].includes(value.blockAlign))
+      fail('Expected left, center or right Block alignment', path + '.blockAlign');
+    alignment.blockAlign = value.blockAlign;
+  }
   const local = {};
+  const minimums = {};
+  for (const key of ['blockMinWidth', 'blockMinHeight']) {
+    if (!Object.hasOwn(value, key)) continue;
+    if (type !== 'grid') fail('Block minimums require type grid', path + '.' + key);
+    if (typeof value[key] !== 'number' || !Number.isFinite(value[key]) || value[key] <= 0)
+      fail('Block minimum must be finite and positive', path + '.' + key);
+    minimums[key] = value[key];
+  }
   if (!root)
     for (const key of ['moduleSpacing', 'layerSpacing'])
       if (Object.hasOwn(value, key)) {
@@ -153,6 +180,8 @@ export function parseGrid(value, members, path, fail, root = false, groups = [])
   return {
     type,
     ...local,
+    ...minimums,
+    ...alignment,
     cells: structuredClone(value.cells),
     rowGap: value.rowGap ?? 50,
     columnGap: value.columnGap ?? 80,

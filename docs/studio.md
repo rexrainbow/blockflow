@@ -120,6 +120,11 @@ the GUI implies no execution semantics or analysis.
   field, inline edit and saved JSON keep the authored text. A layout the runtime
   cannot make safe (`StatechartLayoutError`) is listed under Problems with its
   transition path; the canvas keeps the last good drawing.
+- **Rounded corners:** the runtime draws transitions with rounded corners (render
+  only; layout points stay orthogonal). A transition's hit area and selection outline
+  use the drawn path (`edgePaths` in `statechart/components/canvas.js`), so a click on a
+  curve selects it at any zoom and the outline follows the curve; Flowchart keeps the
+  routed sections.
 - **Retired loop side:** drafts and files that still carry the global
   `layout.loopSide` open without it, and the toast says so (a browser draft is
   rewritten once). Flowchart keeps its loop side.
@@ -200,7 +205,17 @@ Row gap and Column gap are minimums (runtime contract:
 [Grid routing channels](layout-defaults.md#grid-routing-channels)): a crowded gap widens so
 each Net gets its own wire track, while the field and the saved JSON keep the typed value;
 the hint under the gaps says so. Derived `routingInfo` (channel track, status) is never
-saved. Changing Flow does not transpose Cells. Typed Cells are never repaired. An invalid edit stays in the field with the row and column of the
+saved. Block min width and Block min height (`blockMinWidth`, `blockMinHeight`, runtime
+contract: [Grid Block minimum dimensions](blockchart-layout.md)) set a floor for the blocks
+written in that scope's Cells, in block units (width 1 = 140, height 1 = 84). Each axis is
+independent; blank is Auto and removes the key. Zero, negative and non-numeric values stay in
+the field with an error. Switching the scope to Automatic removes both bounds with the other
+Grid-only fields. Block alignment Left / Center / Right (`blockAlign`, runtime contract:
+[Grid Block horizontal alignment](blockchart-layout.md#grid-block-horizontal-alignment))
+moves the blocks and whole Container cells written in Cells within their column, in
+physical horizontal terms in both Flows; it is separate from label text alignment and
+never changes sizes. Omitted shows Center; choosing Center removes the key. Switching to
+Automatic removes it too. Changing Flow does not transpose Cells. Typed Cells are never repaired. An invalid edit stays in the field with the row and column of the
 problem, and the document is unchanged.
 
 Commands that change membership update every Grid they affect in the same Undo step

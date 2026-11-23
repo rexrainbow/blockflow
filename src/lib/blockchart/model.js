@@ -459,6 +459,9 @@ export function createDiagramModel(input) {
       'cells',
       'rowGap',
       'columnGap',
+      'blockMinWidth',
+      'blockMinHeight',
+      'blockAlign',
     ],
     'layout',
   );

@@ -287,3 +287,14 @@ not historical dimensions; compare reports from the same source.
 ELK post-compaction remains disabled. Compound-graph experiments produced invalid
 hitboxes, and Grid showed no consistent gain. Safe routing and readable labels take
 precedence over reducing bounds.
+
+## Grid Block minimum dimensions
+
+Optional Grid-only `blockMinWidth` and `blockMinHeight` provide common floors for
+explicit ordinary Block cells. Omit for Auto; values are positive numeric 140 x 84
+logical units, including fractions. Final dimensions still honor content and
+individual Block minima. Neither null cells, unselected peers, Concat nor whole
+Container cells inherit these values. Effective dimensions are derived before
+layout without changing source fields; all applicable Grid floors combine by max.
+See [the runtime contract](blockchart-layout.md#grid-block-minimum-dimensions) and
+[example](../examples/blockchart/grid-block-minimums.json).

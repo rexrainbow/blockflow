@@ -1,4 +1,4 @@
-import { allocateTracks } from './grid-channels.js';
+import { allocateTracks, requiredTrackSpace } from './channel-allocation.js';
 import { lineWidth, endpointEscape, obstacleClearance } from './routing-spacing.js';
 import { defaultSide } from '../port-sides.js';
 import { translateNode } from './translate.js';
@@ -144,10 +144,7 @@ export function planAutoChannels(result, model) {
       channel.tracks = allocateTracks(channel.branches);
       // Leave isolated and disjoint traffic with ELK; only congestion needs a new budget.
       if (channel.tracks.length < 2) continue;
-      channel.required =
-        2 * channel.margin +
-        channel.tracks.reduce((s, t) => s + t.width, 0) +
-        6 * (channel.tracks.length - 1);
+      channel.required = requiredTrackSpace(channel.tracks, channel.margin);
       gaps.set(index, channel.required);
       result._autoChannels.push(channel);
     }

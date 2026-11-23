@@ -90,5 +90,5 @@ export function alignTerminals(result, model) {
       })
       .map((e) => e.id),
   );
-  routeFixed(result, model, false, selected, 'terminal-alignment');
+  routeFixed(result, model, { selected, reason: 'terminal-alignment' });
 }

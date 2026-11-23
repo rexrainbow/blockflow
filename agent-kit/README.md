@@ -16,9 +16,9 @@ Move this folder to any location. Each converter can run independently; its Sche
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-47c4fbae24a1cefe4be0`
+- Blockchart build: `blockchart-agent-kit-ee8bc4a83103b942ee9a`
 - Flowchart build: `flowchart-agent-kit-2c6b7be3b0c138083374`
-- Statechart build: `statechart-agent-kit-0fc674edd8310f1dd198`
+- Statechart build: `statechart-agent-kit-ace43def035664962a47`
 
 ## Quick start
 
@@ -48,7 +48,7 @@ license attribution; its full license appears at the end of this README.
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-47c4fbae24a1cefe4be0`
+Build: `blockchart-agent-kit-ee8bc4a83103b942ee9a`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -719,6 +719,112 @@ state `textAlign` when omitted. This separately aligns the description below the
 name; it is invalid on transitions and in the other diagram domains. JSON only;
 no new Mermaid alignment directive is supported.
 
+#### Container exit routing
+
+A cross-Container branch prefers a clear straight run from the source Port through
+its exclusive ordinary Container boundaries before turning, with at least 9 units
+of exterior clearance. The target is approached through an exterior gate when
+feasible; routing stays inside the nearest common ancestor. Group bounds, Ports
+and reserved source/receiver labels stay fixed. External fanout branches preserve
+their shared label trunk; internal branches do not leave their Container.
+This is best effort. Obstacles, pinned label bends, protected Boundary interfaces,
+reserved Grid/Auto/outer-feedback channels, tight scopes and excessive detours
+retain the original route. Existing title rendering is unchanged. Runtime routing
+diagnostics expose the outcome through `routingInfo.containerExit`; no JSON field,
+visible Port or synthetic boundary node is required in the input document.
+
+A checked receiver-tail repair removes tiny gate-induced spurs when an existing
+external rail can turn directly into the Port. The source exit gate remains fixed;
+the target's preferred gate may relax to safe obstacle clearance. Only shorter or
+equal-length paths with fewer bends and no increased foreign contacts are accepted;
+arrow access, common-ancestor bounds and pinned labels/trunks remain protected.
+
+#### Peripheral alignment after Grid placement
+
+Small unpinned Auto Containers beside Grid groups can align their Blocks to real
+peer Port anchors after Grid placement: Y movement in Right flow, X in Down flow.
+Grid cell assignments/order and core geometry stay fixed. An Auto frame may grow
+along that axis to preserve internal spacing, but its parent stays fixed; owned
+Net-label wrappers move with their Blocks. Explicit cross-group Grid participants,
+Boundary/Collection/collapsed scopes, collisions and insufficient space are
+protected. Each Block needs a constraining link to a Grid peer; ungrouped Auto
+Blocks are not currently included.
+This bounded refinement prioritizes primary Port alignment, balances fanout
+anchors and retains weak/cross-Bank route costs. Candidate routes are checked for
+foreign crossings/overlaps, bends and excessive length. Rejected ordinary routes
+may retry with penalties for their actual foreign collinear overlaps within the
+same search budget;
+failed trials keep the original placement. This also applies to scoped group views. Existing Port tuning and Container access rules run afterwards.
+No authoring fields or GUI options are added. Absolute Auto positions and frame
+sizes can change; source JSON and Grid geometry are preserved.
+
+#### Routing between sibling Containers
+
+For forward connections with facing Ports, the runtime can turn between sibling
+ordinary Containers rather than inside either frame. It groups these branches,
+collects all eligible Nets before assigning tracks, shares tracks across disjoint
+spans and separates conflicting foreign Nets. Strong and `constraint: false`
+branches participate together; these flags retain their original layer semantics.
+Aligned fanout receivers keep a straight route and may share their Net's exterior
+trunk/junction. Internal branches stay internal. Existing Grid/Auto and
+outer-feedback reservations remain protected; inter-Container tracks may be jointly
+reassigned when new demands join their corridor. The authored
+feedback hint alone does not exclude a geometrically forward attachment.
+
+This changes routes only. It does not move Blocks, Ports, labels or Grid cells,
+resize Containers or expand their spacing. Constrained space, obstacles, protected
+scopes or incompatible pinned name attachments keep the original route. Candidates
+cannot increase wire length, bends or the checked foreign-contact measures. The
+same rule applies to Right/Down flow and scoped group views, without new JSON fields.
+
+#### Placement inside an explicit Grid
+
+Connections between fixed atomic cells of the same Grid do not add an extra
+initial ELK layer. The Grid determines their positions; the runtime still routes
+the connections afterwards. Enabling their Placement/constraint flag therefore
+does not push unrelated outer Containers away to preserve a temporary ELK size.
+The authored flag is retained. Unselected Auto nodes, movable descendants inside a
+compound cell and cross-Grid connections retain normal placement behavior; owned
+signal-label attachments remain intact. No JSON field or option is added.
+
+#### Common minimum dimensions for Grid Blocks
+
+Grid layouts also accept `blockAlign: "left" | "center" | "right"` at Top or
+Group scope. Omit for existing centered placement. Left/Right align actual Block
+outlines horizontally inside their cells, independent of flow direction; vertical
+placement stays centered. Whole Container cells move together; unselected Auto
+peers retain their existing placement rules. This does not resize Blocks or change
+label `textAlign`. Source/receiver labels move with their owner and reserve their
+required space. Remove `blockAlign` when switching to Auto.
+
+Set `layout.blockMinWidth` / `layout.blockMinHeight` (or the same fields under a
+Group's Grid `layout`) to positive numbers. Omit either axis for Auto; do not write
+`"auto"`, `null` or zero. Width units are 140 and height units are 84, independent of
+Right/Down flow. For example:
+
+```json
+{
+  "version": 1,
+  "diagram": { "name": "Grid Block minimums" },
+  "modules": [{ "id": "ALU" }, { "id": "Processor" }],
+  "layout": {
+    "type": "grid",
+    "cells": [["ALU", "Processor"]],
+    "blockMinWidth": 1.8,
+    "blockMinHeight": 1.25
+  }
+}
+```
+
+This gives selected ordinary Blocks floors of 252 x 105. Existing per-Block minima,
+content and appearance needs may make them larger; equal final sizes are not
+promised. Bounds apply only to explicitly selected ordinary Block IDs, including
+expanded cross-Container cells. Whole Container cells, their unselected descendants,
+Concat and Auto peers are excluded. Multiple applicable Grids combine by max.
+Effective dimensions are measured before label reservation and Port placement,
+including scoped views. Do not copy the Grid floor into each authored Block's
+width/height. These fields are invalid under Auto layout.
+
 
 ## Flowchart Agent Kit
 
@@ -898,7 +1004,7 @@ no new Mermaid alignment directive is supported.
 
 ## Statechart Agent Kit
 
-Build: `statechart-agent-kit-0fc674edd8310f1dd198`; bundled ELK: `0.12.1`.
+Build: `statechart-agent-kit-ace43def035664962a47`; bundled ELK: `0.12.1`.
 
 Use `statechart-convert.mjs` with `statechart.schema.json` to generate flat FSM
 diagrams. Input is Statechart JSON or the documented `stateDiagram-v2` subset;
@@ -984,6 +1090,19 @@ Short segments, arrowhead access and nearby states, condition labels or other
 wires limit the radius; unsafe corners remain angular. Stored/layout points,
 endpoints, arrowheads and label positions are unchanged. This render-only default
 adds no JSON field and does not change Flowchart or Blockchart paths.
+
+#### Staggered labels and compact channels
+
+After safe placement, the runtime can stagger labels along their own wire sections
+and compress empty parallel-channel gaps. Text boxes may overlap in X when their
+Y ranges are separated (or the transposed arrangement for horizontal flow), but
+foreign wires must still avoid them. State sizes, relative ordering, endpoint sides
+and port positions within each state are preserved, as is configured spacing
+between same-row states. Absolute positions and diagram
+bounds can change. Text, wrapping and source JSON remain unchanged.
+The pass is bounded to two sweeps and 96 trials. It accepts only smaller bounds
+without increasing either dimension, crossings, overlaps, bends or wire length;
+unsafe or non-improving trials retain the selected layout. No new JSON fields.
 
 
 ## Bundled elkjs license

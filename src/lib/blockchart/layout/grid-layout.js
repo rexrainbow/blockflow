@@ -119,11 +119,36 @@ export async function arrangeGrids(result, model, elk) {
           ...region,
           pad: groupGeometry(refs.get(region.id), model.layout.direction, model),
         }));
+      // Labels may wrap a semantic cell in a private envelope. Align its body,
+      // reserving the envelope's overhang so adjacent cells remain disjoint.
+      const body = (node) => {
+        while (refs.get(node.id)?._signalWrapper) node = nodes.get(node.members[0]);
+        return node;
+      };
+      const align = config.blockAlign ?? 'center';
+      const insets = Array(cols).fill(0);
+      if (align !== 'center') {
+        rows.forEach((row) =>
+          row.forEach((id, c) => {
+            const n = nodes.get(id);
+            if (!n || !children.includes(n)) return;
+            const b = body(n);
+            insets[c] = Math.max(insets[c], align === 'left' ? b.x - n.x : n.x + n.width - b.x - b.width);
+          }),
+        );
+      }
       rows.forEach((row, r) =>
         row.forEach((id, c) => {
           const n = nodes.get(id);
           if (n && children.includes(n)) {
-            cw[c] = Math.max(cw[c], n.width);
+            const b = body(n);
+            const width =
+              align === 'center'
+                ? n.width
+                : align === 'left'
+                  ? insets[c] + n.width - (b.x - n.x)
+                  : insets[c] + b.x - n.x + b.width;
+            cw[c] = Math.max(cw[c], width);
             rh[r] = Math.max(rh[r], n.height);
           }
         }),
@@ -188,8 +213,16 @@ export async function arrangeGrids(result, model, elk) {
           x += left[c];
           xs[c] = x;
           const n = nodes.get(id);
-          if (n && children.includes(n))
-            shift(n, x + (cw[c] - n.width) / 2 - n.x, y + (rh[r] - n.height) / 2 - n.y);
+          if (n && children.includes(n)) {
+            const b = body(n);
+            const offset =
+              align === 'center'
+                ? (cw[c] - n.width) / 2
+                : align === 'left'
+                  ? insets[c] - (b.x - n.x)
+                  : cw[c] - insets[c] - b.width - (b.x - n.x);
+            shift(n, x + offset - n.x, y + (rh[r] - n.height) / 2 - n.y);
+          }
           x += cw[c] + right[c] + (columnGaps[c] ?? 0);
         });
         y += rh[r] + bottom[r] + (rowGaps[r] ?? 0);
