@@ -18,11 +18,13 @@ const cross = (a, b, r) =>
 export function planGridChannels(rows, nodes, children, connections, direction) {
   const down = direction === 'down',
     slots = new Map(),
-    owners = new Map();
-  function register(node, slot) {
+    owners = new Map(),
+    atoms = new Map();
+  function register(node, slot, atom = node) {
     if (!node) return;
     slots.set(node.id, slot);
-    for (const id of node.members ?? []) register(nodes.get(id), slot);
+    atoms.set(node.id, atom);
+    for (const id of node.members ?? []) register(nodes.get(id), slot, atom);
   }
   const allowed = new Set(children.map((n) => n.id));
   rows.forEach((row, r) =>
@@ -50,6 +52,8 @@ export function planGridChannels(rows, nodes, children, connections, direction) 
       lo: Math.min(a.cross, b.cross),
       hi: Math.max(a.cross, b.cross),
       width: lineWidth(edge),
+      sourceNode: atoms.get(edge.source.moduleId),
+      targetNode: atoms.get(edge.target.moduleId),
     });
     channel.margin = Math.max(
       channel.margin,
@@ -58,7 +62,9 @@ export function planGridChannels(rows, nodes, children, connections, direction) 
     );
   }
   for (const channel of channels.values()) {
+    channel.targets = [];
     for (const [id, node] of owners) if (slots.get(id).flow === channel.index) channel.nodes.push(node);
+    for (const [id, node] of owners) if (slots.get(id).flow === channel.index + 1) channel.targets.push(node);
     channel.tracks = allocateTracks(channel.branches);
     channel.required = requiredTrackSpace(channel.tracks, channel.margin);
   }
@@ -113,41 +119,6 @@ export function parallelOverlap(a, b, c, d, gap = 0) {
         eps
     );
   return false;
-}
-
-/** A later fallback may occupy an earlier candidate's access lane. Roll back only
- * new candidates, at most once each, until remaining routed channels are separated. */
-export function reconcileChannelRoutes(connections, refs, originals) {
-  const parts = (edge) => edge.sections.flatMap((s) => s.points.slice(1).map((p, i) => [s.points[i], p]));
-  const key = (edge) => refs.get(edge.id).netId ?? edge.id;
-  const restored = [];
-  for (;;) {
-    const conflict = connections.find(
-      (edge) =>
-        originals.has(edge.id) &&
-        connections.some(
-          (other) =>
-            other !== edge &&
-            key(other) !== key(edge) &&
-            parts(edge).some(([a, b]) =>
-              parts(other).some(([c, d]) =>
-                parallelOverlap(
-                  a,
-                  b,
-                  c,
-                  d,
-                  Math.max(3, (edge.style.strokeWidth + other.style.strokeWidth) / 2 + 2),
-                ),
-              ),
-            ),
-        ),
-    );
-    if (!conflict) return restored;
-    Object.assign(conflict, originals.get(conflict.id));
-    conflict.routingInfo = { ...conflict.routingInfo, channelStatus: 'blocked' };
-    originals.delete(conflict.id);
-    restored.push(conflict.id);
-  }
 }
 
 export function routeGridChannel({

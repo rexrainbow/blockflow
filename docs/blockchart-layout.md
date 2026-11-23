@@ -26,7 +26,7 @@ intermediate route repairs needed by later placement/Port scoring.
 | Compile and ELK    | Compile private signal/receiver envelopes, measure and place nodes; convert ELK output to owned absolute geometry. Treat the compiled model as read-only.                                          |
 | `placeNodes`       | Restore Concat anchors and boundary Port order; place Grid cells and repair baseline routes, or repair excluded/Concat edges.                                                                      |
 | `refineAnchors`    | Refine unpinned peripheral groups, plan/reflow Auto channels, align Terminals and receiver nodes, then adjust Ports. Move owned helper geometry together and use bounded route trials for scoring. |
-| `routeConnections` | Keep nodes and anchors fixed. Apply Container entry, outer feedback, Grid/Auto channels and inter-Container channels in the established order. Preserve channel reconciliation/fallback rules.     |
+| `routeConnections` | Keep nodes and anchors fixed. Apply Container entry and outer feedback, then collect Grid/Auto/inter-Container demands together and commit independent corridor batches atomically.                |
 | `completeLayout`   | Restore semantic Nets, apply Container exit/receiver-tail repairs with labels pinned, then place final labels/arrows and normalize scene coordinates. Finalization may translate the whole scene.  |
 
 Synthetic signal nodes remain available through the first four phases. Container
@@ -58,7 +58,7 @@ receiver-label second pass repeats the same pipeline with a frozen selection.
 
 There is no new public phase API, persisted plan, schema field or GUI setting.
 The routing adapters below separate strategy selection from diagnostic text;
-route counts, eligibility, budgets and fallback rules remain unchanged.
+eligibility stays planner-owned; common allocation and atomic acceptance are described below.
 
 ### Routing strategies and priority
 
@@ -66,8 +66,8 @@ route counts, eligibility, budgets and fallback rules remain unchanged.
 retry hints, point cleanup and route publication. Its internal call contract is
 `routeFixed(result, model, options = {})`, where options are:
 
-- `strategy`: `ordinary` (default), `container-entry`, `grid-channels` or
-  `auto-channels`. Unknown strategies fail before changing routes.
+- `strategy`: `ordinary` (default), `container-entry`, `grid-channels`,
+  `auto-channels`, `shared-channels` or private `channel-access`. Unknown strategies fail before changing routes.
 - `selected`: optional routing-edge ID Set; `onlyExcluded`: restrict to
   `constraint: false` edges. These filters do not select a geometric strategy.
 - `reason`: optional diagnostic text only. A value such as `grid-channels` does
@@ -78,29 +78,29 @@ retry hints, point cleanup and route publication. Its internal call contract is
 `routing-strategies.js` contains independent ordinary and Container-entry adapters,
 plus a shared Grid/Auto channel adapter. Each selects eligible edges and searches
 against the common prepared geometry. An ineligible or rejected optional route
-retains its baseline. Channel state is batch-local: track assignments, completed
-edge order, pre-commit route snapshots and final reconciliation stay together.
+retains its baseline. `channel-access` only attaches one branch to a supplied
+assignment. `shared-channels` collects all eligible planners before allocating;
+Grid/Auto standalone entries use that same corridor/batch implementation with
+restricted offers. There is no completed-edge reservation list or per-edge
+reconciliation pass.
 Ordinary routing still reports required-search failures. Container entry keeps its
 bounded complete-attachment comparison; it does not inherit channel rules.
 
 `routing-policy.js` owns this fixed sequence, not a configurable priority list:
 
-| Order                | Policy                                  | Protection/fallback                                                                                                                |
-| -------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Placement/refinement | Ordinary repair and bounded trials      | Establish valid routes for moved geometry and scoring. Concat and excluded-edge selection remain explicit.                         |
-| 1                    | Container entry                         | Improve eligible target attachments while keeping geometry and bounded detour checks.                                              |
-| 2                    | Explicit outer feedback                 | Runs only when enabled, preserving its existing direction and eligibility rules.                                                   |
-| 3                    | Grid channels                           | Route assigned tracks; retain blocked baselines and reconcile foreign parallel ink.                                                |
-| 4                    | Auto channels                           | Apply eligible Auto reservations after Grid/feedback, with the same reconciliation and rollback.                                   |
-| 5                    | Inter-Container channels                | Turn only in the free corridor between sibling frames; preserve reserved routes and reject unsafe batches without moving geometry. |
-| Semantic boundary    | Restore signal nodes into semantic Nets | Preserve source/receiver identities and pinned name sections.                                                                      |
-| 6                    | Container exit and receiver-tail repair | Respect protected channel/outer routes, fixed frames, pinned trunks/labels and contact budgets.                                    |
+| Order                | Policy                                  | Protection/fallback                                                                                                                        |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Placement/refinement | Ordinary repair and bounded trials      | Establish valid routes for moved geometry and scoring. Concat and excluded-edge selection remain explicit.                                 |
+| 1                    | Container entry                         | Improve eligible target attachments while keeping geometry and bounded detour checks.                                                      |
+| 2                    | Explicit outer feedback                 | Runs only when enabled, preserving its existing direction and eligibility rules.                                                           |
+| 3                    | Shared corridor batches                 | Collect Grid/Auto/inter-Container offers, deduplicate physical demands, allocate jointly and atomically accept or retain a whole corridor. |
+| Semantic boundary    | Restore signal nodes into semantic Nets | Preserve source/receiver identities and pinned name sections.                                                                              |
+| 4                    | Container exit and receiver-tail repair | Respect protected channel/outer routes, fixed frames, pinned trunks/labels and contact budgets.                                            |
 
 Working policies run through `routeWorkingConnections`; semantic-only repair runs
 through `routeSemanticConnections` after `finishSignals`. Later policies do not
 unconditionally win: each retains its own protection and fallback contract.
-No global reroute minimization, user-selectable strategy order or pass merging is
-introduced. Disposable label previews deliberately retain their existing narrower
+No global reroute minimization or user-selectable strategy order is introduced. Disposable label previews deliberately retain their existing narrower
 preview sequence instead of publishing or rerunning the full routing policy.
 
 ## Grid Block minimum dimensions
@@ -187,33 +187,85 @@ compound cell retain their placement relationships. Nested Grids apply this rule
 to their own explicit cells independently. Collapsed Grid scopes are not expanded
 by this rule. There is no schema, GUI or public API change.
 
-## Shared channel allocation core
+## Shared channel corridors and atomic batches
 
-`channel-allocation.js` has no layout-driver dependencies. Grid, Auto and
-inter-Container planners all import the same internal primitives:
+`channel-allocation.js` remains layout-neutral: `allocateTracks` colors Net union
+intervals deterministically, reserves the widest stroke and reuses only strictly
+disjoint foreign spans. `requiredTrackSpace` adds stroke widths, one six-unit gap
+per neighboring track and optional margins. Planner-time Grid/Auto spacing budgets
+remain local and keep their live geometry references.
 
-- `allocateTracks(branches)` preserves deterministic Net union intervals, maximum
-  stroke width per Net/track, sorted branch IDs and reuse of strictly disjoint
-  foreign spans. Touching spans remain separate. Input demand objects are not
-  mutated; returned track/Net record shapes are unchanged.
-- `requiredTrackSpace(tracks, margin = 0)` measures stroke widths plus one
-  `TRACK_GAP` per adjacent track pair and twice the caller-supplied margin.
-  Empty/single-track eligibility remains the caller's decision. Addition order
-  preserves the existing floating-point layout results.
-- `TRACK_GAP` is the existing fixed six-unit separation, shared by required-space
-  measurement and both coordinate-packing loops; it is not a new authoring option.
+At frozen geometry, `channel-corridors.js` registers Grid, Auto and sibling
+Container offers before any channel route is published. Identity consists of
+owner Container, packing axis and the semantic member sets of adjacent geometric
+bands. Expanded children map to their containing direct-child band; synthetic
+signal-owner IDs unwrap to their semantic owner. Mere coordinate proximity is not
+identity. An ambiguous/interleaved/expanded slot without provably adjacent bands
+keeps its planner-specific structural identity and is not merged speculatively.
 
-This is extraction only. Drivers retain demand collection, units, corridor bounds,
-margin rules, reflow/spacing budgets, live node references, coordinate accumulation,
-trial order, reservations, diagnostics and rollback. Grid still supplies ordinal
-cross-slot intervals, Auto uses atomic envelope intervals and inter-Container
-routing uses actual Port intervals. Each call uses its own consistent interval
-space; demands from those different spaces are not mixed in this stage.
+Grid's ordinal spans are converted to physical scene intervals from the current
+live source/target envelopes. Auto already uses physical envelope intervals;
+Container access uses physical Port intervals. Duplicate branch IDs in one
+corridor become one demand with the union span, maximum width and all adapter
+offers. Same-Net branches retain their union reservation. Different parents,
+axes or distinct corridors stay separate. A branch appearing in different
+corridors retains each demand; if their full-route adapters cannot safely compose
+those segments, the affected batches retain their baselines rather than silently
+overwiring a previous route.
 
-The Auto single-track no-reflow rule, Grid minimum-gap budgeting and Group's
-no-spacing-expansion rule stay unchanged. Physical corridor identification, demand
-deduplication and allocation across different planners remain separate future work.
-No public API/schema/GUI change or persisted allocation record is introduced.
+A known corridor uses the actual space between its frozen band faces, the maximum
+required border margin and endpoint-access bounds. Margin budgets are taken once,
+not summed per planner; strokes/tracks are allocated once from unique demands.
+Unresolved slots retain their own planned window. Allocation may reuse existing
+space, but this phase never resizes frames, expands gaps or redoes ELK. A joint
+reservation that does not fit retains its valid baseline. Auto continues to avoid
+Grid-controlled subtrees; shared registration does not broaden planner eligibility.
+
+`channel-batch.js` owns route-only drafts, candidate selection and publication:
+
+1. Evaluate all corridor candidates against the same frozen baseline. Try canonical
+   track order and its reverse; mixed offers can try direct Container access and
+   fixed Grid/Auto access, then select a complete valid candidate by Net overlap,
+   crossing, bend and length scores. Collection order never grants ownership.
+2. Each adapter gets the common assignment, reservations for foreign peer rails
+   and fixed outside routes. It keeps its own endpoint/obstacle and acceptance
+   rules. Already aligned clear branches reserve capacity but keep their straight
+   path and diagnostics. Protected/outer routes cannot be stolen without their
+   own matching planner offer.
+3. Validate finite orthogonal routes, unchanged endpoint attachment, foreign
+   parallel-ink separation and the used adapters' acceptance policies. A null,
+   failed search, invalid route, rejected policy or insufficient space retains
+   every branch and diagnostic in that batch. Required baseline failures still
+   propagate from the earlier ordinary routing stage.
+4. Reconcile independent candidate batches together before publishing. Conflicting
+   candidate corridors roll back symmetrically, including their other branches;
+   unrelated safe batches may commit. No per-edge half-commit remains.
+5. Publish only accepted sections and routing diagnostics onto the original edge
+   objects. Module/Group/Port geometry and private plan identities stay intact.
+
+`group-channels.js` collects sibling-Container offers and supplies direct access
+and quality checks; it no longer owns cloning, trial-order commits or rollback.
+`routing-strategies.js` supplies Grid/Auto fixed access; it no longer maintains a
+completed-edge list. The old `reconcileChannelRoutes` per-edge fallback has been
+removed. Geometry-edit trials in `routing-trial.js` remain separate because they
+have a different mutation contract.
+
+Successful routed edges additionally expose `routingInfo.channelCorridor` (opaque
+structural ID) and sorted `channelPlanners` (`grid`, `auto`, `group`). Existing
+`method`, `reason`, track, owner and waypoint fields still describe the selected
+access adapter. A retained baseline preserves its previous diagnostics exactly;
+absence of a new routed marker is not a validation error. Internal batch reports
+include commit/block counts and rejected-attempt reasons, but are not saved or
+published as diagram fields. No schema, public function signature or GUI control
+changes are required.
+
+Regression coverage: `tests/lib/channel-corridors.test.js`,
+`tests/lib/channel-batch.test.js` and Grid/Auto/Container routing integration tests.
+These check demand/connection/offer order permutations on fixed geometry, duplicate
+budgets, stroke/fanout unions, wrapper/expanded ownership, distinct scopes,
+null/throw/policy failures, invalid routes, symmetric rollback and independent
+batch progress. Permuting the authored graph can change ELK geometry and is not
+claimed to produce the same complete diagram.
 
 ## Stage contracts
 
@@ -469,8 +521,9 @@ marked feedback can still qualify if its frames and Port directions face forward
 `constraint: false` branches participate alongside constraining branches without
 changing their effect on layer placement. Bidirectional, reverse or side-facing
 attachments and Boundary/Collection/collapsed ancestry remain protected. Existing
-Grid/Auto/outer-feedback reservations stay fixed; this strategy's own tracks can
-be jointly reassigned when another Net joins the same corridor. Parent IDs must match; this first stage does not
+Outer-feedback and unmatched Grid/Auto reservations stay fixed. Matching offers
+for a known shared corridor join the same allocation; an existing group-channel
+plan can be jointly reassigned when another Net joins. Parent IDs must match; this first stage does not
 find corridors across arbitrary nesting depths. An intervening frame/body blocks
 the candidate rather than being traversed.
 
@@ -478,7 +531,7 @@ All eligible Nets are collected by ordered Container pair before allocating its
 tracks; declaration order and strong/weak classification do not grant first access.
 Aligned fanout branches join the Net's union demand even when they need no bend.
 An internal branch to the source's own Container retains its original route.
-The corridor retains at least nine
+The corridor prefers at least twelve
 units of exterior clearance on both sides (or larger stroke-aware clearance), and
 respects endpoint access distances. Reuse `allocateTracks` with source-to-target
 cross-axis intervals: one Net shares a union interval, disjoint foreign intervals

@@ -44,8 +44,8 @@ function refineAnchors({ result, model, grid }) {
 }
 
 /** Freeze anchors; apply entry, outer-feedback and reserved channels in that order. */
-function routeConnections({ result, model, grid }) {
-  routeWorkingConnections(result, model, { grid });
+function routeConnections({ result, model }) {
+  routeWorkingConnections(result, model);
 }
 
 /** Restore semantic Nets, repair exits with labels pinned, then publish coordinates. */

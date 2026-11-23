@@ -150,7 +150,7 @@ After receiver alignment and Port adjustment, routes entering an expanded ordina
 Container from outside compare an additional access lane on the target Port's side.
 The lane enters horizontally or vertically through the decorative frame and connects
 directly to the receiver; no Port or hardware placement is changed. It stays at least
-9 units outside the frame, enlarged by the connection's obstacle clearance. Existing
+12 units outside the frame, enlarged by the connection's obstacle clearance. Existing
 hardware, foreign labels, protected headings and routing scopes remain obstacles.
 Crossing a Boundary or collapsed ancestor is ineligible; synthetic signal-owner wrappers
 are not treated as decorative Containers. Outer-feedback routing still runs afterwards.
@@ -221,7 +221,7 @@ change repairs general routes before Terminal/receiver/Port alignment. No extra 
 call or independent convergence loop is introduced; the existing Auto receiver-name
 second pass remains bounded as before.
 
-Final Auto attachment runs after Grid channels and exterior feedback, before helper
+Final Auto attachment joins the shared Grid/Auto/Container corridor batch after exterior feedback, before helper
 restoration. Private plans follow live moved nodes and recompute usable gap width.
 Intervals conservatively cover atomic node envelopes, including movable Port/name
 space. Same-Net fan-out shares a track; disjoint ranges can reuse tracks. Obstacle,
@@ -232,7 +232,7 @@ ink remain possible, so arbitrary graphs are not guaranteed overlap-free.
 Successful branches publish `routingInfo.method: "auto-channel"`, reason
 `"auto-channels"`, `channelOwner` (Container ID), `channelAxis`, zero-based
 `channelTrack`, `channelTrackCount`, `channelStatus: "routed"` and translated
-`waypoints`. Blocked attempts retain the previous method with `channelStatus: "blocked"`.
+`waypoints`. Blocked batches retain their previous routes and diagnostics unchanged.
 These diagnostics and actual gaps never enter saved JSON. See
 `examples/blockchart/auto-routing-channels.json`; changing direction needs no cell transposition.
 
@@ -261,12 +261,14 @@ cannot overlap on an accepted candidate. Perpendicular crossings remain legal an
 not new junctions. One Net may share ink. If access is blocked, out of scope or cannot
 be separated from already-routed/ordinary foreign wires, retain the prior valid path.
 This is bounded routing with a fixed set of tracks and access candidates, not a promise
-that arbitrary graphs can be routed without crossings or fallback overlaps.
+that arbitrary graphs can be routed without crossings or fallback overlaps. Matching
+Grid/Auto/Container offers now share a physical corridor allocation and atomic
+submission; see [the runtime contract](blockchart-layout.md#shared-channel-corridors-and-atomic-batches).
 
 Successful branches publish `routingInfo.method: "grid-channel"`, reason
 `"grid-channels"`, `channelAxis` (`"x"`/`"y"`), zero-based `channelTrack`,
 `channelTrackCount`, `channelStatus: "routed"` and two translated `waypoints` describing
-the assigned span. Fallbacks keep the previous method and set `channelStatus: "blocked"`.
+the assigned span. A rejected corridor batch keeps all previous routes and diagnostics unchanged.
 These are derived diagnostics, not authoring fields. Synthetic plans are removed from
 the public layout. See `examples/blockchart/grid-routing-channels.json` for four crowded Nets,
 shared fan-out and an unaffected short Audit connection.

@@ -2,11 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
-import {
-  parallelOverlap,
-  routeGridChannel,
-  reconcileChannelRoutes,
-} from '../../src/lib/blockchart/layout/grid-channels.js';
+import { parallelOverlap, routeGridChannel } from '../../src/lib/blockchart/layout/grid-channels.js';
 
 const example = JSON.parse(
   await readFile(new URL('../../examples/blockchart/grid-routing-channels.json', import.meta.url), 'utf8'),
@@ -178,6 +174,7 @@ test('cross-Container Grid reserves frames and repeated receiver labels before r
   for (const edge of l.connections.filter((e) => e.netId !== 'AuditNet')) {
     assert.equal(edge.routingInfo.method, 'grid-channel');
     assert.ok(edge.labelInstances.some((label) => label.role === 'end'));
+    assert.deepEqual(edge.routingInfo.channelPlanners, ['grid', 'group']);
   }
 });
 
@@ -198,34 +195,4 @@ test('Auto layouts do not opt into Grid channels', async () => {
   raw.layout = { direction: 'down' };
   const l = await layoutDiagram(createDiagramModel(raw));
   assert.ok(l.connections.every((e) => e.routingInfo?.method !== 'grid-channel'));
-});
-
-test('late fallbacks roll back conflicting new channels until final foreign ink is separated', () => {
-  const section = (y) => [
-    {
-      points: [
-        { x: 0, y },
-        { x: 100, y },
-      ],
-    },
-  ];
-  const edge = (id, y) => ({
-    id,
-    sections: section(y),
-    style: { strokeWidth: 2 },
-    routingInfo: { method: 'grid-channel' },
-  });
-  const connections = [edge('A', 0), edge('C', 10), edge('Blocked', 0)];
-  connections[2].routingInfo = { method: 'fixed-orthogonal', channelStatus: 'blocked' };
-  const refs = new Map(connections.map((e) => [e.id, { netId: e.id }]));
-  const originals = new Map([
-    ['A', { sections: section(10), routingInfo: { method: 'fixed-orthogonal', reason: 'grid' } }],
-    ['C', { sections: section(20), routingInfo: { method: 'fixed-orthogonal', reason: 'grid' } }],
-  ]);
-  assert.deepEqual(reconcileChannelRoutes(connections, refs, originals), ['A', 'C']);
-  assert.equal(originals.size, 0);
-  assert.equal(connections[0].sections[0].points[0].y, 10);
-  assert.equal(connections[1].sections[0].points[0].y, 20);
-  assert.ok(connections.every((e) => e.routingInfo.channelStatus === 'blocked'));
-  assert.equal(connections[2].sections[0].points[0].y, 0);
 });

@@ -1,6 +1,6 @@
 ﻿import { ancestors, parentOf } from '../hierarchy.js';
 import { defaultSide } from '../port-sides.js';
-import { allocateTracks, requiredTrackSpace, TRACK_GAP } from './channel-allocation.js';
+import { routeChannelProposals } from './channel-batch.js';
 import { parallelOverlap } from './grid-channels.js';
 import { lineWidth, obstacleClearance, containerClearance, endpointEscape } from './routing-spacing.js';
 import { netRouteQuality, countSegmentContacts, countStrokeContacts } from './route-quality.js';
@@ -32,7 +32,7 @@ function contacts(edges, changed) {
 }
 
 /** Geometry is frozen. Batch channels only between facing, sibling ordinary Containers. */
-export function routeGroupChannels(result, compiled) {
+export function groupProposals(result, compiled, { includeReserved = false, accepts = () => true } = {}) {
   const semantic = compiled._signalOriginal ?? compiled,
     down = compiled.layout.direction === 'down';
   const axis = down ? 'y' : 'x',
@@ -56,9 +56,12 @@ export function routeGroupChannels(result, compiled) {
     if (
       !ref ||
       !wire ||
+      !accepts(edge) ||
       ref.direction === 'both' ||
       (ref.netStyle ?? ref.style).startArrow !== 'none' ||
-      (edge.routingInfo?.channelStatus === 'routed' && edge.routingInfo?.method !== 'group-channel') ||
+      (!includeReserved &&
+        edge.routingInfo?.channelStatus === 'routed' &&
+        edge.routingInfo?.method !== 'group-channel') ||
       edge.routingInfo?.method === 'outer-aabb'
     )
       continue;
@@ -131,129 +134,120 @@ export function routeGroupChannels(result, compiled) {
       max: hi,
     });
   }
-  for (const batch of batches.values()) {
-    const tracks = allocateTracks(batch.branches),
-      minimum = Math.max(...batch.branches.map((e) => e.min)),
-      maximum = Math.min(...batch.branches.map((e) => e.max));
-    const width = requiredTrackSpace(tracks);
-    if (width > maximum - minimum + EPS) continue;
-    const changed = new Set(batch.branches.map((e) => e.id));
-    const baseline = netRouteQuality(result),
-      baselineContacts = contacts(result.connections, changed);
-    const compliant = batch.branches.every(({ id, min, max }) => {
-      const points = simplifyForwardPath(
-        result.connections.find((e) => e.id === id).sections.flatMap((s) => s.points),
-      );
-      if (Math.abs(points[0][cross] - points.at(-1)[cross]) < EPS && points.length === 2) return true;
+
+  return [...batches.values()].map((batch) => ({
+    key: JSON.stringify(['group', batch.parent, batch.from, batch.to]),
+    kind: 'group',
+    owner: batch.parent,
+    axis,
+    before: [nodes.get(batch.from)],
+    after: [nodes.get(batch.to)],
+    min: Math.max(...batch.branches.map((e) => e.min)),
+    max: Math.min(...batch.branches.map((e) => e.max)),
+    margin: Math.max(...batch.branches.map((b) => containerClearance(b.ref))),
+    accessMin: Math.max(...batch.branches.map((b) => b.a[axis] + endpointEscape(b.wire, true))),
+    accessMax: Math.min(...batch.branches.map((b) => b.b[axis] - endpointEscape(b.wire, false))),
+    branches: batch.branches,
+    route: ({ trial, branch, assignment }) => groupRoute(trial, compiled, batch, branch, assignment),
+    accept: (trial, baseline, changed) => {
+      const q = netRouteQuality(trial),
+        old = netRouteQuality(baseline);
       return (
-        points.length === 4 &&
-        points[1][axis] >= min - EPS &&
-        points[1][axis] <= max + EPS &&
-        Math.abs(points[1][axis] - points[2][axis]) < EPS
+        q.overlaps <= old.overlaps &&
+        q.crossings <= old.crossings &&
+        q.bends <= old.bends &&
+        q.length <= old.length + EPS &&
+        contacts(trial.connections, changed) <= contacts(baseline.connections, changed) &&
+        countStrokeContacts(trial.connections) <= countStrokeContacts(baseline.connections)
       );
-    });
-    const independent = batch.branches.every((a, i) =>
-      batch.branches.slice(i + 1).every((b) => {
-        if (a.net === b.net || a.hi - a.lo < EPS || b.hi - b.lo < EPS) return true;
-        const path = (id) =>
-          simplifyForwardPath(result.connections.find((e) => e.id === id).sections.flatMap((s) => s.points));
-        const p = path(a.id),
-          q = path(b.id);
-        return (
-          p.length === 4 &&
-          q.length === 4 &&
-          !parallelOverlap(p[1], p[2], q[1], q[2], (a.width + b.width) / 2 + 2)
-        );
-      }),
-    );
-    if (compliant && independent) continue;
-    const baselineInk = countStrokeContacts(result.connections);
-    let best = null,
-      bestQuality = null;
-    for (const ordered of tracks.length > 1 ? [tracks, [...tracks].reverse()] : [tracks]) {
-      const coordinates = new Map();
-      let offset = minimum + (maximum - minimum - width) / 2;
-      for (const track of ordered) {
-        const coordinate = offset + track.width / 2;
-        for (const n of track.nets)
-          for (const id of n.branches) coordinates.set(id, { coordinate, index: tracks.indexOf(track) });
-        offset += track.width + TRACK_GAP;
-      }
-      const trial = { ...result, connections: structuredClone(result.connections) };
-      let safe = true;
-      for (const branch of batch.branches) {
-        const { a, b, ref, wire, id } = branch,
-          { coordinate, index } = coordinates.get(id);
+    },
+    satisfied: () => {
+      const paths = batch.branches.map(({ id, min, max }) => {
         const points = simplifyForwardPath(
-          [
-            { x: a.x, y: a.y },
-            { ...a, [axis]: coordinate },
-            { ...b, [axis]: coordinate },
-            { x: b.x, y: b.y },
-          ].map(({ x, y }) => ({ x, y })),
+          result.connections.find((e) => e.id === id).sections.flatMap((s) => s.points),
         );
-        const exempt = new Set([
-          ...ancestors(compiled, wire.source.moduleId),
-          ...ancestors(compiled, wire.target.moduleId),
-          wire.source.moduleId,
-          wire.target.moduleId,
-          ref.source.moduleId,
-          ref.target.moduleId,
-        ]);
-        const clearance = obstacleClearance(ref),
-          owner = nodes.get(batch.parent),
-          bounds = owner ? inflate(owner, -clearance) : undefined;
-        const obstacles = [...nodes.values()]
-          .filter((n) => !exempt.has(n.id))
-          .map((n) => inflate(n, clearance));
-        for (const t of result.terminals ?? [])
-          if (!t.style.hidden) obstacles.push(inflate(t.labelBounds, 4));
-        const segments = sectionSegments([{ points }]);
-        if (
-          !points.every((p) => pointInBounds(p, bounds)) ||
-          obstacles.some((box) => segments.some(([p, q]) => segmentCrossesInterior(p, q, box)))
-        ) {
-          safe = false;
-          break;
-        }
-        const edge = trial.connections.find((e) => e.id === id);
-        // Straight fanout branches reserve their Net's span, but keep their
-        // existing clean access line and diagnostics instead of adding a detour.
-        if (points.length === 2 && simplifyForwardPath(edge.sections.flatMap((s) => s.points)).length === 2)
-          continue;
-        edge.sections = [{ points }];
-        edge.routingInfo = {
-          method: 'group-channel',
-          reason: 'inter-container',
-          channelAxis: axis,
-          channelTrack: index,
-          channelTrackCount: tracks.length,
-          channelStatus: 'routed',
-          ...(batch.parent ? { channelOwner: batch.parent } : {}),
-          sourceGroup: batch.from,
-          targetGroup: batch.to,
+        const straight = points.length === 2 && Math.abs(points[0][cross] - points.at(-1)[cross]) < EPS;
+        return {
+          points,
+          valid:
+            straight ||
+            (points.length === 4 &&
+              points[1][axis] >= min - EPS &&
+              points[1][axis] <= max + EPS &&
+              Math.abs(points[1][axis] - points[2][axis]) < EPS),
         };
-      }
-      if (!safe) continue;
-      const q = netRouteQuality(trial);
-      if (
-        q.overlaps > baseline.overlaps ||
-        q.crossings > baseline.crossings ||
-        q.bends > baseline.bends ||
-        q.length > baseline.length + EPS ||
-        contacts(trial.connections, changed) > baselineContacts ||
-        countStrokeContacts(trial.connections) > baselineInk
-      )
-        continue;
-      if (
-        !best ||
-        q.crossings < bestQuality.crossings ||
-        (q.crossings === bestQuality.crossings && q.bends < bestQuality.bends)
-      ) {
-        best = trial;
-        bestQuality = q;
-      }
-    }
-    if (best) result.connections = best.connections;
-  }
+      });
+      return (
+        paths.every((p) => p.valid) &&
+        batch.branches.every((a, i) =>
+          batch.branches.slice(i + 1).every((b, j) => {
+            if (a.net === b.net || a.hi - a.lo < EPS || b.hi - b.lo < EPS) return true;
+            const p = paths[i].points,
+              q = paths[i + j + 1].points;
+            return (
+              p.length === 4 &&
+              q.length === 4 &&
+              !parallelOverlap(p[1], p[2], q[1], q[2], (a.width + b.width) / 2 + 2)
+            );
+          }),
+        )
+      );
+    },
+  }));
+}
+
+function groupRoute(result, compiled, batch, branch, assignment) {
+  const { a, b, ref, wire, id } = branch,
+    axis = assignment.axis,
+    coordinate = assignment.coordinate;
+  const nodes = new Map([...result.modules, ...result.groups].map((n) => [n.id, n]));
+  const points = simplifyForwardPath(
+    [
+      { x: a.x, y: a.y },
+      { ...a, [axis]: coordinate },
+      { ...b, [axis]: coordinate },
+      { x: b.x, y: b.y },
+    ].map(({ x, y }) => ({ x, y })),
+  );
+  const exempt = new Set([
+    ...ancestors(compiled, wire.source.moduleId),
+    ...ancestors(compiled, wire.target.moduleId),
+    wire.source.moduleId,
+    wire.target.moduleId,
+    ref.source.moduleId,
+    ref.target.moduleId,
+  ]);
+  const clearance = obstacleClearance(ref),
+    owner = nodes.get(batch.parent),
+    bounds = owner ? inflate(owner, -clearance) : undefined;
+  const obstacles = [...nodes.values()].filter((n) => !exempt.has(n.id)).map((n) => inflate(n, clearance));
+  for (const t of result.terminals ?? []) if (!t.style.hidden) obstacles.push(inflate(t.labelBounds, 4));
+  if (
+    !points.every((p) => pointInBounds(p, bounds)) ||
+    obstacles.some((box) => sectionSegments([{ points }]).some(([a, b]) => segmentCrossesInterior(a, b, box)))
+  )
+    return null;
+  const edge = result.connections.find((e) => e.id === id);
+  if (points.length === 2 && simplifyForwardPath(edge.sections.flatMap((s) => s.points)).length === 2)
+    return { sections: edge.sections, routingInfo: edge.routingInfo };
+  return {
+    sections: [{ points }],
+    routingInfo: {
+      method: 'group-channel',
+      reason: 'inter-container',
+      channelAxis: axis,
+      channelTrack: assignment.track,
+      channelTrackCount: assignment.count,
+      channelStatus: 'routed',
+      ...(batch.parent ? { channelOwner: batch.parent } : {}),
+      sourceGroup: batch.from,
+      targetGroup: batch.to,
+    },
+  };
+}
+
+/** Standalone entry keeps pre-existing foreign reservations protected. The shared
+ * runtime collects all planner offers before allocating any of their tracks. */
+export function routeGroupChannels(result, compiled) {
+  return routeChannelProposals(result, compiled, groupProposals(result, compiled));
 }

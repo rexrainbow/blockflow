@@ -2,7 +2,10 @@ import { routeOrthogonal as route } from '../../shared/orthogonal.js';
 import { ancestors } from '../hierarchy.js';
 import { obstacleClearance, containerClearance, preferredClearance } from './routing-spacing.js';
 import { containerEntryRoute } from './container-entry.js';
-import { channelAssignments, routeGridChannel, reconcileChannelRoutes } from './grid-channels.js';
+import { routeGridChannel } from './grid-channels.js';
+import { trackProposals } from './channel-corridors.js';
+import { routeChannelProposals } from './channel-batch.js';
+import { groupProposals } from './group-channels.js';
 
 // Fixed routing adapters share prepared endpoint/obstacle geometry, not policies.
 // select returns null to leave an edge untouched; route returns null on an optional
@@ -15,7 +18,10 @@ export function createRoutingStrategy(name, context) {
       return containerEntryStrategy(context);
     case 'grid-channels':
     case 'auto-channels':
-      return channelStrategy(name, context);
+    case 'shared-channels':
+      return { execute: () => routePlannedChannels(name, context) };
+    case 'channel-access':
+      return channelAccessStrategy(context);
     default:
       throw new Error('Unknown routing strategy: ' + name);
   }
@@ -139,42 +145,71 @@ function containerEntryStrategy({ result, model, owners, ports }) {
   };
 }
 
-function channelStrategy(name, { result, model, refs }) {
-  const channels = channelAssignments(name === 'auto-channels' ? result._autoChannels : result._gridChannels);
-  const completed = new Set(),
-    originalChannels = new Map();
-  return {
-    method: name === 'auto-channels' ? 'auto-channel' : 'grid-channel',
-    reason: name,
-    select: (_ref, edge) => {
-      const channel = channels.get(edge.id);
-      return channel ? { channel } : null;
-    },
-    avoid: ({ edge, ref }) => {
-      const avoid = result.connections
-        .filter(
-          (other) =>
-            other !== edge &&
-            (refs.get(other.id).netId ?? other.id) !== (ref.netId ?? ref.id) &&
-            (!channels.has(other.id) || completed.has(other.id)),
-        )
-        .flatMap((other) =>
-          other.sections.flatMap((s) =>
-            s.points
-              .slice(1)
-              .map((p, i) => [
-                s.points[i],
-                p,
-                Math.max(3, (ref.style.strokeWidth + other.style.strokeWidth) / 2 + 2),
-              ]),
-          ),
-        );
+function routePlannedChannels(name, { result, model, reroute, selected, onlyExcluded, reason }) {
+  const kinds = name === 'shared-channels' ? ['grid', 'auto'] : [name === 'auto-channels' ? 'auto' : 'grid'];
+  const proposals = kinds
+    .flatMap((kind) => trackProposals(result, kind))
+    .map((proposal) => ({
+      ...proposal,
+      route: ({ trial, demand, assignment, avoid }) => {
+        const plan = { ...assignment, kind: proposal.kind };
+        reroute(trial, {
+          strategy: 'channel-access',
+          reason,
+          selected: new Set([demand.id]),
+          channelPlans: new Map([[demand.id, plan]]),
+          channelAvoid: avoid,
+        });
+        const edge = trial.connections.find((e) => e.id === demand.id);
+        return plan.unchanged || edge.routingInfo?.channelStatus === 'routed'
+          ? { sections: edge.sections, routingInfo: edge.routingInfo }
+          : null;
+      },
+    }));
+  if (name === 'shared-channels') {
+    const registered = new Set(proposals.flatMap((p) => p.branches.map((b) => b.id)));
+    const edges = new Map(result.connections.map((e) => [e.id, e]));
+    const groups = groupProposals(result, model, {
+      includeReserved: true,
+      accepts: (edge) =>
+        edge.routingInfo?.channelStatus !== 'routed' ||
+        edge.routingInfo.method === 'group-channel' ||
+        registered.has(edge.id),
+    });
+    proposals.push(...groups);
+  }
+  const refs = new Map(model.connections.map((e) => [e.id, e]));
+  const filtered = proposals
+    .map((p) => ({
+      ...p,
+      branches: p.branches.filter(
+        (b) => (!selected || selected.has(b.id)) && (!onlyExcluded || refs.get(b.id)?.constraint === false),
+      ),
+    }))
+    .filter((p) => p.branches.length);
+  return routeChannelProposals(result, model, filtered);
+}
 
-      completed.add(edge.id);
-      return avoid;
-    },
-    route: ({ edge, a, b, av, bv, start, finish, obstacles, scope, avoid, plan: { channel } }) => {
-      const channelRoute = routeGridChannel({
+/** One planner's endpoint/obstacle adapter. Allocation, peer reservations and
+ * transactional acceptance belong to the shared corridor batch. */
+function channelAccessStrategy({ model, channelPlans, channelAvoid, reason }) {
+  return {
+    method: 'grid-channel',
+    select: (_ref, edge) => (channelPlans?.has(edge.id) ? { channel: channelPlans.get(edge.id) } : null),
+    avoid: () => channelAvoid ?? [],
+    route: ({ edge, a, b, av, bv, start, finish, obstacles, scope, avoid, straight, plan: { channel } }) => {
+      const points = edge.sections.flatMap((s) => s.points);
+      const aligned =
+        av.x === -bv.x &&
+        av.y === -bv.y &&
+        Math.abs((b.p.x - a.p.x) * av.y - (b.p.y - a.p.y) * av.x) < 1e-6 &&
+        (b.p.x - a.p.x) * av.x + (b.p.y - a.p.y) * av.y > 0 &&
+        points.every((p) => Math.abs((p.x - a.p.x) * av.y - (p.y - a.p.y) * av.x) < 1e-6);
+      if (straight || aligned) {
+        channel.unchanged = true;
+        return null;
+      }
+      const routed = routeGridChannel({
         start,
         finish,
         source: a.p,
@@ -188,15 +223,11 @@ function channelStrategy(name, { result, model, refs }) {
         avoid,
         gap: 3,
       });
-      if (!channelRoute) {
-        edge.routingInfo = { ...edge.routingInfo, channelStatus: 'blocked' };
-        return null;
-      }
-      return { ...channelRoute, points: channelRoute.points.map(({ x, y }) => ({ x, y })) };
+      return routed ? { ...routed, points: routed.points.map(({ x, y }) => ({ x, y })) } : null;
     },
-    beforeCommit: (edge) =>
-      originalChannels.set(edge.id, { sections: edge.sections, routingInfo: edge.routingInfo }),
     details: ({ plan: { channel } }, routed) => ({
+      method: channel.kind === 'auto' ? 'auto-channel' : 'grid-channel',
+      reason: reason ?? (channel.kind === 'auto' ? 'auto-channels' : 'grid-channels'),
       channelAxis: channel.axis,
       channelTrack: channel.track,
       channelTrackCount: channel.count,
@@ -204,8 +235,5 @@ function channelStrategy(name, { result, model, refs }) {
       ...(channel.owner ? { channelOwner: channel.owner } : {}),
       waypoints: routed.waypoints,
     }),
-    finish: () => {
-      if (channels.size) reconcileChannelRoutes(result.connections, refs, originalChannels);
-    },
   };
 }

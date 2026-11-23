@@ -1,6 +1,7 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDiagramModel, layoutDiagram } from '../../src/lib/blockchart/index.js';
+import { routeFixed } from '../../src/lib/blockchart/layout/fixed.js';
 import { routeGroupChannels } from '../../src/lib/blockchart/layout/group-channels.js';
 import { netRouteQuality } from '../../src/lib/blockchart/layout/route-quality.js';
 import { readFileSync } from 'node:fs';
@@ -282,8 +283,19 @@ test('an earlier group-channel plan is jointly reassigned when another Net joins
     channelTrack: 0,
     channelTrackCount: 1,
   };
+  const previousCoordinate = first.sections[0].points[1].x;
   routeGroupChannels(f.result, f.model);
   assert.ok(f.result.connections.every((e) => e.routingInfo?.channelTrackCount === 2));
-  assert.notEqual(first.sections[0].points[1].x, f.result.connections[0].sections[0].points[1].x);
+  assert.equal(first, f.result.connections[0]);
+  assert.notEqual(previousCoordinate, f.result.connections[0].sections[0].points[1].x);
   assert.equal(netRouteQuality(f.result).overlaps, 0);
+});
+
+test('shared collection cannot steal a foreign reservation without a matching planner offer', () => {
+  const f = fixture('right', true);
+  for (const edge of f.result.connections)
+    edge.routingInfo = { method: 'grid-channel', channelStatus: 'routed', channelTrack: 0 };
+  const before = structuredClone(f.result);
+  routeFixed(f.result, f.model, { strategy: 'shared-channels' });
+  assert.deepEqual(f.result, before);
 });

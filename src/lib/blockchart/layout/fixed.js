@@ -23,6 +23,8 @@ export function routeFixed(
     selected = null,
     reason = null,
     avoidForeignOverlaps = false,
+    channelPlans = null,
+    channelAvoid = null,
   } = {},
 ) {
   const nodes = [...result.modules, ...result.groups],
@@ -32,7 +34,20 @@ export function routeFixed(
     nodes.flatMap((n) => (n.ports ?? []).map((p) => [n.id + '.' + p.id, { p, node: n }])),
   );
   const terminals = new Map((result.terminals ?? []).map((t) => [t.id, t]));
-  const strategy = createRoutingStrategy(strategyName, { result, model, owners, ports, refs });
+  const strategy = createRoutingStrategy(strategyName, {
+    result,
+    model,
+    owners,
+    ports,
+    refs,
+    channelPlans,
+    channelAvoid,
+    selected,
+    onlyExcluded,
+    reason,
+    reroute: (trial, options) => routeFixed(trial, model, options),
+  });
+  if (strategy.execute) return strategy.execute();
   const end = (ref, peer, edge) => {
     if (ref.terminal !== undefined) {
       const t = terminals.get(ref.terminal);

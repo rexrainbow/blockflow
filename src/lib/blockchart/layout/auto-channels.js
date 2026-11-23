@@ -132,6 +132,8 @@ export function planAutoChannels(result, model) {
         lo: Math.min(sa[cross], ta[cross]),
         hi: Math.max(sa[cross] + sa[crossExtent], ta[cross] + ta[crossExtent]),
         width: lineWidth(edge),
+        sourceNode: sa,
+        targetNode: ta,
       });
       channel.margin = Math.max(
         channel.margin,

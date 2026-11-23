@@ -171,6 +171,8 @@ export async function arrangeGrids(result, model, elk) {
       const columnGaps = Array(Math.max(0, cols - 1)).fill(config.columnGap);
       const channels = planGridChannels(rows, nodes, children, model.connections, model.layout.direction);
       for (const channel of channels) {
+        channel.owner = scope;
+        channel.kind = 'grid';
         const gaps = channel.axis === 'y' ? rowGaps : columnGaps;
         gaps[channel.index] = Math.max(gaps[channel.index], channel.required);
         channel.gap = gaps[channel.index];
