@@ -227,10 +227,15 @@ class DiagramView {
         edge.id,
         connectionKey(edge),
         edge,
-        routeBounds(edge),
+        routeBounds(edge, layout.junctions),
         'Select connection ' + (edge.source ? connectionKey(edge) : edge.id),
         [
           this.node('path', { d: routePath(edge), class: 'hit-area', 'vector-effect': 'non-scaling-stroke' }),
+          ...(layout.junctions ?? [])
+            .filter((j) => j.connectionIds.includes(edge.id))
+            .map((j) =>
+              this.node('circle', { cx: j.x, cy: j.y, r: Math.max(6, j.radius), class: 'hit-area' }),
+            ),
           ...connectionLabels(edge).map((label) => rectangle(label.bounds)),
         ],
       );

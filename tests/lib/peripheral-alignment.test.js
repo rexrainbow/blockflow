@@ -234,3 +234,69 @@ test('Auto group spacing overrides remain minimum member gaps', async () => {
     b = f.result.modules.find((n) => n.id === 'OutputB');
   assert.ok(b.y >= a.y + a.height + 90 - 1e-5);
 });
+for (const direction of ['right', 'down'])
+  test(`peripheral receiver follows its driver while flow-axis size changes (${direction})`, async () => {
+    const anchors = [];
+    for (const size of [1.2, 2, 3]) {
+      const raw = document(direction);
+      raw.modules = raw.modules.filter((n) => n.id !== 'OutputB');
+      raw.groups.find((g) => g.id === 'Outputs').members = ['OutputA'];
+      raw.connections = raw.connections.filter((e) => !['B', 'Aux'].includes(e.id));
+      const module = raw.modules.find((n) => n.id === 'OutputA');
+      module[direction === 'right' ? 'width' : 'height'] = size;
+      const result = await layoutDiagram(createDiagramModel(raw));
+      const axis = direction === 'right' ? 'y' : 'x',
+        port = (id, p) => result.modules.find((n) => n.id === id).ports.find((n) => n.id === p)[axis];
+      assert.ok(
+        Math.abs(port('OutputA', 'input') - port('Top', 'output')) < 1e-6,
+        `${direction} ${size}: ${port('OutputA', 'input')} vs ${port('Top', 'output')}`,
+      );
+      const parent = result.groups.find((g) => g.id === 'Bank');
+      anchors.push(port('OutputA', 'input') - parent[axis]);
+    }
+    assert.ok(anchors.every((value) => Math.abs(value - anchors[0]) < 1e-6));
+  });
+
+test('peripheral groups do not exhaust a shared trial budget before later interfaces align', async () => {
+  const count = 10,
+    ids = Array.from({ length: count }, (_, i) => 'Sink' + i);
+  const raw = {
+    version: 1,
+    diagram: { name: 'Independent peripheral anchors' },
+    layout: { moduleSpacing: 20, layerSpacing: 40 },
+    modules: [
+      { id: 'Driver', ports: [{ id: 'out', direction: 'output', style: { hidden: true } }] },
+      ...ids.map((id) => ({ id, ports: [{ id: 'in', direction: 'input', style: { hidden: true } }] })),
+    ],
+    groups: [
+      { id: 'Bank', members: ['Core', ...ids.map((id) => id + 'Frame')] },
+      { id: 'Core', members: ['Driver'], layout: { type: 'grid', cells: [['Driver']] } },
+      ...ids.map((id) => ({ id: id + 'Frame', members: [id] })),
+    ],
+    connections: [{ from: 'Driver.out', to: ids.map((id) => id + '.in') }],
+  };
+  const f = await working(raw, false),
+    nodes = new Map([...f.result.modules, ...f.result.groups].map((n) => [n.id, n])),
+    bank = nodes.get('Bank');
+  bank.width = 5000;
+  bank.height = 1000;
+  const fixed = structuredClone(core(f.result, f.model)),
+    driver = nodes.get('Driver'),
+    anchor = driver.ports[0].y;
+  for (const [i, id] of ids.entries()) {
+    const frame = nodes.get(id + 'Frame'),
+      block = nodes.get(id),
+      dx = nodes.get('Core').x + nodes.get('Core').width + 150 + i * 180 - frame.x,
+      dy = 500 - frame.y;
+    translateNode(frame, dx, dy);
+    translateNode(block, dx, dy);
+  }
+  routeFixed(f.result, f.model);
+  assert.equal(alignPeripheralGroups(f.result, f.model), true);
+  for (const id of ids)
+    assert.ok(
+      Math.abs(f.result.modules.find((n) => n.id === id).ports[0].y - anchor) < 1e-6,
+      id + ' should align',
+    );
+  assert.deepEqual(core(f.result, f.model), fixed);
+});

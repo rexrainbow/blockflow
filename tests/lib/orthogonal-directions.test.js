@@ -233,3 +233,53 @@ test('a clear-facing Terminal connection still detours around a foreign Terminal
   assert.ok(metrics(path).bends >= 2, 'the foreign label blocks the direct span');
   for (let i = 1; i < path.length; i++) assert.ok(!crosses(path[i - 1], path[i], annotation.labelBounds));
 });
+
+test('routing search caches remain local when obstacles move between calls', () => {
+  const start = { x: 0, y: 0 },
+    end = { x: 100, y: 0 };
+  const obstacle = { x: 40, y: -10, width: 20, height: 20 };
+  const blocked = routeOrthogonal(start, end, [obstacle], undefined, 20);
+  assert.ok(metrics(blocked).length > 100);
+  for (let i = 1; i < blocked.length; i++) assert.ok(!crosses(blocked[i - 1], blocked[i], obstacle));
+  obstacle.y = 30;
+  const clear = routeOrthogonal(start, end, [obstacle], undefined, 20);
+  assert.equal(metrics(clear).length, 100);
+  obstacle.y = -10;
+  assert.deepEqual(routeOrthogonal(start, end, [obstacle], undefined, 20), blocked);
+});
+
+test('parallel route penalties are recomputed for each search and do not mutate input', () => {
+  const start = { x: 0, y: 0 },
+    end = { x: 100, y: 0 };
+  const avoid = [
+    [
+      { x: 20, y: 0 },
+      { x: 80, y: 0 },
+    ],
+  ];
+  const saved = structuredClone({ start, end, avoid });
+  const detour = routeOrthogonal(start, end, [], undefined, 20, avoid);
+  assert.ok(metrics(detour).length > 100);
+  assert.equal(metrics(routeOrthogonal(start, end, [], undefined, 20)).length, 100);
+  assert.deepEqual(routeOrthogonal(start, end, [], undefined, 20, avoid), detour);
+  assert.deepEqual({ start, end, avoid }, saved);
+});
+
+test('oriented searches preserve deterministic clearance under fractional rotated geometry', () => {
+  for (const swap of [false, true]) {
+    const transform = ({ x, y }) => (swap ? { x: y, y: x } : { x, y });
+    const start = transform({ x: 0.25, y: 0.5 }),
+      end = transform({ x: 120.25, y: 60.5 });
+    const obstacle = swap
+      ? { x: 10.5, y: 40.25, width: 40, height: 30 }
+      : { x: 40.25, y: 10.5, width: 30, height: 40 };
+    const directions = { startDirection: transform({ x: 1, y: 0 }), endDirection: transform({ x: 1, y: 0 }) };
+    const avoid = [[transform({ x: 20.25, y: 0.5 }), transform({ x: 100.25, y: 0.5 })]];
+    const route = routeOrthogonal(start, end, [obstacle], undefined, 20, avoid, directions);
+    assert.deepEqual(route[0], start);
+    assert.deepEqual(route.at(-1), end);
+    metrics(route);
+    for (let i = 1; i < route.length; i++) assert.ok(!crosses(route[i - 1], route[i], obstacle));
+    assert.deepEqual(routeOrthogonal(start, end, [obstacle], undefined, 20, avoid, directions), route);
+  }
+});

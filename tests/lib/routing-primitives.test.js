@@ -114,3 +114,43 @@ test('route trial policies propagate programming errors instead of masking them'
     (error) => error === failure,
   );
 });
+
+test('independent trial evaluation can stage normal routing before committing', async () => {
+  const { evaluateRoutedTrial } = await import('../../src/lib/blockchart/layout/routing-trial.js');
+  const original = { modules: [], groups: [], connections: [], value: 'original' },
+    trial = structuredClone(original);
+  const seen = [];
+  assert.equal(
+    evaluateRoutedTrial(
+      trial,
+      { connections: [] },
+      {
+        route: (draft, model, options) => {
+          seen.push(options.reason);
+          draft.value = 'staged';
+        },
+        reason: 'alignment',
+        accept: (draft) => draft.value === 'staged',
+      },
+    ),
+    true,
+  );
+  assert.deepEqual(seen, ['alignment']);
+  assert.equal(original.value, 'original');
+  assert.equal(trial.value, 'staged');
+  const before = structuredClone(original);
+  assert.equal(
+    commitRoutedTrial(
+      original,
+      structuredClone(trial),
+      { connections: [] },
+      {
+        route: () => {
+          throw Error('no safe route');
+        },
+      },
+    ),
+    false,
+  );
+  assert.deepEqual(original, before);
+});

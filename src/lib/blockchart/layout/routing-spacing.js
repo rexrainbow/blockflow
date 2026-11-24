@@ -1,4 +1,8 @@
 import { connectionStyle } from '../styles.js';
+import { TRACK_GAP } from './channel-allocation.js';
+
+/** Centerline distance that leaves the shared track gap between actual ink. */
+export const wireClearance = (a, b) => TRACK_GAP + (lineWidth(a) + lineWidth(b)) / 2;
 
 /** Body ink is a channel requirement; arrowheads are endpoint-local. */
 export const lineWidth = (edge) => Math.max(edge.style.strokeWidth, edge.netStyle?.strokeWidth ?? 0);

@@ -2,7 +2,9 @@ import { ancestors, descendants, parentOf } from '../hierarchy.js';
 import { groupGeometry } from './groups.js';
 import { resolveLayoutSpacing } from '../layout-spacing.js';
 import { translateNode } from './translate.js';
-import { commitRoutedTrial } from './routing-trial.js';
+import { evaluateRoutedTrial } from './routing-trial.js';
+import { routeFixed } from './fixed.js';
+import { routeWorkingConnections } from './routing-policy.js';
 import { netRouteQuality as quality } from './route-quality.js';
 import {
   EPS as eps,
@@ -132,10 +134,8 @@ export function alignPeripheralGroups(result, model) {
   );
   for (const g of groups)
     if (g.layout?.type === 'grid') for (const id of g.layout.cells.flat()) if (id) pinned.add(id);
-  let changed = false,
-    budget = 8;
+  let changed = false;
   for (const ref of groups) {
-    if (budget <= 0) break;
     if (
       ref.collapsed ||
       (ref.type ?? 'container') !== 'container' ||
@@ -214,32 +214,41 @@ export function alignPeripheralGroups(result, model) {
       (a, b) => a.score.main - b.score.main || a.worst - b.worst || a.score.weak - b.score.weak,
     );
     if (!candidates.length) continue;
-    const original = quality(result);
+    // Placement is selected from actual peer anchors, not from a transient
+    // all-Net route score. Compare routing alternatives only at that position.
     candidateSearch: for (const c of candidates.slice(0, 2)) {
-      let trial = structuredClone(c.trial);
+      let best = null,
+        bestScore = null;
       for (const avoidForeignOverlaps of [false, true]) {
-        if (budget-- <= 0) break candidateSearch;
+        const trial = structuredClone(c.trial);
         if (
-          commitRoutedTrial(result, trial, model, {
+          !evaluateRoutedTrial(trial, model, {
             reason: 'peripheral-alignment',
             routeOptions: { avoidForeignOverlaps },
-            accept: (candidate) => {
-              const q = quality(candidate);
-              return (
-                q.crossings <= original.crossings &&
-                q.overlaps <= original.overlaps &&
-                q.length <= original.length * 1.3 + 32 &&
-                q.bends <= original.bends + 2
-              );
+            route: (draft, routingModel, options) => {
+              routeFixed(draft, routingModel, options);
+              routeWorkingConnections(draft, routingModel);
             },
           })
+        )
+          continue;
+        const q = quality(trial),
+          score = [q.overlaps, q.crossings, q.bends, q.length];
+        if (
+          !bestScore ||
+          score.some(
+            (n, i) =>
+              n < bestScore[i] - eps && score.slice(0, i).every((v, j) => Math.abs(v - bestScore[j]) < eps),
+          )
         ) {
-          changed = true;
-          break candidateSearch;
+          best = trial;
+          bestScore = score;
         }
-        // Keep the rejected ordinary routes as conflict hints, never as live output.
-        // The bounded retry only penalizes their actual foreign collinear contacts.
-        trial = structuredClone(trial);
+      }
+      if (best) {
+        Object.assign(result, best);
+        changed = true;
+        break candidateSearch;
       }
     }
   }

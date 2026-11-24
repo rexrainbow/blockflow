@@ -64,11 +64,40 @@ export function routeOrthogonal(
   const width = X.length,
     from = Y.indexOf(start.y) * width + X.indexOf(start.x),
     to = Y.indexOf(end.y) * width + X.indexOf(end.x),
-    valid = new Map();
-  const point = (id) => ({ x: X[id % width], y: Y[Math.floor(id / width)] });
+    valid = new Uint8Array(X.length * Y.length),
+    gridPoints = new Array(valid.length),
+    links = new Float64Array(valid.length * 2).fill(NaN);
+  const point = (id) => (gridPoints[id] ??= { x: X[id % width], y: Y[Math.floor(id / width)] });
   const allowed = (id) => {
-    if (!valid.has(id)) valid.set(id, !obstacles.some((r) => inside(point(id), r)));
-    return valid.get(id);
+    if (!valid[id]) valid[id] = obstacles.some((r) => inside(point(id), r)) ? 1 : 2;
+    return valid[id] === 2;
+  };
+  // Obstacle visibility and parallel ink cost depend on a physical grid link,
+  // not the search state's arrival heading. Cache them once per undirected link.
+  const linkCost = (id, next, a, b) => {
+    const key = Math.min(id, next) * 2 + (a.y === b.y ? 0 : 1);
+    if (!Number.isNaN(links[key])) return links[key];
+    if (obstacles.some((r) => crosses(a, b, r))) return (links[key] = Infinity);
+    let penalty = 0;
+    for (const [u, v] of avoid) {
+      if (a.x === b.x && u.x === v.x && Math.abs(a.x - u.x) < 12)
+        penalty +=
+          10 *
+          Math.max(
+            0,
+            Math.min(Math.max(a.y, b.y), Math.max(u.y, v.y)) -
+              Math.max(Math.min(a.y, b.y), Math.min(u.y, v.y)),
+          );
+      if (a.y === b.y && u.y === v.y && Math.abs(a.y - u.y) < 12)
+        penalty +=
+          10 *
+          Math.max(
+            0,
+            Math.min(Math.max(a.x, b.x), Math.max(u.x, v.x)) -
+              Math.max(Math.min(a.x, b.x), Math.min(u.x, v.x)),
+          );
+    }
+    return (links[key] = penalty);
   };
   if (from < 0 || to < 0 || !allowed(from) || !allowed(to))
     throw new Error('Endpoint access is obstructed. Increase spacing or change attachment sides.');
@@ -135,26 +164,8 @@ export function routeOrthogonal(
       if (next === to && opposite(nextHeading, endHeading)) continue;
       if (!allowed(next)) continue;
       const b = point(next);
-      if (obstacles.some((r) => crosses(a, b, r))) continue;
-      let parallelCost = 0;
-      for (const [u, v] of avoid) {
-        if (a.x === b.x && u.x === v.x && Math.abs(a.x - u.x) < 12)
-          parallelCost +=
-            10 *
-            Math.max(
-              0,
-              Math.min(Math.max(a.y, b.y), Math.max(u.y, v.y)) -
-                Math.max(Math.min(a.y, b.y), Math.min(u.y, v.y)),
-            );
-        if (a.y === b.y && u.y === v.y && Math.abs(a.y - u.y) < 12)
-          parallelCost +=
-            10 *
-            Math.max(
-              0,
-              Math.min(Math.max(a.x, b.x), Math.max(u.x, v.x)) -
-                Math.max(Math.min(a.x, b.x), Math.min(u.x, v.x)),
-            );
-      }
+      const parallelCost = linkCost(id, next, a, b);
+      if (!Number.isFinite(parallelCost)) continue;
       const cost =
           current.cost +
           Math.abs(a.x - b.x) +

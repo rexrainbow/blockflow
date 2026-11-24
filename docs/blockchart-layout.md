@@ -21,13 +21,13 @@ fallbacks and derived routing diagnostics. Requested Grid gaps are minima.
 The order is part of the runtime contract; grouping phases does not remove the
 intermediate route repairs needed by later placement/Port scoring.
 
-| Phase              | Ownership and permitted changes                                                                                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Compile and ELK    | Compile private signal/receiver envelopes, measure and place nodes; convert ELK output to owned absolute geometry. Treat the compiled model as read-only.                                          |
-| `placeNodes`       | Restore Concat anchors and boundary Port order; place Grid cells and repair baseline routes, or repair excluded/Concat edges.                                                                      |
-| `refineAnchors`    | Refine unpinned peripheral groups, plan/reflow Auto channels, align Terminals and receiver nodes, then adjust Ports. Move owned helper geometry together and use bounded route trials for scoring. |
-| `routeConnections` | Keep nodes and anchors fixed. Apply Container entry and outer feedback, then collect Grid/Auto/inter-Container demands together and commit independent corridor batches atomically.                |
-| `completeLayout`   | Restore semantic Nets, apply Container exit/receiver-tail repairs with labels pinned, then place final labels/arrows and normalize scene coordinates. Finalization may translate the whole scene.  |
+| Phase              | Ownership and permitted changes                                                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compile and ELK    | Compile private signal/receiver envelopes, measure and place nodes; convert ELK output to owned absolute geometry. Treat the compiled model as read-only.                                                            |
+| `placeNodes`       | Restore Concat anchors and boundary Port order; place Grid cells and repair baseline routes, or repair excluded/Concat edges.                                                                                        |
+| `refineAnchors`    | Refine unpinned peripheral groups, plan/reflow Auto channels, align Terminals and receiver nodes, then adjust Ports. Move owned helper geometry together and use bounded route trials for scoring.                   |
+| `routeConnections` | Keep nodes and anchors fixed. Apply Container entry and outer feedback, then collect Grid/Auto/inter-Container demands together and commit independent corridor batches atomically.                                  |
+| `completeLayout`   | Restore semantic Nets, apply Container exit/receiver-tail and stroke-spacing repairs with labels pinned, then place final labels/arrows and normalize scene coordinates. Finalization may translate the whole scene. |
 
 Synthetic signal nodes remain available through the first four phases. Container
 exit repair deliberately follows semantic restoration; moving it earlier would
@@ -48,11 +48,14 @@ receiver-label second pass repeats the same pipeline with a frozen selection.
   stroke-envelope proximity with same-Net/common-endpoint exemptions. These are
   different policies, not interchangeable definitions of a single crossing count.
   Port-specific obstacle/anchor-shift scoring remains with Port adjustment.
-- `routing-trial.js` owns optional candidate routing and commit. Callers clone,
+- `routing-trial.js` owns optional candidate evaluation and commit. Callers clone,
   edit and check geometry first; it catches route-search failure, then calls the
   feature's acceptance policy and commits only an accepted result. Acceptance
   errors propagate. Required baseline routing still throws on failure. Trial
   limits, thresholds, edge selection and scoring order remain feature-owned.
+  `evaluateRoutedTrial` evaluates without publishing; an optional private `route`
+  callback can stage the normal working-routing policy. `commitRoutedTrial` uses
+  that evaluator before publishing the accepted working copy.
 - `layout-preview.js` isolates the disposable semantic/label preview used to guard
   Terminal adjustments. It never publishes or modifies the live working layout.
 
@@ -490,20 +493,35 @@ external wires. If room is insufficient or geometry is blocked, retain the basel
 
 Up to four anchor-derived plans (endpoint extremes, mean and rigid translation)
 are ranked by constraining Port-axis mismatch, worst target mismatch and weak-edge
-cost. Only the best two feasible plans per group are tried. Each first uses ordinary
-fixed routing; if rejected, a disposable retry penalizes actual foreign-Net
-collinear conflicts from the rejected ordinary trial using the existing search. Same-Net fanout remains legal.
-Both searches count toward the unchanged budget of eight full routing trials
-across the layout; no guard is relaxed to accept the retry. Non-constraining edges remain part of the
-cost at reduced weight (0.15), so cross-Bank returns do not dominate local alignment.
-A trial must improve constraining-axis mismatch by at least one unit. Checked
-routes cannot increase proper foreign-Net crossings or overlapping Net pairs,
-add more than two total bends, or exceed 1.3 times the previous routed length plus
-32 units. Unsafe or failed route searches do not replace a valid baseline.
+cost. A plan must improve constraining-axis mismatch by at least one unit. Weak
+connections remain a tie-break cost at weight 0.15; they do not pull a local
+interface toward a distant cross-Bank feedback endpoint. Incoming and outgoing
+constraining links both contribute actual peer Port anchors. A single peer aligns
+to that Port; equal-priority fanout can balance between its peers, such as the
+midpoint of two receiver anchors.
+
+Placement is the primary decision. Only the best two geometrically feasible plans
+per group are tried, each with ordinary and optional overlap-aware routing. Each
+private trial also runs Container entry, enabled outer feedback and the shared
+channel batch policy, with geometry fixed. At a chosen position, alternatives are
+ranked by overlap, crossing, bend and length counts. These counts choose a route,
+not whether to fall back to the old, distant ELK position: whole-chart transient
+route scores must not veto an otherwise safe peer-derived alignment. Proper
+crossings are legal and can trade against better placement; no global crossing,
+bend or length non-regression is promised by this placement refinement.
+
+There is no shared eight-trial layout budget. Each eligible group has at most
+four route evaluations, so earlier interfaces cannot exhaust a later interface's
+opportunity to follow its peers. A geometry collision, protected scope, lack of
+space or failed route search still retains the valid baseline. Label width along
+the flow axis can change horizontal routing and overall scene width without
+changing the chosen tangent anchor, provided peer anchors and geometric
+feasibility remain unchanged. Text that changes the tangent extent or actual Port
+offset can legitimately change the Block origin while its Port follows the peer.
 
 This refinement precedes Auto channel planning, Terminal/receiver alignment and
-Port tuning. Existing channel routing and Container exit/entry rules still run
-on the resulting geometry. It is a local best-effort refinement, not a guarantee
+Port tuning. The normal pipeline still plans Auto channels, refines anchors and applies final
+channel/Container routing on the resulting geometry. It is a local best-effort refinement, not a guarantee
 of straight connections or globally minimum wire length. No schema or GUI option
 is added; no private trial plans are persisted in authoring or public layout data.
 
@@ -567,9 +585,9 @@ are not authoring fields. No diagnostic is added to an ineligible/failed batch.
 
 This is the first shared-allocation stage of channel-first routing: ordinary routing
 still supplies a valid baseline, free inter-Container corridors get first preference
-for bends, and rejected candidates keep that baseline. Auto/Grid allocation remains
-separate and reserved; arbitrary nested, reverse and intra-Container corridors are
-not unified here. No extra layer/spacing constraints are inferred from weak Nets.
+for bends, and rejected candidates keep that baseline. Auto/Grid eligibility remains planner-owned, while known matching offers use
+the shared corridor batch described above. This sibling access adapter does not
+infer arbitrary nested, reverse or intra-Container corridors. No extra layer/spacing constraints are inferred from weak Nets.
 
 ## Receiver approach rail separation
 
@@ -626,3 +644,83 @@ already reserved channels retain their existing constraints; preferred clearance
 is not an unconditional global minimum. Verification includes free/narrow corridor
 cases in `tests/lib/border-clearance.test.js` and four rotated receiver-frame cases
 in `tests/lib/receiver-rails.test.js`.
+
+## Stroke-aware approach spacing
+
+After Container-exit and receiver-rail repair, `approach-spacing.js` checks distinct
+semantic Nets for near-parallel stroke contact, including a short positive
+projection overlap beside a bend. Centerline non-overlap alone is insufficient:
+two 1.5-unit strokes one unit apart already overlap in ink. `wireClearance(a,b)`
+uses six units of visible track gap plus half of both stroke widths. Same-Net
+sharing, proper perpendicular crossings and shared fixed endpoint attachments
+are separate cases.
+
+This bounded, route-only pass considers movable interior segments of unreserved
+ordinary Block-to-Block paths. It first offers existing parallel coordinates of
+the same Net, allowing a fanout branch to reuse its already established fork.
+It also tries up to four nearby track offsets in either direction. Nodes, Ports,
+label boxes, named sections' endpoints, source departure directions and receiver
+attachments stay fixed. Reserved Grid/Auto/Group tracks, outer-feedback paths,
+Concat and protected Boundary/Collection/collapsed ancestry are not moved.
+
+Each candidate must clear node/label/Terminal obstacles and preserve scopes,
+scene bounds, endpoint escapes and established exterior Container gates. The
+exterior-gate check also applies to a previously borrowed corridor outside a
+common ordinary Container. An ordinary local scope may borrow only its ordinary
+parent's space, as in receiver-rail repair.
+
+Accepted moves reduce the number or deficit of near-parallel contacts, never add
+an exact foreign-Net overlap or introduce proximity to another previously clear
+Net, and respect a local length budget. A bounded increase in distinct proper
+Net contacts can replace removed stroke contacts; clear perpendicular crossings
+are preferable to nearly coincident turns. Candidates rank contact improvement,
+proper segment contacts, reuse of a same-Net coordinate and added length. Up to
+12 accepted repair rounds are allowed. A blocked candidate leaves its current
+valid route intact; this is not a guarantee that every crowded fixed-geometry
+chart can satisfy the preferred gap.
+
+Success adds `routingInfo.approachSpacing: "separated"`, retaining the prior
+method, channel and receiver diagnostics. No schema field, GUI control or source
+JSON mutation is introduced. Tests: `tests/lib/approach-spacing.test.js` cover four
+rotations, thin/thick strokes, source fanout reuse, fixed geometry, label
+obstacles, protected/reserved paths, common-Container gates and idempotence.
+
+## Automatic Net junctions
+
+After final routing repairs, arrows and label placement, the runtime derives solid
+junction dots from each Net's orthogonal segment union. Duplicate and overlapping
+segments contribute each geometric direction once. A point needs at least three
+incident directions and two participating branch IDs; corners and straight shared
+strokes are not junctions. A same-Net four-way crossing is a junction; crossings
+between different Nets never join them. Dot count follows geometry, not fanout count.
+
+Dots are suppressed at Port/Terminal anchors and where their ink could touch a
+hardware body, an inline connection label, a visible Group title or another Net's
+stroke. Concat collision checks use its physical bar, not its whole label envelope.
+This conservative rendering pass does not change routes or node positions to make
+room. Marker radius is the larger of 2.5 units and the largest touching stroke width;
+color and opacity inherit the Net. Dots render in the connection layer beneath
+Blocks and labels, and their disk extents participate in scene bounds/translation.
+
+The optional derived layout field `junctions` contains records with `netId`, `x`,
+`y`, `radius`, sorted `connectionIds` and `style: { strokeColor, opacity }`. It is
+omitted when empty. This is runtime output, never an authoring/schema field; do not
+save it into diagram JSON. SVG exports use circles with
+`data-role="connection-junction"`, `data-net` and space-separated `data-connections`.
+The renderer consumes the final DTO without recomputing junctions.
+
+The runtime DOM adapter validates finite in-scene geometry, paint/opacity and
+existing same-Net branch ownership. Dots belong to participating connections,
+not a new selectable entity: existing connection hit regions include the disk
+(with a minimum hit radius of six units), and branch bounds include its ink.
+Tests: `tests/lib/net-junctions.test.js`.
+
+## Orthogonal search reuse
+
+Within each orthogonal route search, physical grid-point validity and undirected
+link visibility/parallel-stroke penalties are cached independently of the arrival
+heading. Headings still retain separate shortest-path states and turn costs;
+neighbor order, heap tie handling and endpoint scoring are unchanged. A fresh
+search uses fresh caches, so changed Ports, obstacles, bounds or neighboring wires
+cannot reuse stale geometry. This also benefits candidate routing during peripheral
+alignment; it does not remove candidates or change placement/routing policy.

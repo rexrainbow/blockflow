@@ -1164,6 +1164,9 @@ button.crumb:hover {
   stroke-width: 10;
   cursor: pointer;
 }
+.hit-junction {
+  cursor: pointer;
+}
 .hit-net:hover {
   stroke: rgba(36, 87, 214, 0.18);
 }

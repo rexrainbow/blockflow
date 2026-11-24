@@ -31,6 +31,15 @@ export class Canvas extends CanvasBase {
       nodes.push(rect({ x: g.x, y: g.y, width: g.width, height: g.faceHeight ?? g.height }, { class: 'hit hit-node', 'data-hit': 'collapsed', 'data-id': g.id, rx: 2 }));
     for (const m of L.modules) nodes.push(rect(m, { class: 'hit hit-node', 'data-hit': 'block', 'data-id': m.id }));
     for (const t of L.terminals ?? []) nodes.push(rect(pad(t.labelBounds, 4), { class: 'hit hit-node', 'data-hit': 'terminal', 'data-id': t.id }));
+    // Junction dots belong to their Net: the disk (at least 6 units) picks its first
+    // participating branch. Drawn under the branch paths, so a click on a line keeps its branch.
+    const byId = new Map(L.connections.map((c) => [c.id, c]));
+    for (const j of L.junctions ?? []) {
+      const c = byId.get(j.connectionIds?.[0]);
+      if (!c) continue;
+      const index = c.connectionIndex ?? Number(String(c.id).replace('connection_', ''));
+      nodes.push(s('circle', { cx: j.x, cy: j.y, r: Math.max(6, j.radius), class: 'hit hit-junction', 'data-hit': 'net', 'data-index': index, 'data-branch': c.branchIndex ?? 0 }));
+    }
     // Nets: every routed section of every branch
     for (const c of L.connections) {
       const index = c.connectionIndex ?? Number(String(c.id).replace('connection_', ''));

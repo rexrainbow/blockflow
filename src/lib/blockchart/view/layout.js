@@ -192,6 +192,49 @@ export function copyLayout(input) {
           fail('edge endpoint');
       }
   }
+  if (layout.junctions !== undefined) {
+    if (!Array.isArray(layout.junctions)) fail('Net junctions');
+    const seen = new Set();
+    for (const junction of layout.junctions) {
+      if (!junction || typeof junction !== 'object' || Array.isArray(junction)) fail('Net junction');
+      identifier(junction.netId);
+      number(junction.x, 'junction x');
+      number(junction.y, 'junction y');
+      number(junction.radius, 'junction radius', true);
+      if (
+        junction.x - junction.radius < -1e-6 ||
+        junction.y - junction.radius < -1e-6 ||
+        junction.x + junction.radius > layout.width + 1e-6 ||
+        junction.y + junction.radius > layout.height + 1e-6
+      )
+        fail('junction bounds');
+      if (
+        !Array.isArray(junction.connectionIds) ||
+        junction.connectionIds.length < 2 ||
+        new Set(junction.connectionIds).size !== junction.connectionIds.length
+      )
+        fail('junction connections');
+      for (const id of junction.connectionIds) {
+        identifier(id);
+        if (
+          !connections.has(id) ||
+          layout.connections.find((edge) => edge.id === id).netId !== junction.netId
+        )
+          fail('junction Net ownership');
+      }
+      const key = JSON.stringify([junction.netId, junction.x, junction.y]);
+      if (seen.has(key)) fail('duplicate junction');
+      seen.add(key);
+      if (
+        !junction.style ||
+        Object.keys(junction.style).some((key) => !['strokeColor', 'opacity'].includes(key)) ||
+        junction.style.strokeColor === undefined ||
+        junction.style.opacity === undefined
+      )
+        fail('junction style');
+      style(junction.style, 'connection');
+    }
+  }
   if (layout.caption) {
     label(layout.caption.text, layout.caption.labelPosition, layout.caption.labelBounds);
     style(layout.caption.style, 'text');
@@ -205,8 +248,16 @@ export const routePath = (edge) =>
   edge.sections
     .map((section) => section.points.map((point, i) => `${i ? 'L' : 'M'} ${point.x} ${point.y}`).join(' '))
     .join(' ');
-export function routeBounds(edge) {
-  const points = edge.sections.flatMap((section) => section.points);
+export function routeBounds(edge, junctions = []) {
+  const points = [
+    ...edge.sections.flatMap((section) => section.points),
+    ...junctions
+      .filter((j) => j.connectionIds.includes(edge.id))
+      .flatMap((j) => [
+        { x: j.x - j.radius, y: j.y - j.radius },
+        { x: j.x + j.radius, y: j.y + j.radius },
+      ]),
+  ];
   const x = Math.min(...points.map((p) => p.x)),
     y = Math.min(...points.map((p) => p.y));
   return {

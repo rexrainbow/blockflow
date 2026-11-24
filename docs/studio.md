@@ -187,6 +187,15 @@ field once, on that start only. **Save copy** in the toast, or **File › Save u
 (shown while a copy is kept), downloads the original unchanged as `<name>-unopened.json`
 and forgets the kept copy.
 
+## Net junction dots
+
+The runtime marks same-Net forks with junction dots (layout `junctions`; contract:
+[Automatic Net junctions](blockchart-layout.md#automatic-net-junctions)); the canvas
+draws them as part of the runtime SVG. A dot is not its own object: its disk (at least
+6 units) is a hit target for its first participating branch, placed under the branch
+paths, so a click on a wire keeps that wire's branch and a click beside the wire on the
+dot still selects the Net. Junctions and other derived routing data are never saved.
+
 ## Container titles and drawing ids
 
 Wires may cross ordinary Container titles and are drawn continuously; the title text is

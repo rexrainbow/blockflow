@@ -2,6 +2,7 @@ import { routeFixed } from './fixed.js';
 import { routeOuterFeedback } from './outer-feedback.js';
 import { routeContainerExits } from './container-exit.js';
 import { separateReceiverRails } from './receiver-rails.js';
+import { separateApproachSpacing } from './approach-spacing.js';
 
 /** Ordered policies while synthetic signal nodes and reserved envelopes still exist.
  * These passes have different eligibility and rollback rules. Do not merge them
@@ -17,4 +18,5 @@ export function routeWorkingConnections(result, model) {
 export function routeSemanticConnections(result, model) {
   routeContainerExits(result, model);
   separateReceiverRails(result, model);
+  separateApproachSpacing(result, model);
 }

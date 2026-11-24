@@ -73,6 +73,11 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
         `<polygon data-role="connection-arrow" points="${connection.arrow.points.map((p) => `${p.x},${p.y}`).join(' ')}" ${fillAttributes(style.strokeColor, style.opacity)} stroke="none"/>`,
       );
   }
+  for (const junction of layout.junctions ?? []) {
+    lines.push(
+      `<circle data-role="connection-junction" data-net="${escape(junction.netId)}" data-connections="${escape(junction.connectionIds.join(' '))}" cx="${junction.x}" cy="${junction.y}" r="${junction.radius}" ${fillAttributes(junction.style.strokeColor, junction.style.opacity)} stroke="none" pointer-events="none"/>`,
+    );
+  }
   lines.push('</g>');
   lines.push('</g>', '<g>');
   for (const module of [...layout.modules, ...(layout.groups ?? []).filter((group) => group.collapsed)]) {

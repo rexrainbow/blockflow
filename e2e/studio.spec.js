@@ -1047,3 +1047,50 @@ test('Grid block alignment: Left/Center/Right, default Center, Flow, group Grid 
     .toEqual([]);
   await svgMatches();
 });
+
+test('Net junction dots: drawn as the converter, picked by their disk, never saved', async ({ page }) => {
+  const fanout = {
+    version: 1,
+    diagram: { name: 'Fanout' },
+    modules: [
+      { id: 'A', ports: [{ id: 'out', direction: 'output' }] },
+      ...['B', 'C', 'D'].map((id) => ({ id, ports: [{ id: 'in', direction: 'input' }] })),
+    ],
+    connections: [{ from: 'A.out', to: ['B.in', 'C.in', 'D.in'] }],
+  };
+  await page.evaluate(async (doc) => window.__studio.replaceKeepingUndo(doc, 'test'), fanout);
+  await page.waitForTimeout(250);
+  await ready(page);
+  const reference = await convertDiagram(structuredClone(fanout), { format: 'svg' });
+  const svg = await page.evaluate(() => window.__studio.store.layout.svg);
+  expect(svg).toBe(reference.text.trimEnd());
+  const junctions = await page.evaluate(() => window.__studio.store.layout.layout.junctions);
+  expect(junctions.length).toBeGreaterThan(0);
+  expect(svg.match(/data-role="connection-junction"/g)).toHaveLength(junctions.length);
+
+  // A click on the dot's disk, off both strokes at 400%, selects its Net.
+  const j = junctions[0];
+  const at = await page.evaluate((p) => {
+    const c = window.__studio.canvas;
+    const r = c.el.getBoundingClientRect();
+    c.camera.z = 4;
+    c.camera.x = r.width / 2 - (p.x + c.margin) * 4;
+    c.camera.y = r.height / 2 - (p.y + c.margin) * 4;
+    c.applyCamera();
+    window.__studio.select(null);
+    // 2 units off both axes = 8 screen px from either stroke (the stroke hit is 5 px wide each side).
+    return { x: r.left + r.width / 2 + 8, y: r.top + r.height / 2 + 8 };
+  }, j);
+  await page.mouse.click(at.x, at.y);
+  await expect
+    .poll(() => page.evaluate(() => window.__studio.store.selection))
+    .toMatchObject({ type: 'net', index: 0 });
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
+  const saved = await readFile(await download.path(), 'utf8');
+  expect(JSON.parse(saved)).toEqual(fanout);
+  expect(saved).not.toContain('junction');
+});

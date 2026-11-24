@@ -1,4 +1,4 @@
-/* flowchart-agent-kit-2c6b7be3b0c138083374
+/* flowchart-agent-kit-7374180beb8b6e437f17
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
 Full third-party license is in the accompanying README.md. */
@@ -47575,86 +47575,91 @@ function ke(e, t, n, r, i, a = [], { startDirection: o, endDirection: s } = {}) 
 	f.add(Math.min(...m.map((e) => e.x)) - i), f.add(Math.max(...m.map((e) => e.x)) + i), p.add(Math.min(...m.map((e) => e.y)) - i), p.add(Math.max(...m.map((e) => e.y)) + i);
 	let h = [...f].filter((e) => !r || e >= r.x - Ce && e <= r.x + r.width + Ce).sort((e, t) => e - t), g = [...p].filter((e) => !r || e >= r.y - Ce && e <= r.y + r.height + Ce).sort((e, t) => e - t);
 	if (h.length * g.length > 25e4) throw Error("Orthogonal routing graph is too large; reduce diagram complexity.");
-	let _ = h.length, v = g.indexOf(e.y) * _ + h.indexOf(e.x), y = g.indexOf(t.y) * _ + h.indexOf(t.x), b = /* @__PURE__ */ new Map(), x = (e) => ({
+	let _ = h.length, v = g.indexOf(e.y) * _ + h.indexOf(e.x), y = g.indexOf(t.y) * _ + h.indexOf(t.x), b = new Uint8Array(h.length * g.length), x = Array(b.length), S = new Float64Array(b.length * 2).fill(NaN), ee = (e) => x[e] ??= {
 		x: h[e % _],
 		y: g[Math.floor(e / _)]
-	}), S = (e) => (b.has(e) || b.set(e, !n.some((t) => Oe(x(e), t))), b.get(e));
-	if (v < 0 || y < 0 || !S(v) || !S(y)) throw Error("Endpoint access is obstructed. Increase spacing or change attachment sides.");
-	let ee = [], C = /* @__PURE__ */ new Map(), te = /* @__PURE__ */ new Map(), ne = (e, t) => {
-		let n = ee.length;
-		for (ee.push({
+	}, C = (e) => (b[e] || (b[e] = n.some((t) => Oe(ee(e), t)) ? 1 : 2), b[e] === 2), te = (e, t, r, i) => {
+		let o = Math.min(e, t) * 2 + (r.y === i.y ? 0 : 1);
+		if (!Number.isNaN(S[o])) return S[o];
+		if (n.some((e) => De(r, i, e))) return S[o] = Infinity;
+		let s = 0;
+		for (let [e, t] of a) r.x === i.x && e.x === t.x && Math.abs(r.x - e.x) < 12 && (s += 10 * Math.max(0, Math.min(Math.max(r.y, i.y), Math.max(e.y, t.y)) - Math.max(Math.min(r.y, i.y), Math.min(e.y, t.y)))), r.y === i.y && e.y === t.y && Math.abs(r.y - e.y) < 12 && (s += 10 * Math.max(0, Math.min(Math.max(r.x, i.x), Math.max(e.x, t.x)) - Math.max(Math.min(r.x, i.x), Math.min(e.x, t.x))));
+		return S[o] = s;
+	};
+	if (v < 0 || y < 0 || !C(v) || !C(y)) throw Error("Endpoint access is obstructed. Increase spacing or change attachment sides.");
+	let ne = [], re = /* @__PURE__ */ new Map(), ie = /* @__PURE__ */ new Map(), ae = (e, t) => {
+		let n = ne.length;
+		for (ne.push({
 			key: e,
 			cost: t
 		}); n;) {
 			let e = n - 1 >> 1;
-			if (ee[e].cost <= t) break;
-			ee[n] = ee[e], n = e;
+			if (ne[e].cost <= t) break;
+			ne[n] = ne[e], n = e;
 		}
-		ee[n] = {
+		ne[n] = {
 			key: e,
 			cost: t
 		};
-	}, re = () => {
-		let e = ee[0], t = ee.pop();
-		if (ee.length) {
+	}, oe = () => {
+		let e = ne[0], t = ne.pop();
+		if (ne.length) {
 			let e = 0;
 			for (;;) {
 				let n = e * 2 + 1;
-				if (n >= ee.length || (n + 1 < ee.length && ee[n + 1].cost < ee[n].cost && n++, ee[n].cost >= t.cost)) break;
-				ee[e] = ee[n], e = n;
+				if (n >= ne.length || (n + 1 < ne.length && ne[n + 1].cost < ne[n].cost && n++, ne[n].cost >= t.cost)) break;
+				ne[e] = ne[n], e = n;
 			}
-			ee[e] = t;
+			ne[e] = t;
 		}
 		return e;
-	}, ie = v * d + c, ae = v === y && c && l && Te(c) !== Te(l) ? 20 : 0;
-	C.set(ie, ae), ne(ie, ae);
-	let oe;
-	for (; ee.length;) {
-		let e = re();
-		if (e.cost !== C.get(e.key)) continue;
-		let t = Math.floor(e.key / d), r = e.key % d;
-		if (t === y && !Ee(r, l)) {
-			oe = e.key;
+	}, se = v * d + c, ce = v === y && c && l && Te(c) !== Te(l) ? 20 : 0;
+	re.set(se, ce), ae(se, ce);
+	let le;
+	for (; ne.length;) {
+		let e = oe();
+		if (e.cost !== re.get(e.key)) continue;
+		let t = Math.floor(e.key / d), n = e.key % d;
+		if (t === y && !Ee(n, l)) {
+			le = e.key;
 			break;
 		}
-		let i = t % _, o = Math.floor(t / _), s = x(t);
-		for (let [t, c, f] of [
+		let r = t % _, i = Math.floor(t / _), a = ee(t);
+		for (let [o, s, c] of [
 			[
-				i - 1,
-				o,
+				r - 1,
+				i,
 				1
 			],
 			[
-				i + 1,
-				o,
+				r + 1,
+				i,
 				2
 			],
 			[
-				i,
-				o - 1,
+				r,
+				i - 1,
 				3
 			],
 			[
-				i,
-				o + 1,
+				r,
+				i + 1,
 				4
 			]
 		]) {
-			if (t < 0 || c < 0 || t >= h.length || c >= g.length) continue;
-			let i = c * _ + t, o = u ? f : Te(f);
-			if (u && Ee(r, f) || i === y && Ee(f, l) || !S(i)) continue;
-			let p = x(i);
-			if (n.some((e) => De(s, p, e))) continue;
-			let m = 0;
-			for (let [e, t] of a) s.x === p.x && e.x === t.x && Math.abs(s.x - e.x) < 12 && (m += 10 * Math.max(0, Math.min(Math.max(s.y, p.y), Math.max(e.y, t.y)) - Math.max(Math.min(s.y, p.y), Math.min(e.y, t.y)))), s.y === p.y && e.y === t.y && Math.abs(s.y - e.y) < 12 && (m += 10 * Math.max(0, Math.min(Math.max(s.x, p.x), Math.max(e.x, t.x)) - Math.max(Math.min(s.x, p.x), Math.min(e.x, t.x))));
-			let v = e.cost + Math.abs(s.x - p.x) + Math.abs(s.y - p.y) + m + (r && r !== o ? 20 : 0) + (i === y && l && o !== l ? 20 : 0), b = i * d + o;
-			v < (C.get(b) ?? Infinity) && (C.set(b, v), te.set(b, e.key), ne(b, v));
+			if (o < 0 || s < 0 || o >= h.length || s >= g.length) continue;
+			let r = s * _ + o, i = u ? c : Te(c);
+			if (u && Ee(n, c) || r === y && Ee(c, l) || !C(r)) continue;
+			let f = ee(r), p = te(t, r, a, f);
+			if (!Number.isFinite(p)) continue;
+			let m = e.cost + Math.abs(a.x - f.x) + Math.abs(a.y - f.y) + p + (n && n !== i ? 20 : 0) + (r === y && l && i !== l ? 20 : 0), v = r * d + i;
+			m < (re.get(v) ?? Infinity) && (re.set(v, m), ie.set(v, e.key), ae(v, m));
 		}
 	}
-	if (oe === void 0) throw Error("No clear orthogonal route exists. Increase spacing or change attachment sides.");
-	let se = [];
-	for (let e = oe; e !== void 0; e = te.get(e)) se.push(x(Math.floor(e / d)));
-	return se.reverse();
+	if (le === void 0) throw Error("No clear orthogonal route exists. Increase spacing or change attachment sides.");
+	let ue = [];
+	for (let e = le; e !== void 0; e = ie.get(e)) ue.push(ee(Math.floor(e / d)));
+	return ue.reverse();
 }
 // src/lib/flowchart/layout/loop-routing.js
 var Ae = (e) => {
@@ -48244,7 +48249,7 @@ function qe(e, t, n) {
 	}), r.push("</svg>"), r.join("\n");
 }
 // src/agent-kit/flowchart-converter.js
-var Je = "flowchart-agent-kit-2c6b7be3b0c138083374", Ye = class extends Error {
+var Je = "flowchart-agent-kit-7374180beb8b6e437f17", Ye = class extends Error {
 	constructor(e) {
 		super(e), this.stage = "arguments";
 	}

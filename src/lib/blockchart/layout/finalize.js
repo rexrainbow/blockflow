@@ -3,12 +3,18 @@ import { applyConnectionArrows } from './arrows.js';
 import { placeEdgeLabels, connectionLabels } from './edge-labels.js';
 import { textBounds, textSize } from '../geometry.js';
 import { TEXT_STYLE } from '../styles.js';
+import { netJunctions } from './net-junctions.js';
 
 /** Finalize semantic routes, translate to the origin, and add the diagram caption. */
 export function finalizeLayout({ modules, groups, terminals, connections }, model) {
   applyConnectionArrows(connections);
   const warnings = placeEdgeLabels({ modules, groups, terminals, connections });
+  const junctions = netJunctions({ modules, groups, terminals, connections });
   const allPoints = [
+    ...junctions.flatMap((j) => [
+      { x: j.x - j.radius, y: j.y - j.radius },
+      { x: j.x + j.radius, y: j.y + j.radius },
+    ]),
     ...connections.flatMap((edge) => [...(edge.arrow?.points ?? []), ...(edge.startArrow?.points ?? [])]),
     ...connections.flatMap((edge) =>
       connectionLabels(edge).flatMap((label) => [
@@ -42,11 +48,16 @@ export function finalizeLayout({ modules, groups, terminals, connections }, mode
   if (!Number.isFinite(width) || !Number.isFinite(height)) throw new Error('Non-finite layout bounds');
   for (const node of [...terminals, ...groups, ...modules]) translateNode(node, -minX, -minY);
   for (const connection of connections) translateConnection(connection, -minX, -minY);
+  for (const junction of junctions) {
+    junction.x -= minX;
+    junction.y -= minY;
+  }
   const result = {
     width,
     height,
     modules,
     connections,
+    ...(junctions.length ? { junctions } : {}),
     ...(terminals.length ? { terminals } : {}),
     ...(warnings.length ? { warnings } : {}),
     ...(groups.length ? { groups } : {}),

@@ -140,7 +140,9 @@ Save this as `diagram.json`, then run the first two commands above:
   every affected endpoint and group membership reference.
 - Normal endpoints are strings such as `Source.out`. `from` must send and `to` must receive.
   One output may fan out; an input has one driver. Duplicate edges are invalid. Self-loops
-  and multi-block cycles are allowed. Crossing lines do not create junctions or shared nets.
+  and multi-block cycles are allowed. Crossing different Nets never connects them.
+  Actual same-Net forks automatically receive solid junction dots when clear of
+  Ports, labels, hardware and other Nets. No manual junction objects or fields are needed.
 - Port `width` is an optional positive safe integer **bit count**. Omit it for unknown;
   never write null. Only two explicitly known endpoint widths must match. One known end
   determines that connection's width, without inferring any other port or branch width.
