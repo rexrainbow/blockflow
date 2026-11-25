@@ -82,6 +82,17 @@ test('Net statistics deduplicate segmented crossings and overlapping Net pairs',
   assert.equal(netRouteQuality({ connections: [a, { ...c, netId: 'bus' }] }).overlaps, 0);
 });
 
+test('edge bounds preserve epsilon collinearity and contacts from wide strokes', () => {
+  const a = edge('a', [p(0, 0), p(10, 0)]);
+  const b = edge('b', [p(2, 0.0000005), p(8, 0.0000005)]);
+  assert.equal(netRouteQuality({ connections: [a, b] }).overlaps, 1);
+  b.sections = [{ points: [p(2, 12), p(8, 12)] }];
+  b.style.strokeWidth = 20;
+  assert.equal(countStrokeContacts([a, b]), 1);
+  b.sections[0].points.forEach((point) => point.y++);
+  assert.equal(countStrokeContacts([a, b]), 0);
+});
+
 test('route trial rejection and search failure cannot overwrite a valid baseline', () => {
   const result = { modules: [], groups: [], connections: [], value: 'baseline' };
   const saved = structuredClone(result);

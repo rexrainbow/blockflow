@@ -3,6 +3,11 @@ import { icon } from '../ui/icons.js';
 
 const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 4;
+/**
+ * Time from the layout request (including the service's 180 ms coalescing delay) before
+ * the drawing is marked out of date; paint-only edits and small diagrams finish first.
+ */
+export const STALE_DELAY_MS = 500;
 const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Prefixes every id in `root` and rewrites url(#id) / href="#id" references to match. */
@@ -75,6 +80,9 @@ export class CanvasBase {
       h('span', { class: 'spinner', 'aria-hidden': 'true' }),
       'Laying out…',
     );
+    // Shown over an existing drawing while it no longer matches the document.
+    this.stale = h('div', { class: 'canvas-stale', role: 'status', hidden: true });
+    this.staleState = null;
     this.mini = h('div', { class: 'minimap', title: 'Overview — drag to move the view' });
     this.miniImg = h('img', { alt: '', draggable: 'false' });
     this.miniView = h('div', { class: 'minimap-view' });
@@ -133,7 +141,7 @@ export class CanvasBase {
         icon('fit'),
       ),
     );
-    this.el.append(this.stage, this.empty, this.busy, this.toolbar, this.tip, this.mini, this.zoomBar);
+    this.el.append(this.stage, this.empty, this.busy, this.stale, this.toolbar, this.tip, this.mini, this.zoomBar);
     this.bind();
     this.resizer = new ResizeObserver(() => {
       if (this.needsFit && this.layout) this.fit();
@@ -144,6 +152,7 @@ export class CanvasBase {
 
   dispose() {
     this.resizer.disconnect();
+    clearTimeout(this.staleTimer);
     if (this.miniUrl) URL.revokeObjectURL(this.miniUrl);
     this.stopRename(false);
   }
@@ -197,6 +206,33 @@ export class CanvasBase {
 
   setBusy(busy) {
     this.busy.hidden = !busy;
+  }
+
+  /**
+   * Mark the shown drawing as out of date: null (current), 'pending' (a new layout is
+   * computing) or 'error' (the last layout failed). Pending appears only after
+   * STALE_DELAY_MS, so fast and paint-only layouts never flash; once shown, it stays
+   * until a result arrives, including across further edits.
+   */
+  setStale(state) {
+    clearTimeout(this.staleTimer);
+    this.staleTimer = null;
+    if (state === 'pending' && !this.staleState)
+      this.staleTimer = setTimeout(() => this.showStale('pending'), STALE_DELAY_MS);
+    else this.showStale(state);
+  }
+
+  showStale(state) {
+    this.staleTimer = null;
+    this.staleState = state;
+    this.el.classList.toggle('is-stale', Boolean(state));
+    this.stale.hidden = !state;
+    this.stale.classList.toggle('error', state === 'error');
+    if (state === 'pending')
+      this.stale.replaceChildren(h('span', { class: 'spinner small', 'aria-hidden': 'true' }), 'Updating layout…');
+    else if (state === 'error')
+      this.stale.replaceChildren(icon('error', 12), 'Layout failed — showing the last result');
+    else this.stale.replaceChildren();
   }
 
   showEmpty(message, actions = []) {

@@ -92,6 +92,45 @@ Flowchart documents. `rootGroupId` selects the existing scoped view. The Worker
 installs an event listener and posts non-null replies; using `addEventListener`
 allows ELK's own initialization to coexist with the listener.
 
+### Paint-only Blockchart edits
+
+Compare the previous and current authoring documents with `geometryKey` from
+`src/editor/blockchart/paint-layout.js`. For matching keys in the same logical
+view, call `service.request(document, { rootGroupId, paintOnly: true })` with
+the complete current document. The service sends the revisioned request on the
+next timer tick, skipping the usual 180 ms coalescing delay.
+
+The same paint fields qualify at the diagram-default and local override levels.
+Removing an override restores the inherited value.
+
+| Edit | Fields eligible for geometry reuse |
+| --- | --- |
+| Module and Group bodies | `fillColor`, `fillOpacity`, `borderColor`, `borderOpacity`, `borderStyle` |
+| Net and branch strokes | `strokeColor`, `opacity`, `lineStyle` |
+| Text | `color`, `opacity`, `backgroundColor`, `backgroundOpacity`, `textAlign` on titles, Port labels, Terminals, Net labels and captions, including their diagram defaults |
+| Module, Group and Port keys | An item with an explicit label can be renamed when its references still resolve to the same authoring slots. Membership, Grid cells and connection endpoints must all follow the rename. |
+
+The Worker validates the entire document and keeps one private full-layout
+baseline. Repainting resolves the current inheritance and overrides, including
+collapsed Collection ports, Net junctions and repeated receiver labels. A rename
+updates semantic and projected endpoints, routing diagnostics, SVG identities
+and editor hit targets. Switching to another group, renaming a key used as
+display text, reordering existing items, or changing a measured property such as `fontSize`, `padding`,
+`hidden`, `borderWidth`, `strokeWidth` or an arrow runs full layout. Outer
+feedback also runs full layout if a rename changes the endpoint ordering used
+to assign lanes. The comparison preserves literal keys that can collide with
+internal signal names or JavaScript object properties.
+
+A new Worker or a cache miss computes a full layout from the same request.
+Use ordinary requests for document replacement and explicit re-layout. Errors,
+latest-revision delivery and persistence use the existing authoring protocol.
+
+For a DOM-free adapter, create one `createLayoutJobRunner()` from
+`src/editor/blockchart/layout-job.js` per editor session. Its returned async
+function takes the same Worker message. A new runner starts with an empty
+cache. The existing standalone `runLayoutJob(data)` always computes a full
+layout. Each reply owns its layout data.
+
 The normal factory creates the domain module Worker with `new URL` relative to the
 factory module. The offline factory imports that same entry with `?worker&inline`.
 Offline build resolution must select the appropriate **domain's** factory. A generic

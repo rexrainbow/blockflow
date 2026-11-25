@@ -1,4 +1,24 @@
 import { routeFixed } from './fixed.js';
+import { routeOrthogonal } from '../../shared/orthogonal.js';
+
+/** Share successful visibility searches between trials at one candidate position.
+ * Keep the ordered geometry exact: headings and foreign rails affect the chosen
+ * path even when the endpoints coincide. Callers own the points they receive.
+ */
+export function createCandidateRouter(search = routeOrthogonal) {
+  const paths = new Map();
+  return (...geometry) => {
+    const key = JSON.stringify(geometry);
+    let points = paths.get(key);
+    if (!points) {
+      points = search(...geometry);
+      // Large fanouts can generate many distinct searches before the second trial.
+      if (paths.size >= 256) return points;
+      paths.set(key, points);
+    }
+    return points.map(({ x, y }) => ({ x, y }));
+  };
+}
 
 /** Evaluate a disposable, already-edited working copy; keep baseline on search failure.
  * Acceptance policies remain with the feature. Cloning stays with the caller so

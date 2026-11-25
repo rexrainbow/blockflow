@@ -2,7 +2,7 @@ import { ancestors, descendants, parentOf } from '../hierarchy.js';
 import { groupGeometry } from './groups.js';
 import { resolveLayoutSpacing } from '../layout-spacing.js';
 import { translateNode } from './translate.js';
-import { evaluateRoutedTrial } from './routing-trial.js';
+import { createCandidateRouter, evaluateRoutedTrial } from './routing-trial.js';
 import { routeFixed } from './fixed.js';
 import { routeWorkingConnections } from './routing-policy.js';
 import { netRouteQuality as quality } from './route-quality.js';
@@ -46,26 +46,30 @@ function shiftTree(node, delta, axis, nodes) {
   }
 }
 
-function candidate(result, model, groupId, units, positions, axis) {
+function candidate(result, model, groupId, units, positions, axis, rigid) {
   const trial = structuredClone(result),
     nodes = nodesOf(trial),
     group = nodes.get(groupId);
-  const ref = model.groups.find((g) => g.id === groupId),
-    pad = groupGeometry(ref, model.layout.direction, model);
-  const size = axis === 'x' ? 'width' : 'height',
-    before = axis === 'x' ? pad.left : pad.top,
-    after = axis === 'x' ? pad.right : pad.bottom;
-  const gap = resolveLayoutSpacing(model, groupId).moduleSpacing;
-  let end = -Infinity;
-  for (let i = 0; i < units.length; i++) {
-    const n = nodes.get(units[i].id),
-      target = Math.max(positions[i], end + gap);
-    shiftTree(n, target - n[axis], axis, nodes);
-    end = target + n[size];
+  const size = axis === 'x' ? 'width' : 'height';
+  let extent = group[size],
+    start = group[axis] + (positions[0] - units[0].position);
+  if (!rigid) {
+    const ref = model.groups.find((g) => g.id === groupId),
+      pad = groupGeometry(ref, model.layout.direction, model),
+      before = axis === 'x' ? pad.left : pad.top,
+      after = axis === 'x' ? pad.right : pad.bottom;
+    const gap = resolveLayoutSpacing(model, groupId).moduleSpacing;
+    let end = -Infinity;
+    for (let i = 0; i < units.length; i++) {
+      const n = nodes.get(units[i].id),
+        target = Math.max(positions[i], end + gap);
+      shiftTree(n, target - n[axis], axis, nodes);
+      end = target + n[size];
+    }
+    const lo = Math.min(...units.map((u) => nodes.get(u.id)[axis]));
+    extent = Math.max(group[size], pad[size], end - lo + before + after);
+    start = lo - before;
   }
-  const lo = Math.min(...units.map((u) => nodes.get(u.id)[axis]));
-  const extent = Math.max(group[size], pad[size], end - lo + before + after);
-  let start = lo - before;
   const parentId = parentOf(model, groupId),
     parent = nodes.get(parentId);
   let limit;
@@ -89,11 +93,12 @@ function candidate(result, model, groupId, units, positions, axis) {
   if (extent > limit[size] + eps) return null;
   const clamped = Math.max(limit[axis], Math.min(start, limit[axis] + limit[size] - extent)),
     adjust = clamped - start;
-  if (Math.abs(adjust) > eps) for (const u of units) shiftTree(nodes.get(u.id), adjust, axis, nodes);
-  start = clamped;
-  // Only this Auto frame may grow to wrap its members, never its external wires.
-  translateNode(group, axis === 'x' ? start - group[axis] : 0, axis === 'y' ? start - group[axis] : 0);
-  group[size] = extent;
+  if (rigid) shiftTree(group, clamped - group[axis], axis, nodes);
+  else {
+    if (Math.abs(adjust) > eps) for (const u of units) shiftTree(nodes.get(u.id), adjust, axis, nodes);
+    translateNode(group, axis === 'x' ? clamped - group[axis] : 0, axis === 'y' ? clamped - group[axis] : 0);
+    group[size] = extent;
+  }
   const owned = new Set([groupId, ...descendants(model, groupId)]),
     parents = new Set(ancestors(model, groupId));
   if (parent && !contains(parent, group)) return null;
@@ -182,22 +187,27 @@ export function alignPeripheralGroups(result, model) {
           b = current.port(peer);
         if (a && b) goals.push(unit[axis] + b[axis] - a[axis]);
       }
-      if (!goals.length) break;
       units.push({ id: unit.id, position: unit[axis], goals });
     }
     if (units.length !== ref.members.length) continue;
     units.sort((a, b) => a.position - b.position);
     const allDeltas = units.flatMap((u) => u.goals.map((p) => p - u.position));
-    const plans = [
-      units.map((u) => Math.min(...u.goals)),
-      units.map((u) => Math.max(...u.goals)),
-      units.map((u) => u.goals.reduce((a, b) => a + b, 0) / u.goals.length),
-      units.map((u) => u.position + median(allDeltas)),
-    ];
+    if (!allDeltas.length) continue;
+    const rigid = units.some((u) => !u.goals.length);
+    const delta = median(allDeltas);
+    const translation = units.map((u) => u.position + delta);
+    const plans = rigid
+      ? [translation]
+      : [
+          units.map((u) => Math.min(...u.goals)),
+          units.map((u) => Math.max(...u.goals)),
+          units.map((u) => u.goals.reduce((a, b) => a + b, 0) / u.goals.length),
+          translation,
+        ];
     const candidates = [],
       seen = new Set();
     for (const positions of plans) {
-      const trial = candidate(result, model, ref.id, units, positions, axis);
+      const trial = candidate(result, model, ref.id, units, positions, axis, rigid);
       if (!trial) continue;
       const trialNodes = nodesOf(trial),
         key = units.map((u) => trialNodes.get(u.id)[axis].toFixed(3)).join(',');
@@ -214,9 +224,11 @@ export function alignPeripheralGroups(result, model) {
       (a, b) => a.score.main - b.score.main || a.worst - b.worst || a.score.weak - b.score.weak,
     );
     if (!candidates.length) continue;
+    const baseline = rigid ? quality(result) : null;
     // Placement is selected from actual peer anchors, not from a transient
     // all-Net route score. Compare routing alternatives only at that position.
     candidateSearch: for (const c of candidates.slice(0, 2)) {
+      const search = createCandidateRouter();
       let best = null,
         bestScore = null;
       for (const avoidForeignOverlaps of [false, true]) {
@@ -224,16 +236,25 @@ export function alignPeripheralGroups(result, model) {
         if (
           !evaluateRoutedTrial(trial, model, {
             reason: 'peripheral-alignment',
-            routeOptions: { avoidForeignOverlaps },
+            routeOptions: { avoidForeignOverlaps, search },
             route: (draft, routingModel, options) => {
               routeFixed(draft, routingModel, options);
-              routeWorkingConnections(draft, routingModel);
+              routeWorkingConnections(draft, routingModel, search);
             },
           })
         )
           continue;
         const q = quality(trial),
           score = [q.overlaps, q.crossings, q.bends, q.length];
+        // These are working routes: semantic cleanup still follows. Preserve a
+        // clear drawing and reject a longer detour for the whole-frame move.
+        if (
+          baseline &&
+          (q.length > baseline.length + eps ||
+            (!baseline.overlaps && q.overlaps) ||
+            (!baseline.crossings && q.crossings))
+        )
+          continue;
         if (
           !bestScore ||
           score.some(

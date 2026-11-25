@@ -5,6 +5,7 @@ import { createGridPlan, directGridMembers } from '../grid.js';
 import { routingSpacing } from './routing-spacing.js';
 import { planGridChannels } from './grid-channels.js';
 import { resolveLayoutSpacing } from '../layout-spacing.js';
+import { containerExitMargins } from './container-spacing.js';
 
 /** Arrange existing node envelopes; callers must reroute connections afterwards. */
 export async function arrangeGrids(result, model, elk) {
@@ -13,6 +14,7 @@ export async function arrangeGrids(result, model, elk) {
   // Plans live only for this pass and are never added to config or model.
   const semantic = model._signalOriginal ?? model,
     plans = new Map();
+  const exitMargins = containerExitMargins(semantic);
   if (!model.rootGroupId && semantic.layout.type === 'grid')
     plans.set('', createGridPlan(semantic.layout.cells, directGridMembers(semantic), semantic.groups));
   for (const group of semantic.groups)
@@ -119,6 +121,20 @@ export async function arrangeGrids(result, model, elk) {
           ...region,
           pad: groupGeometry(refs.get(region.id), model.layout.direction, model),
         }));
+      // A region expanded into its parent's Grid gets its frame from the track
+      // perimeter. Reserve an exit there only for a child on that perimeter.
+      for (const region of regions) {
+        const { firstRow, lastRow, firstColumn, lastColumn, pad } = region;
+        for (let r = firstRow; r <= lastRow; r++)
+          for (let c = firstColumn; c <= lastColumn; c++) {
+            const margin = exitMargins.get(rows[r][c]);
+            if (!margin) continue;
+            if (c === firstColumn) pad.left = Math.max(pad.left, margin.left);
+            if (c === lastColumn) pad.right = Math.max(pad.right, margin.right);
+            if (r === firstRow) pad.top = Math.max(pad.top, margin.top);
+            if (r === lastRow) pad.bottom = Math.max(pad.bottom, margin.bottom);
+          }
+      }
       // Labels may wrap a semantic cell in a private envelope. Align its body,
       // reserving the envelope's overhang so adjacent cells remain disjoint.
       const body = (node) => {
@@ -287,8 +303,21 @@ export async function arrangeGrids(result, model, elk) {
       pad = groupGeometry(ref, model.layout.direction, model),
       children = node.members.map((id) => nodes.get(id)).filter(Boolean),
       size = await place(children, ref.layout, node, pad, plans.get(id), id);
-    node.width = Math.max(pad.width, size.width);
-    node.height = Math.max(pad.height, size.height);
+    // Grid repacking sizes a frame from its children. Include the exterior turn
+    // of each exiting child, crediting space already supplied by peers or minima.
+    let dx = 0,
+      dy = 0;
+    for (const child of children) {
+      const margin = exitMargins.get(child.id);
+      if (!margin) continue;
+      dx = Math.max(dx, margin.left - (child.x - node.x));
+      dy = Math.max(dy, margin.top - (child.y - node.y));
+      size.width = Math.max(size.width, child.x + child.width - node.x + margin.right);
+      size.height = Math.max(size.height, child.y + child.height - node.y + margin.bottom);
+    }
+    if (dx || dy) for (const child of children) shift(child, dx, dy);
+    node.width = Math.max(pad.width, size.width + dx);
+    node.height = Math.max(pad.height, size.height + dy);
     for (const side of ['left', 'right', 'top', 'bottom']) {
       const list = (node.ports ?? []).filter(
           (p) => (p.side ?? defaultSide(p, model.layout.direction)) === side,

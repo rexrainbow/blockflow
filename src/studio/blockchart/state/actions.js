@@ -277,8 +277,19 @@ export function newPort(doc, ownerId, direction) {
   if (!owner) throw new Error('This item is no longer available.');
   if (findGroup(doc, ownerId) && groupType(owner) !== 'boundary') throw new Error('Only boundary groups have ports.');
   owner.ports ??= [];
-  return addPort(owner, direction);
+  const id = addPort(owner, direction);
+  // Keep the saved list in reading order: a new port follows the last port of its own
+  // direction (inputs, then bidirectional, then outputs) instead of the end of the list.
+  const ports = owner.ports;
+  const port = ports.pop();
+  let at = ports.length;
+  while (at > 0 && PORT_RANK[ports[at - 1].direction] > PORT_RANK[direction]) at--;
+  ports.splice(at, 0, port);
+  return id;
 }
+
+/** Inspector and insertion order of port directions. */
+export const PORT_RANK = { input: 0, inout: 1, output: 2 };
 
 /* ---------------- Problems ---------------- */
 export function problems(doc, layoutError, warnings = []) {

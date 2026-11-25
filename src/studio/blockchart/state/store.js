@@ -55,8 +55,26 @@ export class Store extends BaseStore {
     } else super.select(selection);
   }
 
+  /**
+   * After an edit, Undo or Redo the view stays on its group. A group keeps its slot in
+   * `groups` when its key is renamed, so a missing root whose slot now holds a key that
+   * did not exist before follows that group; any other missing root returns to the
+   * whole diagram.
+   */
   fixSelection() {
     super.fixSelection();
-    if (this.root && !group(this.document, this.root)) this.root = '';
+    const doc = this.document,
+      prev = this.rootDocument;
+    if (this.root && !group(doc, this.root)) {
+      const slot = prev?.groups?.findIndex((g) => g.id === this.root) ?? -1;
+      const next = slot >= 0 && doc.groups?.length === prev.groups.length ? doc.groups[slot] : null;
+      this.root = next && !group(prev, next.id) ? next.id : '';
+    }
+    this.rootDocument = doc;
+  }
+
+  setRoot(root) {
+    this.rootDocument = this.document;
+    super.setRoot(root);
   }
 }

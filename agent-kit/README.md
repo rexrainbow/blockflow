@@ -16,9 +16,9 @@ Move this folder to any location. Each converter can run independently; its Sche
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-2976b9878bce820ef8dd`
-- Flowchart build: `flowchart-agent-kit-7374180beb8b6e437f17`
-- Statechart build: `statechart-agent-kit-a17d6a9869b545ddb28b`
+- Blockchart build: `blockchart-agent-kit-b7aad4ecc00098e98195`
+- Flowchart build: `flowchart-agent-kit-633647beeb3570487332`
+- Statechart build: `statechart-agent-kit-ef954fb54538f0a33034`
 
 ## Quick start
 
@@ -48,7 +48,7 @@ license attribution; its full license appears at the end of this README.
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-2976b9878bce820ef8dd`
+Build: `blockchart-agent-kit-b7aad4ecc00098e98195`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -830,7 +830,7 @@ width/height. These fields are invalid under Auto layout.
 
 ## Flowchart Agent Kit
 
-Build: `flowchart-agent-kit-7374180beb8b6e437f17`
+Build: `flowchart-agent-kit-633647beeb3570487332`
 
 Use `flowchart-convert.mjs` for process diagrams. `flowchart.schema.json` is the standalone
 JSON Schema Draft 2020-12; it has no dependency on the Blockchart Schema. The validator
@@ -1006,7 +1006,7 @@ no new Mermaid alignment directive is supported.
 
 ## Statechart Agent Kit
 
-Build: `statechart-agent-kit-a17d6a9869b545ddb28b`; bundled ELK: `0.12.1`.
+Build: `statechart-agent-kit-ef954fb54538f0a33034`; bundled ELK: `0.12.1`.
 
 Use `statechart-convert.mjs` with `statechart.schema.json` to generate flat FSM
 diagrams. Input is Statechart JSON or the documented `stateDiagram-v2` subset;

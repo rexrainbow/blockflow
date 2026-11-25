@@ -259,7 +259,7 @@ export class StudioShell {
       this.canvas.stopRename(false);
     if (reason === 'document' || reason === 'replace' || reason === 'root') {
       if (reason !== 'document') this.canvas.requestFit();
-      this.requestLayout();
+      this.requestLayout(reason);
       this.renderAll();
     } else if (reason === 'selection') {
       this.outline.render();
@@ -330,10 +330,12 @@ export class StudioShell {
   }
 
   /* ---------------- layout ---------------- */
-  requestLayout() {
+  /** reason: the store change that asked for it ('document', 'replace', 'root'), or none. */
+  requestLayout(reason) {
     this.store.layoutPending = true;
     this.canvas.setBusy(!this.store.layout);
-    this.layoutService.request(this.store.document, this.layoutOptions());
+    this.canvas.setStale(this.store.layout ? 'pending' : null);
+    this.layoutService.request(this.store.document, { ...this.layoutOptions(), ...this.layoutHint(reason) });
     this.renderStatus();
   }
 
@@ -341,10 +343,16 @@ export class StudioShell {
     return {};
   }
 
+  /** domain: per-request hints for the layout service (e.g. Blockchart paintOnly). */
+  layoutHint() {
+    return {};
+  }
+
   onLayout(result) {
     if (this.disposed) return;
     this.store.layoutPending = false;
     this.canvas.setBusy(false);
+    this.canvas.setStale(result.error && this.store.layout ? 'error' : null);
     if (result.error) {
       this.store.layoutError = { message: result.error, path: result.path };
       if (!this.store.layout)

@@ -24,7 +24,22 @@ export function routeMetrics(points) {
   return { length, bends };
 }
 
-// Proper interior crossings are deduplicated by Net and coordinate; collinear overlaps by Net pair.
+const boxOf = (segments) => {
+  let x0 = Infinity,
+    y0 = Infinity,
+    x1 = -Infinity,
+    y1 = -Infinity;
+  for (const [a, b] of segments) {
+    x0 = Math.min(x0, a.x, b.x);
+    x1 = Math.max(x1, a.x, b.x);
+    y0 = Math.min(y0, a.y, b.y);
+    y1 = Math.max(y1, a.y, b.y);
+  }
+  return { x0, y0, x1, y1 };
+};
+const mayTouch = (a, b, pad) =>
+  a.x0 <= b.x1 + pad && b.x0 <= a.x1 + pad && a.y0 <= b.y1 + pad && b.y0 <= a.y1 + pad;
+// Deduplicate proper crossings by Net and coordinate, collinear overlaps by Net pair.
 export function netRouteQuality(result) {
   let length = 0,
     bends = 0;
@@ -35,13 +50,18 @@ export function netRouteQuality(result) {
     length += m.length;
     bends += m.bends;
   }
-  for (let i = 0; i < result.connections.length; i++)
-    for (const b of result.connections.slice(i + 1)) {
-      const a = result.connections[i],
+  const edges = result.connections,
+    segments = edges.map((e) => parts(e.sections)),
+    boxes = segments.map(boxOf);
+  for (let i = 0; i < edges.length; i++)
+    for (let j = i + 1; j < edges.length; j++) {
+      const a = edges[i],
+        b = edges[j],
         ids = [a.netId ?? a.id, b.netId ?? b.id].sort();
       if (ids[0] === ids[1]) continue;
-      for (const [p, q] of parts(a.sections))
-        for (const [r, s] of parts(b.sections)) {
+      if (!mayTouch(boxes[i], boxes[j], eps)) continue;
+      for (const [p, q] of segments[i])
+        for (const [r, s] of segments[j]) {
           const h = Math.abs(p.y - q.y) < eps,
             k = Math.abs(r.y - s.y) < eps;
           if (h === k) {
@@ -72,68 +92,87 @@ export function netRouteQuality(result) {
 
 // Conservative segment-pair contacts, including T contacts but excluding a shared segment endpoint.
 export function countSegmentContacts(sections, others) {
+  const segments = parts(sections);
   let count = 0;
-  for (const [a, b] of parts(sections))
-    for (const edge of others)
-      for (const [c, d] of parts(edge.sections)) {
-        const h = Math.abs(a.y - b.y) < EPS,
-          k = Math.abs(c.y - d.y) < EPS;
-        if (h === k) {
-          const axis = h ? 'x' : 'y',
-            fixed = h ? 'y' : 'x';
-          if (
-            Math.abs(a[fixed] - c[fixed]) < EPS &&
-            Math.min(Math.max(a[axis], b[axis]), Math.max(c[axis], d[axis])) -
-              Math.max(Math.min(a[axis], b[axis]), Math.min(c[axis], d[axis])) >
-              EPS
-          )
-            count++;
-        } else {
-          const p = h ? [a, b] : [c, d],
-            q = h ? [c, d] : [a, b];
-          if (
-            q[0].x >= Math.min(p[0].x, p[1].x) - EPS &&
-            q[0].x <= Math.max(p[0].x, p[1].x) + EPS &&
-            p[0].y >= Math.min(q[0].y, q[1].y) - EPS &&
-            p[0].y <= Math.max(q[0].y, q[1].y) + EPS
-          ) {
-            const hit = { x: q[0].x, y: p[0].y };
-            const end = (u, v) =>
-              Math.hypot(hit.x - u.x, hit.y - u.y) < EPS || Math.hypot(hit.x - v.x, hit.y - v.y) < EPS;
-            if (!(end(a, b) && end(c, d))) count++;
-          }
-        }
-      }
+  for (const edge of others)
+    for (const other of parts(edge.sections))
+      for (const segment of segments) if (segmentsContact(segment, other)) count++;
   return count;
+}
+
+export function segmentsContact([a, b], [c, d]) {
+  const h = Math.abs(a.y - b.y) < EPS,
+    k = Math.abs(c.y - d.y) < EPS;
+  if (h === k) {
+    const axis = h ? 'x' : 'y',
+      fixed = h ? 'y' : 'x';
+    if (
+      Math.abs(a[fixed] - c[fixed]) < EPS &&
+      Math.min(Math.max(a[axis], b[axis]), Math.max(c[axis], d[axis])) -
+        Math.max(Math.min(a[axis], b[axis]), Math.min(c[axis], d[axis])) >
+        EPS
+    )
+      return true;
+  } else {
+    const p = h ? [a, b] : [c, d],
+      q = h ? [c, d] : [a, b];
+    if (
+      q[0].x >= Math.min(p[0].x, p[1].x) - EPS &&
+      q[0].x <= Math.max(p[0].x, p[1].x) + EPS &&
+      p[0].y >= Math.min(q[0].y, q[1].y) - EPS &&
+      p[0].y <= Math.max(q[0].y, q[1].y) + EPS
+    ) {
+      const hit = { x: q[0].x, y: p[0].y };
+      const end = (u, v) =>
+        Math.hypot(hit.x - u.x, hit.y - u.y) < EPS || Math.hypot(hit.x - v.x, hit.y - v.y) < EPS;
+      return !(end(a, b) && end(c, d));
+    }
+  }
+  return false;
 }
 
 // Stroke-envelope proximity, with same-Net and common endpoint exemptions.
 // Count segment pairs (not unique intersections); used by Port adjustment.
 export function countStrokeContacts(edges) {
   let crossings = 0;
-  const paths = edges.map((edge) => ({
-    edge,
-    parts: parts(edge.sections).filter(([a, b]) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > EPS),
-  }));
+  const paths = edges.map((edge) => {
+    const bounds = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    const segments = [];
+    for (const [a, b] of parts(edge.sections)) {
+      if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= EPS) continue;
+      const box = strokeBox(a, b, edge.style.strokeWidth / 2 + 1);
+      segments.push({ a, b, box });
+      bounds.x0 = Math.min(bounds.x0, box.x);
+      bounds.y0 = Math.min(bounds.y0, box.y);
+      bounds.x1 = Math.max(bounds.x1, box.x + box.width);
+      bounds.y1 = Math.max(bounds.y1, box.y + box.height);
+    }
+    return {
+      netId: edge.netId,
+      segments,
+      bounds,
+      ends: [edge.sections[0]?.points[0], edge.sections.at(-1)?.points.at(-1)],
+    };
+  });
   for (let i = 0; i < paths.length; i++)
     for (let j = i + 1; j < paths.length; j++) {
-      if (paths[i].edge.netId === paths[j].edge.netId) continue;
-      const ends = (p) => [p.edge.sections[0].points[0], p.edge.sections.at(-1).points.at(-1)];
-      const shared = ends(paths[i]).filter((a) => ends(paths[j]).some((b) => samePoint(a, b)));
-      for (const [a, b] of paths[i].parts)
-        for (const [c, d] of paths[j].parts) {
+      const a = paths[i],
+        b = paths[j];
+      if (a.netId === b.netId || !mayTouch(a.bounds, b.bounds, EPS)) continue;
+      const shared = a.ends.filter((p) => b.ends.some((q) => samePoint(p, q)));
+      for (const first of a.segments)
+        for (const second of b.segments) {
+          if (!overlap(first.box, second.box)) continue;
           // Different boundary faces may legitimately join at the same fixed anchor.
           if (
-            shared.some((p) => (samePoint(p, a) || samePoint(p, b)) && (samePoint(p, c) || samePoint(p, d)))
-          )
-            continue;
-          if (
-            overlap(
-              strokeBox(a, b, paths[i].edge.style.strokeWidth / 2 + 1),
-              strokeBox(c, d, paths[j].edge.style.strokeWidth / 2 + 1),
+            shared.some(
+              (p) =>
+                (samePoint(p, first.a) || samePoint(p, first.b)) &&
+                (samePoint(p, second.a) || samePoint(p, second.b)),
             )
           )
-            crossings++;
+            continue;
+          crossings++;
         }
     }
   return crossings;

@@ -2,18 +2,24 @@ const eps = 1e-6;
 const heading = (v) => (!v ? 0 : v.x < 0 ? 1 : v.x > 0 ? 2 : v.y < 0 ? 3 : v.y > 0 ? 4 : 0);
 const axis = (dir) => (dir <= 2 ? 1 : 2);
 const opposite = (a, b) => a && b && a !== b && axis(a) === axis(b);
-const crosses = (a, b, r) =>
-  Math.abs(a.y - b.y) < eps
-    ? a.y > r.y + eps &&
-      a.y < r.y + r.height - eps &&
-      Math.max(a.x, b.x) > r.x + eps &&
-      Math.min(a.x, b.x) < r.x + r.width - eps
-    : a.x > r.x + eps &&
-      a.x < r.x + r.width - eps &&
-      Math.max(a.y, b.y) > r.y + eps &&
-      Math.min(a.y, b.y) < r.y + r.height - eps;
-const inside = (p, r) =>
-  p.x > r.x + eps && p.x < r.x + r.width - eps && p.y > r.y + eps && p.y < r.y + r.height - eps;
+
+const stepX = [-1, 1, 0, 0];
+const stepY = [0, 0, -1, 1];
+
+// Filter lazily and in input order so parallel penalties sum in the same order.
+// Limit retained references on long, narrow grids spanned by many obstacles.
+function candidatesByCoordinate(coordinates, items, matches, budget) {
+  const lists = new Array(coordinates.length);
+  return (index) => {
+    if (lists[index]) return lists[index];
+    const candidates = items.filter((item) => matches(item, coordinates[index]));
+    if (candidates.length <= budget) {
+      lists[index] = candidates;
+      budget -= candidates.length;
+    }
+    return candidates;
+  };
+}
 
 /** Endpoint directions describe travel before start and after end, not outward target normals. */
 export function routeOrthogonal(
@@ -27,7 +33,6 @@ export function routeOrthogonal(
 ) {
   const startHeading = heading(startDirection),
     endHeading = heading(endDirection);
-  // Calls without endpoint headings retain the original axis-state search.
   const oriented = Boolean(startHeading || endHeading),
     stride = oriented ? 5 : 3;
   const xs = new Set([start.x, end.x]),
@@ -48,11 +53,20 @@ export function routeOrthogonal(
       ys.add(a.y + 16);
     }
   }
-  const all = [start, end, ...obstacles.flatMap((r) => [r, { x: r.x + r.width, y: r.y + r.height }])];
-  xs.add(Math.min(...all.map((p) => p.x)) - clearance);
-  xs.add(Math.max(...all.map((p) => p.x)) + clearance);
-  ys.add(Math.min(...all.map((p) => p.y)) - clearance);
-  ys.add(Math.max(...all.map((p) => p.y)) + clearance);
+  let minX = Math.min(start.x, end.x),
+    maxX = Math.max(start.x, end.x),
+    minY = Math.min(start.y, end.y),
+    maxY = Math.max(start.y, end.y);
+  for (const r of obstacles) {
+    minX = Math.min(minX, r.x, r.x + r.width);
+    maxX = Math.max(maxX, r.x, r.x + r.width);
+    minY = Math.min(minY, r.y, r.y + r.height);
+    maxY = Math.max(maxY, r.y, r.y + r.height);
+  }
+  xs.add(minX - clearance);
+  xs.add(maxX + clearance);
+  ys.add(minY - clearance);
+  ys.add(maxY + clearance);
   const X = [...xs]
       .filter((x) => !bounds || (x >= bounds.x - eps && x <= bounds.x + bounds.width + eps))
       .sort((a, b) => a - b),
@@ -62,128 +76,194 @@ export function routeOrthogonal(
   if (X.length * Y.length > 250000)
     throw new Error('Orthogonal routing graph is too large; reduce diagram complexity.');
   const width = X.length,
+    height = Y.length,
+    nodes = width * height,
     from = Y.indexOf(start.y) * width + X.indexOf(start.x),
-    to = Y.indexOf(end.y) * width + X.indexOf(end.x),
-    valid = new Uint8Array(X.length * Y.length),
-    gridPoints = new Array(valid.length),
-    links = new Float64Array(valid.length * 2).fill(NaN);
-  const point = (id) => (gridPoints[id] ??= { x: X[id % width], y: Y[Math.floor(id / width)] });
+    to = Y.indexOf(end.y) * width + X.indexOf(end.x);
+
+  const obstaclesInColumn = candidatesByCoordinate(
+    X,
+    obstacles,
+    (r, x) => x > r.x + eps && x < r.x + r.width - eps,
+    nodes,
+  );
+  const obstaclesInRow = candidatesByCoordinate(
+    Y,
+    obstacles,
+    (r, y) => y > r.y + eps && y < r.y + r.height - eps,
+    nodes,
+  );
+  const avoidInColumn = candidatesByCoordinate(
+    X,
+    avoid,
+    ([u, v], x) => u.x === v.x && Math.abs(x - u.x) < 12,
+    nodes,
+  );
+  const avoidInRow = candidatesByCoordinate(
+    Y,
+    avoid,
+    ([u, v], y) => u.y === v.y && Math.abs(y - u.y) < 12,
+    nodes,
+  );
+
+  const valid = new Uint8Array(nodes);
   const allowed = (id) => {
-    if (!valid[id]) valid[id] = obstacles.some((r) => inside(point(id), r)) ? 1 : 2;
+    if (!valid[id]) {
+      const xi = id % width,
+        yi = Math.floor(id / width),
+        y = Y[yi];
+      valid[id] = obstaclesInColumn(xi).some((r) => y > r.y + eps && y < r.y + r.height - eps) ? 1 : 2;
+    }
     return valid[id] === 2;
   };
-  // Obstacle visibility and parallel ink cost depend on a physical grid link,
-  // not the search state's arrival heading. Cache them once per undirected link.
-  const linkCost = (id, next, a, b) => {
-    const key = Math.min(id, next) * 2 + (a.y === b.y ? 0 : 1);
-    if (!Number.isNaN(links[key])) return links[key];
-    if (obstacles.some((r) => crosses(a, b, r))) return (links[key] = Infinity);
-    let penalty = 0;
-    for (const [u, v] of avoid) {
-      if (a.x === b.x && u.x === v.x && Math.abs(a.x - u.x) < 12)
-        penalty +=
-          10 *
-          Math.max(
-            0,
-            Math.min(Math.max(a.y, b.y), Math.max(u.y, v.y)) -
-              Math.max(Math.min(a.y, b.y), Math.min(u.y, v.y)),
-          );
-      if (a.y === b.y && u.y === v.y && Math.abs(a.y - u.y) < 12)
-        penalty +=
-          10 *
-          Math.max(
-            0,
-            Math.min(Math.max(a.x, b.x), Math.max(u.x, v.x)) -
-              Math.max(Math.min(a.x, b.x), Math.min(u.x, v.x)),
-          );
+  const links = new Float64Array(nodes * 2).fill(NaN);
+  const linkCost = (id, next, ax, ay, bx, by) => {
+    const key = Math.min(id, next) * 2 + (ay === by ? 0 : 1);
+    const cached = links[key];
+    if (!Number.isNaN(cached)) return cached;
+    // Obstacle interiors use the geometry epsilon; parallel ink requires an exact axis.
+    if (Math.abs(ay - by) < eps) {
+      const lo = Math.min(ax, bx),
+        hi = Math.max(ax, bx);
+      for (const r of obstaclesInRow(Math.floor(id / width)))
+        if (hi > r.x + eps && lo < r.x + r.width - eps) return (links[key] = Infinity);
+    } else {
+      const lo = Math.min(ay, by),
+        hi = Math.max(ay, by);
+      for (const r of obstaclesInColumn(id % width))
+        if (hi > r.y + eps && lo < r.y + r.height - eps) return (links[key] = Infinity);
     }
+    let penalty = 0;
+    if (ax === bx)
+      for (const [u, v] of avoidInColumn(id % width))
+        penalty +=
+          10 *
+          Math.max(
+            0,
+            Math.min(Math.max(ay, by), Math.max(u.y, v.y)) - Math.max(Math.min(ay, by), Math.min(u.y, v.y)),
+          );
+    if (ay === by)
+      for (const [u, v] of avoidInRow(Math.floor(id / width)))
+        penalty +=
+          10 *
+          Math.max(
+            0,
+            Math.min(Math.max(ax, bx), Math.max(u.x, v.x)) - Math.max(Math.min(ax, bx), Math.min(u.x, v.x)),
+          );
     return (links[key] = penalty);
   };
   if (from < 0 || to < 0 || !allowed(from) || !allowed(to))
     throw new Error('Endpoint access is obstructed. Increase spacing or change attachment sides.');
-  const heap = [],
-    dist = new Map(),
-    previous = new Map();
+
+  // Equal costs keep their heap position. Prefer the left child on a tie.
+  let heapKeys = new Int32Array(Math.min(1024, nodes * stride)),
+    heapCosts = new Float64Array(heapKeys.length),
+    size = 0;
   const push = (key, cost) => {
-    let i = heap.length;
-    heap.push({ key, cost });
+    if (size === heapKeys.length) {
+      const keys = new Int32Array(size * 2),
+        costs = new Float64Array(size * 2);
+      keys.set(heapKeys);
+      costs.set(heapCosts);
+      heapKeys = keys;
+      heapCosts = costs;
+    }
+    let i = size++;
     while (i) {
       const p = (i - 1) >> 1;
-      if (heap[p].cost <= cost) break;
-      heap[i] = heap[p];
+      if (heapCosts[p] <= cost) break;
+      heapKeys[i] = heapKeys[p];
+      heapCosts[i] = heapCosts[p];
       i = p;
     }
-    heap[i] = { key, cost };
+    heapKeys[i] = key;
+    heapCosts[i] = cost;
   };
+  let poppedKey = 0,
+    poppedCost = 0;
   const pop = () => {
-    const first = heap[0],
-      last = heap.pop();
-    if (heap.length) {
+    poppedKey = heapKeys[0];
+    poppedCost = heapCosts[0];
+    const lastKey = heapKeys[size - 1],
+      lastCost = heapCosts[size - 1];
+    size--;
+    if (size) {
       let i = 0;
       while (true) {
         let c = i * 2 + 1;
-        if (c >= heap.length) break;
-        if (c + 1 < heap.length && heap[c + 1].cost < heap[c].cost) c++;
-        if (heap[c].cost >= last.cost) break;
-        heap[i] = heap[c];
+        if (c >= size) break;
+        if (c + 1 < size && heapCosts[c + 1] < heapCosts[c]) c++;
+        if (heapCosts[c] >= lastCost) break;
+        heapKeys[i] = heapKeys[c];
+        heapCosts[i] = heapCosts[c];
         i = c;
       }
-      heap[i] = last;
+      heapKeys[i] = lastKey;
+      heapCosts[i] = lastCost;
     }
-    return first;
   };
+  const dist = new Float64Array(nodes * stride).fill(Infinity),
+    previous = new Int32Array(nodes * stride).fill(-1);
   const initial = from * stride + startHeading;
   const initialCost =
     from === to && startHeading && endHeading && axis(startHeading) !== axis(endHeading) ? 20 : 0;
-  dist.set(initial, initialCost);
+  dist[initial] = initialCost;
   push(initial, initialCost);
-  let finish;
-  while (heap.length) {
-    const current = pop();
-    if (current.cost !== dist.get(current.key)) continue;
-    const id = Math.floor(current.key / stride),
-      dir = current.key % stride;
+  let finish = -1;
+  while (size) {
+    pop();
+    const currentKey = poppedKey,
+      currentCost = poppedCost;
+    if (currentCost !== dist[currentKey]) continue;
+    const id = Math.floor(currentKey / stride),
+      dir = currentKey % stride;
     if (id === to && !opposite(dir, endHeading)) {
-      finish = current.key;
+      finish = currentKey;
       break;
     }
     const x = id % width,
       y = Math.floor(id / width),
-      a = point(id);
-    for (const [nx, ny, nextHeading] of [
-      [x - 1, y, 1],
-      [x + 1, y, 2],
-      [x, y - 1, 3],
-      [x, y + 1, 4],
-    ]) {
-      if (nx < 0 || ny < 0 || nx >= X.length || ny >= Y.length) continue;
+      ax = X[x],
+      ay = Y[y];
+    for (let n = 0; n < 4; n++) {
+      const nx = x + stepX[n],
+        ny = y + stepY[n],
+        nextHeading = n + 1;
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
       const next = ny * width + nx;
       const nextDir = oriented ? nextHeading : axis(nextHeading);
-      // Do not reverse back over an endpoint stub (or immediately retrace a segment).
       if (oriented && opposite(dir, nextHeading)) continue;
       if (next === to && opposite(nextHeading, endHeading)) continue;
       if (!allowed(next)) continue;
-      const b = point(next);
-      const parallelCost = linkCost(id, next, a, b);
+      const bx = X[nx],
+        by = Y[ny];
+      const parallelCost = linkCost(id, next, ax, ay, bx, by);
       if (!Number.isFinite(parallelCost)) continue;
       const cost =
-          current.cost +
-          Math.abs(a.x - b.x) +
-          Math.abs(a.y - b.y) +
+          currentCost +
+          Math.abs(ax - bx) +
+          Math.abs(ay - by) +
           parallelCost +
           (dir && dir !== nextDir ? 20 : 0) +
           (next === to && endHeading && nextDir !== endHeading ? 20 : 0),
         key = next * stride + nextDir;
-      if (cost < (dist.get(key) ?? Infinity)) {
-        dist.set(key, cost);
-        previous.set(key, current.key);
+      if (cost < dist[key]) {
+        dist[key] = cost;
+        previous[key] = currentKey;
         push(key, cost);
       }
     }
   }
-  if (finish === undefined)
+  if (finish < 0)
     throw new Error('No clear orthogonal route exists. Increase spacing or change attachment sides.');
+  // Create path points only during reconstruction. A loop revisits the same point object.
+  const shared = new Map(),
+    point = (id) => {
+      let p = shared.get(id);
+      if (!p) shared.set(id, (p = { x: X[id % width], y: Y[Math.floor(id / width)] }));
+      return p;
+    };
   const points = [];
-  for (let k = finish; k !== undefined; k = previous.get(k)) points.push(point(Math.floor(k / stride)));
+  for (let k = finish; k !== -1; k = previous[k]) points.push(point(Math.floor(k / stride)));
   return points.reverse();
 }

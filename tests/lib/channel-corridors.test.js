@@ -146,3 +146,29 @@ test('insufficient physical space does not return partial assignments', () => {
   assert.equal(c.fits, false);
   assert.equal(corridorAssignments(c).size, 0);
 });
+
+test('spread assignment divides spare physical width between tracks and both margins', () => {
+  const tracks = [
+    { width: 2, nets: [{ branches: ['A'] }] },
+    { width: 4, nets: [{ branches: ['B'] }] },
+  ];
+  const c = {
+    id: 'physical',
+    axis: 'x',
+    owner: 'Root',
+    fits: true,
+    min: 10,
+    max: 110,
+    available: 100,
+    required: 12,
+    tracks,
+  };
+  const a = corridorAssignments(c, false, { spread: true });
+  const left = a.get('A').coordinate - 1 - c.min,
+    right = c.max - a.get('B').coordinate - 2;
+  const between = a.get('B').coordinate - a.get('A').coordinate - 3;
+  assert.ok(Math.abs(left - right) < 1e-6);
+  assert.ok(Math.abs(between - 6 - left) < 1e-6);
+  const packed = corridorAssignments(c);
+  assert.equal(packed.get('B').coordinate - packed.get('A').coordinate, 9);
+});

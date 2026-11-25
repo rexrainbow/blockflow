@@ -1,4 +1,4 @@
-import { routeOrthogonal as route } from '../../shared/orthogonal.js';
+import { routeOrthogonal } from '../../shared/orthogonal.js';
 import { ancestors } from '../hierarchy.js';
 import { obstacleClearance, containerClearance, preferredClearance } from './routing-spacing.js';
 import { containerEntryRoute } from './container-entry.js';
@@ -27,7 +27,7 @@ export function createRoutingStrategy(name, context) {
   }
 }
 
-function ordinaryStrategy({ model }) {
+function ordinaryStrategy({ model, search = routeOrthogonal }) {
   return {
     method: 'fixed-orthogonal',
     select: () => ({}),
@@ -58,7 +58,7 @@ function ordinaryStrategy({ model }) {
       for (const boxes of preferred === obstacles ? [obstacles] : [preferred, obstacles]) {
         try {
           return {
-            points: route(
+            points: search(
               start,
               finish,
               boxes,
@@ -77,7 +77,7 @@ function ordinaryStrategy({ model }) {
   };
 }
 
-function containerEntryStrategy({ result, model, owners, ports }) {
+function containerEntryStrategy({ result, model, owners, ports, search }) {
   return {
     method: 'fixed-orthogonal',
     reason: 'container-entry',
@@ -124,6 +124,7 @@ function containerEntryStrategy({ result, model, owners, ports }) {
       const labelPoints = (id) =>
         ['in', 'out'].map((portId) => ports.get(id + '.' + portId)?.p).filter(Boolean);
       const points = containerEntryRoute({
+        search,
         baseline: edge.sections.flatMap((section) => section.points),
         prefix: signal ? [...edgePoints(signal.trunkId), ...labelPoints(signal.signalId)] : [],
         suffix: receiver ? [...labelPoints(receiver.signalId), ...edgePoints(receiver.tailId)] : [],
@@ -192,7 +193,7 @@ function routePlannedChannels(name, { result, model, reroute, selected, onlyExcl
 
 /** One planner's endpoint/obstacle adapter. Allocation, peer reservations and
  * transactional acceptance belong to the shared corridor batch. */
-function channelAccessStrategy({ model, channelPlans, channelAvoid, reason }) {
+function channelAccessStrategy({ model, channelPlans, channelAvoid, reason, search }) {
   return {
     method: 'grid-channel',
     select: (_ref, edge) => (channelPlans?.has(edge.id) ? { channel: channelPlans.get(edge.id) } : null),
@@ -210,6 +211,7 @@ function channelAccessStrategy({ model, channelPlans, channelAvoid, reason }) {
         return null;
       }
       const routed = routeGridChannel({
+        search,
         start,
         finish,
         source: a.p,

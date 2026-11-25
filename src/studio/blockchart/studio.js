@@ -6,6 +6,7 @@ import { Canvas } from './components/canvas.js';
 import { Outline } from './components/outline.js';
 import { Inspector } from './components/inspector.js';
 import { LayoutService } from '../../editor/blockchart/services/layout.js';
+import { geometryKey } from '../../editor/blockchart/paint-layout.js';
 import { emptyDocument, placeBlock, validateDocument } from '../../editor/blockchart/commands.js';
 import { itemPath } from '../../lib/blockchart/hierarchy.js';
 import { normalizeDisplayText } from '../../lib/blockchart/model.js';
@@ -69,6 +70,30 @@ export class BlockchartStudio extends StudioShell {
 
   layoutOptions() {
     return { rootGroupId: this.store.root || null };
+  }
+
+  /**
+   * An edit (including Undo/Redo) that changes only the runtime's paint allowlist in the
+   * same view is sent as paintOnly: no debounce, and the Worker repaints its own last
+   * geometry or falls back to a full layout. Replacement, view switches and every
+   * other change stay ordinary requests.
+   */
+  layoutHint(reason) {
+    const doc = this.store.document;
+    const root = this.store.root || null;
+    const prev = this.lastLayoutRequest;
+    this.lastLayoutRequest = { doc, root };
+    // Renaming the viewed group (the Store keeps the view on it) is still the same view.
+    const slot = (d, id) => (d.groups ?? []).findIndex((g) => g.id === id);
+    const renamed =
+      prev?.root && root && !findGroup(doc, prev.root) && !findGroup(prev.doc, root) && slot(prev.doc, prev.root) === slot(doc, root);
+    const sameView = prev && (prev.root === root || renamed);
+    if (reason !== 'document' || !sameView || prev.doc === doc) return {};
+    try {
+      return geometryKey(prev.doc) === geometryKey(doc) ? { paintOnly: true } : {};
+    } catch {
+      return {};
+    }
   }
 
   countText() {

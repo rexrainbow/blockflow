@@ -122,6 +122,7 @@ export function parallelOverlap(a, b, c, d, gap = 0) {
 }
 
 export function routeGridChannel({
+  search = routeOrthogonal,
   start,
   finish,
   source,
@@ -159,11 +160,11 @@ export function routeGridChannel({
       if (!travel[other]) continue;
       let head, tail;
       try {
-        head = routeOrthogonal(start, a, obstacles, bounds, clearance, avoid, {
+        head = search(start, a, obstacles, bounds, clearance, avoid, {
           startDirection: av,
           endDirection: travel,
         });
-        tail = routeOrthogonal(b, finish, obstacles, bounds, clearance, avoid, {
+        tail = search(b, finish, obstacles, bounds, clearance, avoid, {
           startDirection: travel,
           endDirection: { x: -bv.x, y: -bv.y },
         });

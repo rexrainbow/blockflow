@@ -4,6 +4,7 @@ import { routeMetrics } from './route-quality.js';
 
 /** Compare whole attachments, including synthetic-label entry/exit stubs. */
 export function containerEntryRoute({
+  search = routeOrthogonal,
   baseline,
   start,
   finish,
@@ -46,7 +47,7 @@ export function containerEntryRoute({
     if (obstacles.some((box) => crosses(gate, finish, box))) continue;
     let head;
     try {
-      head = routeOrthogonal(start, gate, obstacles, bounds, clearance, avoid, {
+      head = search(start, gate, obstacles, bounds, clearance, avoid, {
         startDirection: av,
         endDirection: travel,
       });

@@ -1,4 +1,6 @@
-import { runLayoutJob } from '../layout-job.js';
+import { createLayoutJobRunner } from '../layout-job.js';
+
+const runLayoutJob = createLayoutJobRunner();
 
 self.addEventListener('message', async ({ data }) => {
   // ELK's bundled worker can assign self.onmessage internally. Keep our document

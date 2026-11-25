@@ -149,11 +149,13 @@ export function trackProposals(result, kind) {
   });
 }
 
-export function corridorAssignments(corridor, reverse = false) {
+export function corridorAssignments(corridor, reverse = false, { spread = false } = {}) {
   const assignments = new Map();
   if (!corridor.fits) return assignments;
   const tracks = reverse ? [...corridor.tracks].reverse() : corridor.tracks;
-  let offset = corridor.min + (corridor.available - corridor.required) / 2;
+  const spare = corridor.available - corridor.required;
+  const extraGap = spread ? spare / (tracks.length + 1) : 0;
+  let offset = corridor.min + (spread ? extraGap : spare / 2);
   for (const track of tracks) {
     const coordinate = offset + track.width / 2,
       index = corridor.tracks.indexOf(track);
@@ -167,7 +169,7 @@ export function corridorAssignments(corridor, reverse = false) {
           owner: corridor.owner,
           corridorId: corridor.id,
         });
-    offset += track.width + TRACK_GAP;
+    offset += track.width + TRACK_GAP + extraGap;
   }
   return assignments;
 }

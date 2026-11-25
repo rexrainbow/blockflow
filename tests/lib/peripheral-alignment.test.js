@@ -9,9 +9,65 @@ import { readElkResult } from '../../src/lib/blockchart/layout/elk-result.js';
 import { arrangeGrids } from '../../src/lib/blockchart/layout/grid-layout.js';
 import { routeFixed } from '../../src/lib/blockchart/layout/fixed.js';
 import { alignPeripheralGroups } from '../../src/lib/blockchart/layout/peripheral-alignment.js';
+import { createCandidateRouter } from '../../src/lib/blockchart/layout/routing-trial.js';
 import { groupGeometry } from '../../src/lib/blockchart/layout/groups.js';
 import { translateNode } from '../../src/lib/blockchart/layout/translate.js';
 import { descendants } from '../../src/lib/blockchart/hierarchy.js';
+
+test('a candidate reuses only identical searches and gives each trial its own path', () => {
+  let searches = 0;
+  const router = createCandidateRouter((start, end) => {
+    searches++;
+    return [{ ...start }, { ...end }];
+  });
+  const geometry = [
+    { x: 0, y: 0 },
+    { x: 40, y: 0 },
+    [{ x: 20, y: 10, width: 5, height: 5 }],
+    { x: 0, y: 0, width: 100, height: 100 },
+    10,
+    [
+      [
+        { x: 8, y: 4 },
+        { x: 22, y: 4 },
+      ],
+    ],
+    { startDirection: { x: 1, y: 0 }, endDirection: { x: 1, y: 0 } },
+  ];
+  const path = router(...geometry);
+  path[0].x = 999;
+  assert.deepEqual(router(...structuredClone(geometry)), geometry.slice(0, 2));
+  assert.equal(searches, 1);
+  for (const mutate of [
+    (g) => g[0].x++,
+    (g) => g[1].y++,
+    (g) => (g[2][0].x += 1e-7),
+    (g) => g[3].width++,
+    (g) => g[4]++,
+    (g) => g[5][0][1].x++,
+    (g) => (g[6].endDirection.x = -1),
+  ]) {
+    const changed = structuredClone(geometry);
+    mutate(changed);
+    const before = searches;
+    router(...changed);
+    assert.equal(searches, before + 1);
+  }
+});
+
+test('a failed search can be retried and a new candidate starts fresh', () => {
+  let searches = 0;
+  const search = () => {
+    if (++searches === 1) throw new Error('obstructed');
+    return [{ x: 0, y: 0 }];
+  };
+  const router = createCandidateRouter(search);
+  assert.throws(() => router(), /obstructed/);
+  assert.deepEqual(router(), router());
+  assert.equal(searches, 2);
+  createCandidateRouter(search)();
+  assert.equal(searches, 3);
+});
 
 test('a scoped Grid fanout input moves toward its receivers without moving the core', async () => {
   const raw = JSON.parse(
@@ -168,6 +224,54 @@ test('a parent Grid explicitly pinning peripheral groups is not overridden', asy
     before = structuredClone(f.result);
   assert.equal(alignPeripheralGroups(f.result, f.model), false);
   assert.deepEqual(f.result, before);
+});
+
+for (const direction of ['right', 'down']) {
+  test(`a partially anchored Auto group moves as a whole (${direction})`, async () => {
+    const raw = document(direction);
+    raw.connections = raw.connections.filter((e) => !['B', 'Aux'].includes(e.id));
+    const { model, result, axis } = await working(raw);
+    const groupId = 'Outputs',
+      ids = [groupId, ...descendants(model, groupId)];
+    const nodes = () => new Map([...result.groups, ...result.modules].map((n) => [n.id, n]));
+    const shape = () => {
+      const current = nodes(),
+        g = current.get(groupId);
+      return ids.map((id) => {
+        const n = current.get(id);
+        return [n.x - g.x, n.y - g.y, n.width, n.height, ...n.ports.map((p) => [p.x - g.x, p.y - g.y])];
+      });
+    };
+    const before = shape(),
+      prior = nodes().get(groupId)[axis],
+      fixed = structuredClone(core(result, model));
+    const mismatch = () =>
+      Math.abs(
+        nodes()
+          .get('Top')
+          .ports.find((p) => p.id === 'output')[axis] -
+          nodes()
+            .get('OutputA')
+            .ports.find((p) => p.id === 'input')[axis],
+      );
+    const oldError = mismatch();
+    alignPeripheralGroups(result, model);
+    assert.ok(mismatch() < oldError - 1);
+    assert.notEqual(nodes().get(groupId)[axis], prior);
+    assert.deepEqual(shape(), before);
+    assert.deepEqual(core(result, model), fixed);
+  });
+}
+
+test('a rigid translation is rolled back when the weak downstream routes would be longer overall', async () => {
+  const raw = document();
+  for (const e of raw.connections.filter((e) => ['B', 'Aux'].includes(e.id))) e.constraint = false;
+  const { model, result } = await working(raw);
+  const owned = new Set(['Outputs', ...descendants(model, 'Outputs')]);
+  const geometry = () => [...result.modules, ...result.groups].filter((n) => owned.has(n.id));
+  const before = structuredClone(geometry());
+  alignPeripheralGroups(result, model);
+  assert.deepEqual(geometry(), before);
 });
 
 test('without a fixed Grid peer the refinement is inactive', async () => {

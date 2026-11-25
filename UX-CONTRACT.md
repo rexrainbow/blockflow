@@ -214,7 +214,8 @@ initial load/import and adding a block may select a block explicitly.
 
 Layout service owns a module Worker; a revision token suppresses stale results immediately
 on edit, with a 180ms coalescing delay. Work can restart a busy worker. Keep previous valid
-SVG while pending/error. Worker errors have a retry action. Export waits for a current valid
+SVG while pending/error; after 500ms pending, or on error, it dims with a status chip
+(selection stays full strength), never for fast or paint-only results. Worker errors have a retry action. Export waits for a current valid
 result. Browser PNG uses SVG → Canvas, 1/2/3 scale, white background, same size limits as Node;
 browser/server font rasterization can differ. No diagram data sent to a server.
 

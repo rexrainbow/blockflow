@@ -25,6 +25,7 @@ export function routeFixed(
     avoidForeignOverlaps = false,
     channelPlans = null,
     channelAvoid = null,
+    search,
   } = {},
 ) {
   const nodes = [...result.modules, ...result.groups],
@@ -45,7 +46,8 @@ export function routeFixed(
     selected,
     onlyExcluded,
     reason,
-    reroute: (trial, options) => routeFixed(trial, model, options),
+    search,
+    reroute: (trial, options) => routeFixed(trial, model, { ...options, search }),
   });
   if (strategy.execute) return strategy.execute();
   const end = (ref, peer, edge) => {

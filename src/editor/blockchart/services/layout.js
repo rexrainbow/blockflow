@@ -10,8 +10,13 @@ export class LayoutService extends WorkerLayoutService {
         document,
         revision,
         rootGroupId: options.rootGroupId ?? null,
+        ...(options.paintOnly === true ? { paintOnly: true } : {}),
       }),
       workerError: 'Layout worker stopped. Select Re-layout to retry.',
     });
+  }
+
+  requestDelay(options) {
+    return options.paintOnly === true ? 0 : this.debounceMs;
   }
 }

@@ -319,12 +319,12 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
   await expect(page.locator('[data-hint="concat-sides"]')).toContainText('inputs on top in order');
   await expect(page.getByRole('radiogroup', { name: 'Block shape' })).toHaveCount(0);
 
-  // The toolbar adds the next input (a second output is not allowed).
+  // The toolbar adds the next input after the last input (a second output is not allowed).
   await page.getByRole('button', { name: 'Add input port (next in order)' }).click();
   await expect
     .poll(async () => (await concat()).ports.map((p) => p.direction))
-    .toEqual(['input', 'input', 'output', 'input']);
-  expect((await concat()).ports[3]).not.toHaveProperty('side');
+    .toEqual(['input', 'input', 'input', 'output']);
+  expect((await concat()).ports[2]).not.toHaveProperty('side');
   await svgMatches();
 
   // A label edit keeps the bar thin; the name is reserved outside it.
@@ -348,11 +348,11 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
   expect((await concat()).ports.every((p) => p.side === undefined)).toBe(true);
   await svgMatches();
   await page.locator('.outline').getByText('Source pool', { exact: true }).click();
-  await expect(sides).toHaveText(['Left', 'Left', 'Right', 'Left']);
+  await expect(sides).toHaveText(['Left', 'Left', 'Left', 'Right']);
   const right = await page.evaluate(() =>
     window.__studio.store.layout.layout.modules.find((m) => m.id === 'Sources'),
   );
-  expect(right.ports.map((p) => p.side)).toEqual(['left', 'left', 'right', 'left']);
+  expect(right.ports.map((p) => p.side)).toEqual(['left', 'left', 'left', 'right']);
   expect(right.body.shapes[0].width).toBeLessThanOrEqual(12);
   // Port hit targets sit on the published anchors.
   const hits = await page.$$eval('.hit-port[data-owner="Sources"]', (els) =>
@@ -363,7 +363,7 @@ test('Concat bar follows Flow: fixed sides, Flow change, creation, edits, Undo a
   // Undo restores Down and the authored sides; Redo clears them again.
   await page.evaluate(() => window.__studio.undo());
   await expect.poll(async () => (await doc()).layout).toEqual({ direction: 'down' });
-  expect((await concat()).ports.map((p) => p.side)).toEqual(['top', 'top', 'bottom', undefined]);
+  expect((await concat()).ports.map((p) => p.side)).toEqual(['top', 'top', undefined, 'bottom']);
   await page.evaluate(() => window.__studio.redo());
   await expect.poll(async () => (await doc()).layout).toBeUndefined();
 
@@ -1093,4 +1093,504 @@ test('Net junction dots: drawn as the converter, picked by their disk, never sav
   const saved = await readFile(await download.path(), 'utf8');
   expect(JSON.parse(saved)).toEqual(fanout);
   expect(saved).not.toContain('junction');
+});
+
+test('Port order: Inspector lists inputs, bidirectional, outputs; new ports join their direction', async ({
+  page,
+}) => {
+  // A file whose output is written before its input keeps its saved order until edited.
+  const source = {
+    version: 1,
+    diagram: { name: 'Port order' },
+    modules: [
+      {
+        id: 'A',
+        ports: [
+          { id: 'out', direction: 'output' },
+          { id: 'in', direction: 'input' },
+        ],
+      },
+      { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+    ],
+    connections: [{ from: 'A.out', to: ['B.in'] }],
+  };
+  await page.evaluate(async (doc) => window.__studio.replaceKeepingUndo(doc, 'test'), source);
+  const doc = () => page.evaluate(() => window.__studio.store.document);
+  const saved = async () => (await doc()).modules[0].ports.map((p) => p.id);
+  const parity = async () => {
+    await page.waitForTimeout(250);
+    await ready(page);
+    const reference = await convertDiagram(await doc(), { format: 'svg' });
+    expect(await page.evaluate(() => window.__studio.store.layout.svg)).toBe(reference.text.trimEnd());
+  };
+  await parity();
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'A' }));
+  await page.getByRole('tab', { name: 'Properties' }).click();
+  const rows = page.locator('.inspector .ports .prow:not(.head)');
+  const keys = () => rows.evaluateAll((list) => list.map((r) => r.dataset.port));
+  const add = (name) => page.locator('.inspector .ports .add-row').getByRole('button', { name }).click();
+
+  // Display only: inputs are listed first; the document is not reordered.
+  expect(await keys()).toEqual(['in', 'out']);
+  expect(await saved()).toEqual(['out', 'in']);
+
+  // New ports are inserted after the last port of their direction.
+  await add('Input');
+  await expect(rows).toHaveCount(3);
+  expect(await saved()).toEqual(['out', 'in', 'in_1']);
+  await add('Output');
+  expect(await saved()).toEqual(['out', 'in', 'in_1', 'out_1']);
+  await add('Bidirectional');
+  expect(await saved()).toEqual(['out', 'in', 'in_1', 'io_1', 'out_1']);
+  await add('Input');
+  expect(await saved()).toEqual(['out', 'in', 'in_1', 'in_2', 'io_1', 'out_1']);
+  await expect(rows).toHaveCount(6);
+  expect(await keys()).toEqual(['in', 'in_1', 'in_2', 'io_1', 'out', 'out_1']);
+  await parity();
+
+  // A fresh block: Output first, then Input, reads and saves inputs first.
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'B' }));
+  await add('Output');
+  await add('Input');
+  const b = async () => (await doc()).modules.find((m) => m.id === 'B').ports.map((p) => p.id);
+  expect(await b()).toEqual(['in', 'in_1', 'out_1']);
+  expect(await keys()).toEqual(['in', 'in_1', 'out_1']);
+
+  // The canvas command for the next input follows the same rule.
+  await page.evaluate(() => window.__studio.run('add-port-in'));
+  expect(await b()).toEqual(['in', 'in_1', 'in_2', 'out_1']);
+  await parity();
+
+  // Move up/down still reorders within one direction only.
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'B' }));
+  await page.getByRole('button', { name: 'More for port in_2' }).click();
+  await page.getByRole('menuitem', { name: 'Move up' }).click();
+  expect(await b()).toEqual(['in', 'in_2', 'in_1', 'out_1']);
+  expect(await keys()).toEqual(['in', 'in_2', 'in_1', 'out_1']);
+
+  // Undo removes the last edits; Save writes the inserted order.
+  await page.evaluate(() => window.__studio.undo());
+  expect(await b()).toEqual(['in', 'in_1', 'in_2', 'out_1']);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
+  const file = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(file.modules[0].ports.map((p) => p.id)).toEqual(['out', 'in', 'in_1', 'in_2', 'io_1', 'out_1']);
+  expect(file.modules[1].ports.map((p) => p.id)).toEqual(['in', 'in_1', 'in_2', 'out_1']);
+  await parity();
+});
+
+test('Paint-only edits: fast hint for colors only; canvas equals a full render; Undo, view switch, save', async ({
+  page,
+}) => {
+  const source = {
+    version: 1,
+    diagram: { name: 'Paint' },
+    modules: [
+      { id: 'A', ports: [{ id: 'out', direction: 'output' }] },
+      ...['B', 'C', 'D'].map((id) => ({ id, ports: [{ id: 'in', direction: 'input' }] })),
+    ],
+    groups: [{ id: 'G', members: ['C', 'D'] }],
+    connections: [
+      { from: 'A.out', to: ['B.in', { endpoint: 'C.in', style: { strokeColor: '#16a34a' } }, 'D.in'] },
+    ],
+  };
+  await page.evaluate(async (doc) => window.__studio.replaceKeepingUndo(doc, 'test'), source);
+  await page.waitForTimeout(250);
+  await ready(page);
+  // Record the hint of every layout request.
+  await page.evaluate(() => {
+    const service = window.__studio.layoutService;
+    const request = service.request.bind(service);
+    window.__requests = [];
+    service.request = (doc, options) => (
+      window.__requests.push(options.paintOnly === true),
+      request(doc, options)
+    );
+  });
+  const doc = () => page.evaluate(() => window.__studio.store.document);
+  const hints = () => page.evaluate(() => window.__requests.splice(0));
+  const commit = (fn) => page.evaluate(`window.__studio.commit(${fn})`);
+  const parity = async (root) => {
+    await page.waitForTimeout(50);
+    await ready(page);
+    const reference = await convertDiagram(await doc(), {
+      format: 'svg',
+      ...(root ? { rootGroupId: root } : {}),
+    });
+    expect(await page.evaluate(() => window.__studio.store.layout.svg)).toBe(reference.text.trimEnd());
+  };
+  await parity();
+  expect(await page.evaluate(() => window.__studio.store.layout.layout.junctions?.length)).toBeGreaterThan(0);
+
+  // Block fill through the Inspector.
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'A' }));
+  await page.getByRole('tab', { name: 'Style' }).click();
+  const fillInput = page.locator('.inspector input[data-fid$="fillColor"]').first();
+  await fillInput.fill('#fde68a');
+  await fillInput.press('Enter');
+  await expect.poll(async () => (await doc()).modules[0].style?.fillColor).toBe('#fde68a');
+  expect(await hints()).toEqual([true]);
+  await parity();
+
+  // Net stroke, branch override, diagram defaults: all paint-only; junctions follow the Net color.
+  await commit(`(d) => { d.connections[0].style = { strokeColor: '#b45309' }; }`);
+  await commit(`(d) => { d.connections[0].to[1].style.strokeColor = '#7c3aed'; }`);
+  await commit(
+    `(d) => { d.diagram.style = { module: { borderColor: '#0f766e' }, connection: { strokeColor: '#334155' } }; }`,
+  );
+  expect(await hints()).toEqual([true, true, true]);
+  await parity();
+  expect(await page.evaluate(() => window.__studio.store.layout.svg)).toContain('#b45309');
+
+  // Geometry edits stay ordinary; a color right after a geometry edit still ends on the new geometry.
+  await commit(`(d) => { d.connections[0].style.strokeWidth = 4; }`);
+  await commit(`(d) => { d.modules[1].label = 'A much longer receiver label'; }`);
+  await commit(`(d) => { d.modules[0].style.fillColor = '#bbf7d0'; }`);
+  expect(await hints()).toEqual([false, false, true]);
+  await parity();
+  expect(
+    await page.evaluate(() => window.__studio.store.layout.svg.includes('A much longer receiver label')),
+  ).toBe(true);
+
+  // Undo/Redo of a color edit is paint-only; of a geometry edit is not.
+  await page.evaluate(() => window.__studio.undo());
+  await parity();
+  await page.evaluate(() => window.__studio.undo());
+  await parity();
+  await page.evaluate(() => window.__studio.redo());
+  await page.evaluate(() => window.__studio.redo());
+  expect(await hints()).toEqual([true, false, false, true]);
+  await parity();
+
+  // A color edit while a view switch is still computing lands in the new view.
+  await page.evaluate(() => window.__studio.enterGroup('G'));
+  await commit(`(d) => { d.modules[2].style = { fillColor: '#fecaca' }; }`);
+  expect(await hints()).toEqual([false, true]);
+  await parity('G');
+  await page.evaluate(() => window.__studio.enterGroup(''));
+  await parity();
+
+  // Save writes authoring data only; a reload renders the same.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__studio.saveJson()),
+  ]);
+  const text = await readFile(await download.path(), 'utf8');
+  expect(JSON.parse(text)).toEqual(await doc());
+  expect(text).not.toMatch(/junctions|routingInfo|"sections"/);
+  await page.reload();
+  await ready(page);
+  await parity();
+});
+
+test('Slow layouts: the drawing dims with an Updating chip after a delay; fast and paint-only never flash; failure keeps the last result', async ({
+  page,
+}) => {
+  const doc = {
+    version: 1,
+    diagram: { name: 'Stale' },
+    modules: [
+      { id: 'A', style: { fillColor: '#ffffff' }, ports: [{ id: 'out', direction: 'output' }] },
+      { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+    ],
+    connections: [{ from: 'A.out', to: ['B.in'] }],
+  };
+  await page.evaluate((d) => window.__studio.replaceKeepingUndo(d, 'test'), doc);
+  await page.waitForTimeout(250);
+  await ready(page);
+  const canvas = page.locator('.canvas');
+  const chip = page.locator('.canvas-stale');
+  // Record every stale-class change, so a brief flash cannot slip between polls.
+  await page.evaluate(() => {
+    const el = document.querySelector('.canvas');
+    window.__staleSeen = 0;
+    new MutationObserver(() => el.classList.contains('is-stale') && window.__staleSeen++).observe(el, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    const service = window.__studio.layoutService;
+    window.__deliver = service.onResult;
+    window.__delay = 0;
+    window.__fail = false;
+    // Hold results back; one superseded while held is dropped, as the service would.
+    service.onResult = (data) =>
+      setTimeout(() => {
+        if (data.revision !== service.revision) return;
+        window.__deliver(
+          window.__fail ? { revision: data.revision, error: 'Simulated layout failure' } : data,
+        );
+      }, window.__delay);
+  });
+  const seen = () => page.evaluate(() => window.__staleSeen);
+  // Read after the 0.12 s opacity transition settles.
+  const artOpacity = () =>
+    page.evaluate(() => getComputedStyle(document.querySelector('.art:not(.leaving) svg')).opacity);
+  const id = doc.modules[0].id;
+  const rename = (label) =>
+    page.evaluate(
+      ([id, label]) => window.__studio.commit((d) => void (d.modules.find((m) => m.id === id).label = label)),
+      [id, label],
+    );
+
+  // A fast geometry edit and a paint-only edit finish before the delay: no dimming at all.
+  await rename('Fast');
+  await ready(page);
+  await page.evaluate(
+    ([id]) =>
+      window.__studio.commit((d) => void (d.modules.find((m) => m.id === id).style.fillColor = '#fde68a')),
+    [id],
+  );
+  await ready(page);
+  await page.waitForTimeout(400);
+  expect(await seen()).toBe(0);
+  await expect(chip).toBeHidden();
+
+  // A slow layout: the old drawing stays visible, then dims and the chip appears.
+  await page.evaluate(() => (window.__delay = 1500));
+  await page.evaluate(() =>
+    window.__studio.select({ type: 'block', id: window.__studio.store.document.modules[0].id }),
+  );
+  await rename('Slow');
+  await page.waitForTimeout(120);
+  await expect(canvas).not.toHaveClass(/is-stale/);
+  await expect(canvas).toHaveClass(/is-stale/);
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText('Updating layout…');
+  await expect(chip).toHaveAttribute('role', 'status');
+  await expect.poll(artOpacity).toBe('0.45');
+  // The selection overlay stays crisp.
+  await expect(page.locator('.canvas .sel-box')).toHaveCount(1);
+  expect(
+    await page.evaluate(() => getComputedStyle(document.querySelector('.canvas .overlay')).opacity),
+  ).toBe('1');
+  // A further edit while dimmed keeps the state without a flicker back to normal.
+  const before = await seen();
+  await rename('Slower');
+  await page.waitForTimeout(100);
+  await expect(canvas).toHaveClass(/is-stale/);
+  expect(await seen()).toBe(before);
+  await ready(page);
+  await expect(canvas).not.toHaveClass(/is-stale/);
+  await expect(chip).toBeHidden();
+  await expect.poll(artOpacity).toBe('1');
+  const reference = await convertDiagram(await page.evaluate(() => window.__studio.store.document), {
+    format: 'svg',
+  });
+  expect(await page.evaluate(() => window.__studio.store.layout.svg)).toBe(reference.text.trimEnd());
+
+  // A failure keeps the last drawing, dimmed, with an explanation; the next good result clears it.
+  await page.evaluate(() => ((window.__delay = 0), (window.__fail = true)));
+  await rename('Broken');
+  await page.waitForFunction(() => window.__studio.store.layoutError);
+  await expect(canvas).toHaveClass(/is-stale/);
+  await expect(chip).toHaveText('Layout failed — showing the last result');
+  await expect(chip).toHaveClass(/error/);
+  await page.evaluate(() => (window.__fail = false));
+  await rename('Fixed');
+  await ready(page);
+  await expect(canvas).not.toHaveClass(/is-stale/);
+  await expect(chip).toBeHidden();
+
+  // Undo that computes slowly also dims the drawing until its result arrives.
+  await page.evaluate(() => (window.__delay = 1000));
+  await page.evaluate(() => window.__studio.undo());
+  await expect(canvas).toHaveClass(/is-stale/);
+  await ready(page);
+  await expect(canvas).not.toHaveClass(/is-stale/);
+});
+
+test('Inspector drafts survive re-renders: typing kept across layout results, external changes win, errors kept', async ({
+  page,
+}) => {
+  const source = {
+    version: 1,
+    diagram: { name: 'Drafts' },
+    modules: [
+      { id: 'A', ports: [{ id: 'out', direction: 'output' }] },
+      { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+    ],
+    connections: [{ from: 'A.out', to: ['B.in'] }],
+  };
+  await page.evaluate((d) => window.__studio.replaceKeepingUndo(d, 'test'), source);
+  await page.waitForTimeout(250);
+  await ready(page);
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'A' }));
+  const label = page.locator('[data-fid="pl-A-out"]');
+  const width = page.locator('[data-fid="pw-A-out"]');
+  const key = page.locator('[data-fid="pk-A-out"]');
+  const doc = () => page.evaluate(() => window.__studio.store.document);
+  // Another edit re-renders the Inspector twice (commit, then its layout result).
+  const otherEdit = (color) =>
+    page.evaluate(
+      (c) => window.__studio.commit((d) => void ((d.modules[1].style ??= {}).fillColor = c)),
+      color,
+    );
+
+  // Uncommitted typing is kept with its caret, then commits on Enter as one edit.
+  await label.click();
+  await label.pressSequentially('Data');
+  await label.press('ArrowLeft');
+  await otherEdit('#fde68a');
+  await ready(page);
+  await expect(label).toHaveValue('Data');
+  await expect(label).toBeFocused();
+  expect(await label.evaluate((el) => [el.selectionStart, el.selectionEnd])).toEqual([3, 3]);
+  await label.pressSequentially('X');
+  await expect(label).toHaveValue('DatXa');
+  expect((await doc()).modules[0].ports[0].label).toBeUndefined();
+  await label.press('Enter');
+  await ready(page);
+  expect((await doc()).modules[0].ports[0].label).toBe('DatXa');
+
+  // Typing interleaved with many re-renders loses nothing (the reported DShot case).
+  await width.focus(); // a click can land on the number spinner
+  for (const ch of '1234') {
+    await width.press(ch);
+    await page.evaluate(() => window.__studio.inspector.render());
+  }
+  await expect(width).toHaveValue('1234');
+  await width.press('Escape');
+  await expect(width).toHaveValue('');
+
+  // A change of the same field from elsewhere (Undo here) replaces the draft.
+  await label.click();
+  await label.press('End');
+  await label.pressSequentially('Z');
+  await page.evaluate(() => window.__studio.undo());
+  await expect(label).toHaveValue('');
+  await expect(label).toBeFocused();
+
+  // An invalid draft keeps its inline error across a re-render.
+  await key.click();
+  await key.fill('bad key!');
+  await key.press('Enter');
+  await expect(key).toHaveAttribute('aria-invalid', 'true');
+  const message = await page.locator('.field-error').first().textContent();
+  await otherEdit('#bfdbfe');
+  await ready(page);
+  await expect(key).toHaveValue('bad key!');
+  await expect(key).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('.field-error')).toHaveText([message]);
+  await key.press('Escape');
+  await expect(key).toHaveValue('out');
+  await expect(page.locator('.field-error')).toHaveCount(0);
+});
+
+test('Appearance edits and labelled key renames reuse layout; the view follows a renamed group; width edits run full layout', async ({
+  page,
+}) => {
+  const source = {
+    version: 1,
+    diagram: { name: 'Reuse' },
+    modules: [
+      { id: 'A', label: 'Alpha', ports: [{ id: 'out', direction: 'output' }] },
+      { id: 'B', ports: [{ id: 'in', direction: 'input' }] },
+      { id: 'C', label: 'Gamma', ports: [{ id: 'in', direction: 'input' }] },
+    ],
+    groups: [{ id: 'G', label: 'Group G', members: ['C'] }],
+    connections: [{ from: 'A.out', to: ['B.in', 'C.in'] }],
+  };
+  await page.evaluate((d) => window.__studio.replaceKeepingUndo(d, 'test'), source);
+  await page.waitForTimeout(250);
+  await ready(page);
+  await page.evaluate(() => {
+    const service = window.__studio.layoutService;
+    const request = service.request.bind(service);
+    window.__requests = [];
+    service.request = (doc, options) => (
+      window.__requests.push(options.paintOnly === true),
+      request(doc, options)
+    );
+  });
+  const hints = () => page.evaluate(() => window.__requests.splice(0));
+  const doc = () => page.evaluate(() => window.__studio.store.document);
+  const commit = (fn) => page.evaluate(`window.__studio.commit(${fn})`);
+  const parity = async () => {
+    await page.waitForTimeout(50);
+    await ready(page);
+    const root = await page.evaluate(() => window.__studio.store.root || null);
+    const reference = await convertDiagram(await doc(), {
+      format: 'svg',
+      ...(root ? { rootGroupId: root } : {}),
+    });
+    expect(await page.evaluate(() => window.__studio.store.layout.svg)).toBe(reference.text.trimEnd());
+  };
+
+  // Inherited default, a local override and its removal: all reuse the layout.
+  await commit(`(d) => { d.diagram.style = { text: { color: '#334155' } }; }`);
+  await parity();
+  await commit(
+    `(d) => { d.modules[0].style = { label: { color: '#be123c' }, fillOpacity: 0.5, borderStyle: 'dashed' }; }`,
+  );
+  await parity();
+  await commit(`(d) => { delete d.modules[0].style.label; }`);
+  await parity();
+  await commit(`(d) => { d.connections[0].style = { lineStyle: 'dashed', opacity: 0.6 }; }`);
+  await parity();
+  expect(await hints()).toEqual([true, true, true, true]);
+  // A measured property runs full layout.
+  await commit(`(d) => { d.modules[0].style.borderWidth = 2; }`);
+  await parity();
+  expect(await hints()).toEqual([false]);
+
+  // Labelled block rename in the Inspector: reused, selection follows, Undo reused too.
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'A' }));
+  const key = page.locator('[data-fid="b-key"]');
+  await key.fill('A2');
+  await key.press('Enter');
+  await parity();
+  expect(await page.evaluate(() => window.__studio.store.selection)).toMatchObject({
+    type: 'block',
+    id: 'A2',
+  });
+  expect((await doc()).connections[0].from).toBe('A2.out');
+  await page.evaluate(() => window.__studio.undo());
+  await parity();
+  expect((await doc()).modules[0].id).toBe('A');
+  expect(await hints()).toEqual([true, true]);
+  // An unlabelled key is the visible text: full layout.
+  await page.evaluate(() => window.__studio.select({ type: 'block', id: 'B' }));
+  await key.fill('B2');
+  await key.press('Enter');
+  await parity();
+  expect(await hints()).toEqual([false]);
+
+  // Renaming the viewed group keeps the view (no switch, no refit) and reuses layout.
+  await page.evaluate(() => window.__studio.enterGroup('G'));
+  await parity();
+  await hints();
+  await page.evaluate(() => window.__studio.select({ type: 'group', id: 'G' }));
+  const camera = await page.evaluate(() => ({ ...window.__studio.canvas.camera }));
+  const groupKey = page.locator('[data-fid="g-key"]');
+  await groupKey.fill('G2');
+  await groupKey.press('Enter');
+  await parity();
+  expect(await page.evaluate(() => window.__studio.store.root)).toBe('G2');
+  expect(await page.evaluate(() => ({ ...window.__studio.canvas.camera }))).toEqual(camera);
+  await expect(page.locator('.crumbs')).toContainText('Group G');
+  await page.evaluate(() => window.__studio.undo());
+  await parity();
+  expect(await page.evaluate(() => window.__studio.store.root)).toBe('G');
+  await page.evaluate(() => window.__studio.redo());
+  await parity();
+  expect(await page.evaluate(() => window.__studio.store.root)).toBe('G2');
+  expect(await hints()).toEqual([true, true, true]);
+  // A real view switch stays an ordinary request.
+  await page.evaluate(() => window.__studio.enterGroup(''));
+  await parity();
+  expect(await hints()).toEqual([false]);
+
+  // A collapsed Collection repaints its frame color.
+  await page.evaluate(
+    (d) => window.__studio.replaceKeepingUndo(d, 'test'),
+    await readExample('collection-instances'),
+  );
+  await page.waitForTimeout(250);
+  await parity();
+  await hints();
+  await commit(`(d) => { d.groups[0].style.fillColor = '#fde68a'; }`);
+  await parity();
+  expect(await hints()).toEqual([true]);
 });

@@ -30,6 +30,7 @@ import {
   endpointFromKey,
   groupType,
   moveTargets,
+  PORT_RANK,
 } from '../state/actions.js';
 import { targetEndpoints } from '../../../lib/blockchart/nets.js';
 import { createGridPlan } from '../../../lib/blockchart/grid.js';
@@ -225,7 +226,9 @@ export class Inspector {
       used.add(endpointKey(edge.from));
       for (const t of targetEndpoints(edge)) used.add(endpointKey(t));
     }
-    const rows = ports.map((port) => {
+    // Rows read inputs, then bidirectional, then outputs; each keeps its saved order.
+    const listed = [...ports].sort((a, b) => (PORT_RANK[a.direction] ?? 3) - (PORT_RANK[b.direction] ?? 3));
+    const rows = listed.map((port) => {
       const dir = port.direction;
       const sameDir = ports.filter((p) => p.direction === dir);
       const order = sameDir.indexOf(port);
@@ -444,8 +447,7 @@ export class Inspector {
             'div',
             { class: 'grid2' },
             field('Key', textInput({ value: g.id, mono: true, fidKey: 'g-key', commit: (v) => {
-              const nid = this.commit((d) => renameGroup(d, id, v));
-              if (this.store.root === id) this.store.setRoot(nid);
+              const nid = this.commit((d) => renameGroup(d, id, v)); // the view follows (Studio.requestLayout)
               this.cb.select({ type: 'group', id: nid });
             } })),
             field('Label', textInput({ value: g.label ?? '', placeholder: g.id, multiline: true, fidKey: 'g-label', commit: (v) => this.commit((d) => setOrDelete(findGroup(d, id), 'label', label(v))) })),

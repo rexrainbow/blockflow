@@ -81,6 +81,53 @@ function fixture() {
   };
 }
 const frozenNodes = (f) => structuredClone({ modules: f.result.modules, groups: f.result.groups });
+
+for (const [side, opposite] of [
+  ['right', 'left'],
+  ['left', 'right'],
+  ['top', 'bottom'],
+  ['bottom', 'top'],
+])
+  test(`Grid leaves room on both sides of the ${side} exit rail`, async () => {
+    const horizontal = side === 'left' || side === 'right';
+    const grid = { type: 'grid', cells: horizontal ? [['Child'], ['Sink']] : [['Child', 'Sink']] };
+    for (const expanded of [false, true]) {
+      const model = createDiagramModel({
+        version: 1,
+        diagram: { name: 'Nested exit' },
+        layout: { direction: horizontal ? 'right' : 'down', ...(expanded ? grid : {}) },
+        groups: [
+          {
+            id: 'Frame',
+            members: ['Child', 'Sink'],
+            style: { label: { hidden: true } },
+            ...(!expanded && { layout: grid }),
+          },
+          { id: 'Child', members: ['Src'] },
+        ],
+        modules: [
+          { id: 'Src', ports: [{ id: 'out', direction: 'output', side }] },
+          { id: 'Sink', ports: [{ id: 'in', direction: 'input', side: opposite }] },
+        ],
+        connections: [{ from: 'Src.out', to: ['Sink.in'], label: 'Pulse' }],
+      });
+      const { groups, connections } = await layoutDiagram(model);
+      const edge = connections[0];
+      assert.equal(edge.routingInfo.containerExit.status, 'routed');
+      const axis = horizontal ? 'x' : 'y';
+      const extent = horizontal ? 'width' : 'height';
+      const sign = side === 'right' || side === 'bottom' ? 1 : -1;
+      const face = (id) => {
+        const g = groups.find((g) => g.id === id);
+        return g[axis] + (sign > 0 ? g[extent] : 0);
+      };
+      const rail = edge.sections.at(-1).points;
+      assert.equal(rail[1][axis], rail[2][axis], 'first turn runs parallel to the frame');
+      assert.ok(sign * (rail[1][axis] - face('Child')) >= 12);
+      assert.ok(sign * (face('Frame') - rail[1][axis]) >= 12);
+    }
+  });
+
 const path = (edge) => edge.sections.flatMap((s) => s.points);
 const hit = (a, b, r) =>
   Math.abs(a.y - b.y) < 1e-6

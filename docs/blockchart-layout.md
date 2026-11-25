@@ -417,6 +417,18 @@ checks for the affected interactions. Flowchart has a separate pipeline under
 
 ## Container exit preference
 
+When Grid placement measures a nested ordinary Container, it budgets space for
+a branch that exits a child Container and stays inside their common parent.
+The source Port side identifies the child's exit face. A turn there needs
+`2 × containerClearance(edge)` between frames, normally 24 SVG units. This
+leaves room for the wire centerline to clear each frame by 12 units. Branches
+using the same face share the largest requirement. Placement credits available
+space and applies the shortfall before packing the enclosing frame. For a
+Container expanded into its parent's Grid, the corresponding perimeter track
+reserves that space. Semantic membership determines the budget even when a
+visible Net label adds a private layout node. Pure Auto layout keeps ELK's
+existing frame sizing.
+
 After signal restoration and all channel/feedback repairs, `container-exit.js`
 examines semantic branches whose source is inside ordinary direct Containers that
 do not contain the destination. A clear straight departure follows the source
@@ -478,21 +490,23 @@ cross-group Grid), Grid ordering, Grid node geometry, source models and parent
 frames are unchanged by this phase. Downstream Port adjustment can still tune
 Ports using the existing rules.
 
-Initial eligibility is conservative: one to four ordinary Block members, no
-Container Ports or nested real groups/Concat, and every member must have a
-constraining connection to a sibling Grid subtree. Boundary/Collection/collapsed
-Containers and their descendants are protected. Standalone Auto charts without
+Eligible Containers have one to four ordinary Block members and at least one
+constraining connection to a sibling Grid subtree. They have no Container Ports
+or nested real groups/Concat. Boundary/Collection/collapsed Containers and
+their descendants are protected. Standalone Auto charts without
 Grid peers are unchanged. This does not yet align ungrouped Auto Blocks.
 
-Candidates move owned signal/receiver wrappers with their Blocks, preserve member
-order and configured minimum gaps, and may grow only the Auto frame's tangent
+When every member has a Grid peer, candidates move owned signal/receiver wrappers
+with their Blocks, preserve member order and configured minimum gaps, and may
+grow only the Auto frame's tangent
 extent to wrap the new internal spacing. They stay inside the unchanged parent's
 content padding (or the original root content extent), clear unrelated frames,
 Blocks and Terminal text, and retain sibling spacing. A frame never grows to wrap
 external wires. If room is insufficient or geometry is blocked, retain the baseline.
 
-Up to four anchor-derived plans (endpoint extremes, mean and rigid translation)
-are ranked by constraining Port-axis mismatch, worst target mismatch and weak-edge
+For these fully anchored groups, up to four anchor-derived plans (endpoint
+extremes, mean and rigid translation) are ranked by constraining Port-axis
+mismatch, worst target mismatch and weak-edge
 cost. A plan must improve constraining-axis mismatch by at least one unit. Weak
 connections remain a tie-break cost at weight 0.15; they do not pull a local
 interface toward a distant cross-Bank feedback endpoint. Incoming and outgoing
@@ -500,7 +514,18 @@ constraining links both contribute actual peer Port anchors. A single peer align
 to that Port; equal-priority fanout can balance between its peers, such as the
 midpoint of two receiver anchors.
 
-Placement is the primary decision. Only the best two geometrically feasible plans
+If only some members have Grid peers, the engine tries one translation of the
+entire frame. Each constraining peer contributes the tangent offset between its
+actual Port and the member Port. The median offset is clamped to the available
+parent content or root extent. Frame dimensions and the relative positions of
+all members, Ports and owned labels are preserved. Weak branches and unrelated
+Nets supply no preferred coordinate. The same containment, obstacle, sibling
+spacing and anchor-improvement checks apply. Both routing trials include the
+other wires. A trial that increases total working-route length is discarded, as
+is one that introduces the first crossing or the first foreign-Net overlap.
+If both trials fail, the group keeps its previous placement.
+
+For fully anchored groups, only the best two geometrically feasible plans
 per group are tried, each with ordinary and optional overlap-aware routing. Each
 private trial also runs Container entry, enabled outer feedback and the shared
 channel batch policy, with geometry fixed. At a chosen position, alternatives are
@@ -509,6 +534,12 @@ not whether to fall back to the old, distant ELK position: whole-chart transient
 route scores must not veto an otherwise safe peer-derived alignment. Proper
 crossings are legal and can trade against better placement; no global crossing,
 bend or length non-regression is promised by this placement refinement.
+
+Within one candidate position, the trials reuse successful orthogonal path
+searches with identical endpoints, headings, ordered obstacles, bounds, clearance
+and avoidance segments. Each caller receives its own path points. The cache
+expires after that position. Each trial still evaluates its own routing policies
+and scores the resulting connections.
 
 There is no shared eight-trial layout budget. Each eligible group has at most
 four route evaluations, so earlier interfaces cannot exhaust a later interface's
@@ -675,7 +706,20 @@ Net, and respect a local length budget. A bounded increase in distinct proper
 Net contacts can replace removed stroke contacts; clear perpendicular crossings
 are preferable to nearly coincident turns. Candidates rank contact improvement,
 proper segment contacts, reuse of a same-Net coordinate and added length. Up to
-12 accepted repair rounds are allowed. A blocked candidate leaves its current
+12 accepted repair rounds are allowed. When no safe single move remains, up to
+two ranked candidates may be evaluated as disposable batches: one provisional
+move followed by the same bounded repairs with nested batches disabled. If moving
+a long parallel segment briefly aligns the adjacent returns, the shorter span
+can qualify for a trial even when the centerline distance drops to zero. The
+second step can then move the return onto its own track. Only
+batches that reduce total proximity, introduce no new near-Net pair and increase
+no foreign-Net pair's overlap length are committed. Otherwise all paths and
+diagnostics remain at the baseline. Reserved channels remain fixed throughout.
+Placement=false connections use the same rules; that field affects node ordering,
+not wire clearance. Established exterior gates are retained, while an ancestor
+gate the original stub never reached cannot freeze that entire stub length.
+
+A blocked candidate leaves its current
 valid route intact; this is not a guarantee that every crowded fixed-geometry
 chart can satisfy the preferred gap.
 
@@ -684,6 +728,53 @@ method, channel and receiver diagnostics. No schema field, GUI control or source
 JSON mutation is introduced. Tests: `tests/lib/approach-spacing.test.js` cover four
 rotations, thin/thick strokes, source fanout reuse, fixed geometry, label
 obstacles, protected/reserved paths, common-Container gates and idempotence.
+
+## Physical corridor distribution
+
+After semantic Container exits and approach-spacing repairs, a final route-only
+pass redistributes eligible forward rails across physical gaps between facing,
+adjacent sibling ordinary Containers. This is independent of endpoint ownership:
+external inputs and Placement=false branches participate if their actual interior
+rail occupies the gap. An external forward input may already have crossed the
+receiving Container's facing wall and turned just inside it. If its final rail
+lies within one Container clearance of the wall, the allocator includes it in
+the same batch and can move the turn outside before the final Port attachment.
+Deeper routes, internal detours and non-final rails inside the frame stay fixed.
+Ambiguous spans with an intervening sibling frame retain
+the baseline. The pass does not rerun ELK or move nodes, Ports or pinned labels.
+
+The pass shares `allocateTracks`, `requiredTrackSpace`, `corridorAssignments` and
+route-only connection drafts with the existing channel machinery. Shared-Net
+intervals use one rail; disjoint Nets may reuse tracks. Spare width is divided
+between track gaps and the two margins, with the existing six-unit clear ink gap
+retained. Up to four alternatives are tested per corridor: interval-colored or
+one-track-per-Net spatial ordering, each in both directions. The latter avoids
+forcing non-overlapping Nets onto a shared rail when their endpoint topology
+requires different relative orders. Crossings, overlaps, bends and length take
+priority over uniform distribution; safety rejection retains the original routes.
+
+Only movable interior rails with forward approaches are changed. Pinned source
+trunk/receiver-label geometry, outer feedback, return/U-shaped rails, explicit
+Grid/Auto reservations, Concat and Boundary/Collection/collapsed ancestry stay
+fixed. Achieved exterior Container gates and endpoint escape directions remain
+protected. New traversal of body/frame/label obstacles and new near-wire pairs
+are rejected. Available width must cover all stroke widths, margins and track gaps.
+No nodes or spacing budgets are enlarged to force a distribution.
+
+Every candidate uses the same frozen baseline. Point patches address a specific
+branch, section and interior rail, allowing one branch to participate in multiple
+corridors without losing edits. Combined patches are validated together before
+publication; incompatible patches or a failed combined safety/quality check retain
+the whole baseline rather than assigning corridor priority by iteration order.
+There is no recursive rerouting or unbounded search.
+
+Derived `routingInfo.distributedCorridors` records contain opaque corridor `id`,
+`axis`, `section`, `index`, zero-based `track` and `count`. Coordinates come from
+the final section points; records do not retain pre-translation coordinates.
+Earlier planner diagnostics describe their original routing provenance. No new
+authoring field, schema, GUI control or source JSON mutation is introduced.
+Tests: `tests/lib/corridor-distribution.test.js` and the spread allocation cases in
+`tests/lib/channel-corridors.test.js`.
 
 ## Automatic Net junctions
 
@@ -724,3 +815,31 @@ neighbor order, heap tie handling and endpoint scoring are unchanged. A fresh
 search uses fresh caches, so changed Ports, obstacles, bounds or neighboring wires
 cannot reuse stale geometry. This also benefits candidate routing during peripheral
 alignment; it does not remove candidates or change placement/routing policy.
+
+The search stores costs and predecessor states in typed arrays indexed by grid
+point and heading. Each row and column filters the relevant obstacles and
+parallel segments in input order. Equal-cost detours keep the existing binary
+heap tie order. Route scoring prepares segment lists and stroke bounds once per
+evaluation and skips pairs with disjoint bounds. Approach-spacing trials share
+the fixed peers' segments while evaluating one wire. A newly accepted edit is
+visible to the next wire's evaluation.
+
+## Routing policy for geometry edits
+
+- **B4 — Equal-cost paths.** The orthogonal router keeps Dijkstra's search and
+  its existing choice among equal-cost paths. Two paths with the same cost can
+  draw different wires. An A* replacement must reproduce that choice or have an
+  explicitly accepted change to the tie-breaking contract.
+- **B5 — Peripheral alignment.** At each candidate position that reaches routing,
+  run both the ordinary trial and the `avoidForeignOverlaps` trial. Compare valid
+  results by overlaps, then crossings, bends and total length. Even when the first
+  trial has zero overlaps, the second can win on the remaining criteria. Any
+  future local rerouting must include other Nets whose wires encounter a moved
+  obstacle or share an affected track.
+- **B6 — Reuse across edits.** Geometry edits still trigger a full layout.
+  Incremental layout across edits is a separate experiment. Before enabling it,
+  invalidate all affected geometry, including ancestor frames, labels, obstacles
+  and shared routing corridors. After each edit in a sequence, compare the entire
+  layout DTO (including geometry and routes) and the SVG against a fresh full
+  layout of the same document and view. Paint-only edits use the existing
+  [paint-only runtime contract](editor-runtime.md#paint-only-blockchart-edits).

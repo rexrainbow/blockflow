@@ -86,6 +86,32 @@ test('coincident escape points with opposite endpoint directions require a loop'
   });
   assert.ok(metrics([{ x: -6, y: 0 }, ...route, { x: -9, y: 0 }]).bends >= 4);
   assert.ok(route.length > 1);
+  assert.equal(route[0], route.at(-1));
+});
+
+test('equal-cost detours preserve the exact route with and without endpoint headings', () => {
+  const start = { x: 0, y: 0 },
+    end = { x: 10, y: 0 };
+  const boxes = [{ x: 4, y: -2, width: 2, height: 4 }];
+  const points = (options) =>
+    routeOrthogonal(start, end, boxes, undefined, 5, [], options).map(({ x, y }) => [x, y]);
+  assert.deepEqual(points(), [
+    [0, 0],
+    [0, -2],
+    [4, -2],
+    [6, -2],
+    [10, -2],
+    [10, 0],
+  ]);
+  const right = { x: 1, y: 0 };
+  assert.deepEqual(points({ startDirection: right, endDirection: right }), [
+    [0, 0],
+    [4, 0],
+    [4, 2],
+    [6, 2],
+    [6, 0],
+    [10, 0],
+  ]);
 });
 for (const direction of ['down', 'right'])
   test(`fixed routing counts both stubs instead of hugging a decorative frame (${direction})`, () => {

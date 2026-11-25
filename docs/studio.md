@@ -140,6 +140,17 @@ the item itself or its descendants. The title strip stays at least 16 screen px 
 zoomed out (never taller than the group) and shows a grab cursor; wires crossing it remain
 on top and clickable.
 
+## Port order
+
+The Ports table always lists inputs, then bidirectional ports, then outputs; within each
+direction it keeps the saved order, and **Move up/down** reorders within one direction.
+Listing does not change the document: a file that writes an output before an input keeps
+that order. Every add (the table's **+ Input / + Output / + Bidirectional**, the block
+toolbar and the context menu, all through `newPort` in `state/actions.js`) inserts the new
+port after the last port of its own direction instead of at the end, so saved JSON reads in
+the same order. On the canvas only the order of ports on the same side matters, so a new
+port on its default side draws exactly as before.
+
 ## Concat
 
 Concat is always a thin bar across the Flow (runtime contract: Concat in
@@ -195,6 +206,96 @@ draws them as part of the runtime SVG. A dot is not its own object: its disk (at
 6 units) is a hit target for its first participating branch, placed under the branch
 paths, so a click on a wire keeps that wire's branch and a click beside the wire on the
 dot still selects the Net. Junctions and other derived routing data are never saved.
+
+## Routing diagnostics
+
+The runtime attaches computed `routingInfo` records to layout connections (approach
+spacing, channel corridors, distributed corridor tracks; contract:
+[Physical corridor distribution](blockchart-layout.md#physical-corridor-distribution)).
+Studio needs no controls for them: the canvas draws the returned SVG and picks wires
+from the final section points, so a moved rail is picked where it is drawn. A click
+within the hit stroke of a same-Net fork may pick the sibling branch there; the
+branch's own stretch beyond the fork picks that branch. These records stay in the
+layout result and are never saved.
+
+## Paint-only edits
+
+An edit whose only change is in the runtime's reuse allowlist is sent with
+`paintOnly: true`. The allowlist covers:
+- body fill, border paint and border pattern of blocks and groups;
+- Net/branch stroke paint and line pattern;
+- text paint and multi-line alignment, at the default and override levels, including
+  removing an override;
+- key renames of labelled blocks, groups and ports.
+
+The full field list is in the runtime contract,
+[Paint-only Blockchart edits](editor-runtime.md#paint-only-blockchart-edits).
+
+`BlockchartStudio.layoutHint` compares the previously requested document with the new
+one by the runtime's own `geometryKey`. The Inspector, Style paste, scripts and
+Undo/Redo therefore all qualify without per-control wiring. Measured properties
+(`borderWidth`, `strokeWidth`, arrows, `fontSize`, `padding`, `hidden`) and renaming an
+unlabelled key, which is its visible text, still run a full layout.
+
+The hint is given only for a document change in the same view as the previous request.
+Opening or replacing a document and real view switches are ordinary requests.
+Renaming the viewed group's key is the same view. The Blockchart Store keeps the view
+on that group after the edit, Undo and Redo: the group keeps its slot in `groups`, so a
+missing root whose slot now holds a new key follows it. The view does not switch or
+refit, and the hint treats the new root as the previous one.
+
+The Worker re-checks its own last geometry and falls back to a full layout on a miss.
+A paint edit right after a pending geometry edit or view switch therefore still ends
+on the new geometry.
+
+On DShot (d3775c12) these edits and labelled renames reach the canvas in about 45 to
+330 ms in Top and Bank0. A `borderWidth` edit takes a full layout (Top about 3.7 s while
+this laptop ran slowly). Evidence: `output/gui-paint-identity-acceptance/`. Save writes
+the authoring document only.
+
+## Updating layout
+
+While a layout is computing, the canvas keeps showing the previous drawing and stays
+interactive (pan, zoom, selection). If the result has not arrived 500 ms after the
+request (`STALE_DELAY_MS` in `core/canvas.js`; the service's 180 ms coalescing is part of
+it), the drawing dims to 45% and an "Updating layout…" chip (`role="status"`) appears at
+the top of the canvas. Selection and hit targets stay at full strength. Further edits
+while dimmed keep the state without a flicker; the next result removes it. Paint-only
+edits and small diagrams finish first and never dim. A failed layout keeps the last
+drawing dimmed with "Layout failed — showing the last result" until a good result.
+With no drawing yet (first open, replace), the centered "Laying out…" is used instead.
+All three diagram kinds share this through `StudioShell.requestLayout`/`onLayout`.
+
+On DShot (`8c344c87`), changing the FIFO0 label reached the canvas in a median
+of **2,092 ms in Top** and **913 ms in Bank0** after the routing optimization.
+The table shows medians from six paired Studio runs on the same machine, with
+the build order alternating each round. The label edit includes the normal 180 ms
+coalescing delay. The warm layout measurement disables that delay.
+
+| DShot view | Warm layout before | Warm layout after | Label edit to canvas before | Label edit to canvas after |
+| ---------- | -----------------: | ----------------: | --------------------------: | -------------------------: |
+| Top        |           4,547 ms |          2,000 ms |                    5,072 ms |                   2,092 ms |
+| Bank0      |           1,625 ms |            712 ms |                    1,746 ms |                     913 ms |
+
+The paired measurements come from `studio-paired.mjs` and `studio-paired-report.json`
+in `output/gui-layout-latency-measure/`. For the runtime changes, see
+[Orthogonal search reuse](blockchart-layout.md#orthogonal-search-reuse).
+
+## Typing during re-renders
+
+The Inspector and Outline are rebuilt from the document after every commit and layout
+result (`replaceKeepingFocus` in `ui/dom.js`). Text fields commit on Enter or blur, so
+the focused field may hold uncommitted typing when that happens. Chrome fires `change`
+when a focused, edited control is removed, which used to commit the draft in the middle
+of the render and then show the old value again (typed letters seemed to vanish). Now
+the old control is reset silently first, and:
+- the same field rebuilt from an unchanged document value keeps the draft, caret and any
+  inline error; nothing is committed until Enter/blur, and Escape still reverts;
+- if that document value changed elsewhere (Undo, a script), the new value wins;
+- if the field is gone, the draft commits through the old control after the new
+  content is in place.
+`h()` records each control's built value to tell these apart. Applies to all three
+diagram kinds.
 
 ## Container titles and drawing ids
 

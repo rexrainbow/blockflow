@@ -40,6 +40,10 @@ export class LayoutService {
     }
   }
 
+  requestDelay(_options) {
+    return this.debounceMs;
+  }
+
   request(document, options = {}) {
     if (this.disposed) throw new Error('LayoutService has been disposed.');
     this.invalidate();
@@ -72,7 +76,7 @@ export class LayoutService {
         this.worker = null;
         this.onResult({ revision, error: error?.message ?? String(error) });
       }
-    }, this.debounceMs);
+    }, this.requestDelay(options));
   }
 
   /** End a session, including its cached idle worker. */

@@ -7,7 +7,7 @@ import {
   containerClearance,
   endpointEscape,
 } from './routing-spacing.js';
-import { countSegmentContacts, routeMetrics } from './route-quality.js';
+import { segmentsContact, routeMetrics } from './route-quality.js';
 import {
   EPS,
   sectionSegments,
@@ -52,12 +52,14 @@ function issue(a, b, p, q, u, v) {
  * perpendicular crossings and a shared fixed endpoint are different cases. */
 export function parallelApproachIssues(edges) {
   const found = [];
+  const segments = edges.map((edge) => sectionSegments(edge.sections));
   for (let i = 0; i < edges.length; i++)
-    for (const b of edges.slice(i + 1)) {
-      const a = edges[i];
+    for (let j = i + 1; j < edges.length; j++) {
+      const a = edges[i],
+        b = edges[j];
       if (net(a) === net(b)) continue;
-      for (const [p, q] of sectionSegments(a.sections))
-        for (const [u, v] of sectionSegments(b.sections)) {
+      for (const [p, q] of segments[i])
+        for (const [u, v] of segments[j]) {
           const hit = issue(a, b, p, q, u, v);
           if (hit) found.push({ ...hit, a: a.id, b: b.id });
         }
@@ -66,17 +68,27 @@ export function parallelApproachIssues(edges) {
 }
 function localQuality(edge, sections, others) {
   const candidate = { ...edge, sections };
+  const segments = sectionSegments(sections);
   let near = 0,
+    nearSpan = 0,
     missing = 0,
-    overlap = 0;
+    overlap = 0,
+    contacts = 0;
   const nearNets = new Set(),
     contactNets = new Set();
-  for (const other of others)
-    for (const [a, b] of sectionSegments(sections))
-      for (const [c, d] of sectionSegments(other.sections)) {
+  for (const { edge: other, segments: foreign } of others)
+    for (const segment of segments)
+      for (const peer of foreign) {
+        const [a, b] = segment,
+          [c, d] = peer;
+        if (segmentsContact(segment, peer)) {
+          contacts++;
+          contactNets.add(net(other));
+        }
         const hit = issue(candidate, other, a, b, c, d);
         if (hit) {
           near++;
+          nearSpan += hit.span;
           nearNets.add(net(other));
           missing += hit.missing;
         }
@@ -87,8 +99,7 @@ function localQuality(edge, sections, others) {
             Math.max(Math.min(a[axis], b[axis]), Math.min(c[axis], d[axis]));
         }
       }
-  for (const other of others) if (countSegmentContacts(sections, [other]) > 0) contactNets.add(net(other));
-  return { near, missing, overlap, nearNets, contactNets, contacts: countSegmentContacts(sections, others) };
+  return { near, nearSpan, missing, overlap, nearNets, contactNets, contacts };
 }
 const better = (a, b) =>
   !b || a.some((v, i) => v < b[i] - EPS && a.slice(0, i).every((w, j) => Math.abs(w - b[j]) < EPS));
@@ -96,6 +107,10 @@ const better = (a, b) =>
 /** Bounded route-only cleanup after semantic restoration. Reuse an existing
  * same-Net fork when possible; frozen channel/outer routes and all anchors stay. */
 export function separateApproachSpacing(result, compiled) {
+  repairSpacing(result, compiled, true);
+}
+
+function repairSpacing(result, compiled, allowBatch) {
   if (result.connections.length < 2) return;
   const model = compiled._signalOriginal ?? compiled,
     refs = new Map(model.connections.map((e) => [e.id, e]));
@@ -135,15 +150,14 @@ export function separateApproachSpacing(result, compiled) {
     const before = simplifyForwardPath(old.flatMap((s) => s.points)),
       after = simplifyForwardPath(next.flatMap((s) => s.points));
     if (!samePoint(before[0], after[0]) || !samePoint(before.at(-1), after.at(-1))) return false;
-    for (const [p, first, oldCorner, corner, end, peer] of [
-      [a, true, before[1], after[1], ref.source, ref.target],
-      [b, false, before.at(-2), after.at(-2), ref.target, ref.source],
+    for (const [p, first, oldCorner, corner, end] of [
+      [a, true, before[1], after[1], ref.source],
+      [b, false, before.at(-2), after.at(-2), ref.target],
     ]) {
       const vector = sideVector(p.side ?? defaultSide(p, model.layout.direction)),
         dot = (q) => (q.x - p.x) * vector.x + (q.y - p.y) * vector.y;
       if (Math.abs((corner.x - p.x) * vector.y - (corner.y - p.y) * vector.x) > EPS) return false;
       let needed = Math.min(dot(oldCorner), endpointEscape(ref, first));
-      const common = new Set(ancestors(model, peer.moduleId));
       for (const id of ancestors(model, end.moduleId)) {
         const g = owners.get(id);
         if (!g) continue;
@@ -152,8 +166,9 @@ export function separateApproachSpacing(result, compiled) {
           y: vector.y > 0 ? g.y + g.height : vector.y < 0 ? g.y : p.y,
         };
         const gate = dot(face) + containerClearance(ref);
-        if (!common.has(id) || dot(oldCorner) >= gate - EPS)
-          needed = Math.max(needed, Math.min(dot(oldCorner), gate));
+        // Preserve gates that this route actually reached. An already-unmet
+        // outer ancestor gate must not freeze the entire old endpoint stub.
+        if (dot(oldCorner) >= gate - EPS) needed = Math.max(needed, gate);
       }
       if (dot(corner) < needed - EPS) return false;
     }
@@ -165,6 +180,7 @@ export function separateApproachSpacing(result, compiled) {
     const affected = new Set(issues.flatMap((i) => [i.a, i.b]));
     let best = null,
       bestScore = null;
+    const deferred = [];
     for (const edge of [...result.connections].sort((a, b) => a.id.localeCompare(b.id, 'en'))) {
       if (
         !affected.has(edge.id) ||
@@ -184,7 +200,8 @@ export function separateApproachSpacing(result, compiled) {
         continue;
       const others = result.connections.filter((e) => e !== edge && net(e) !== net(edge)),
         own = result.connections.filter((e) => e !== edge && net(e) === net(edge));
-      const old = localQuality(edge, edge.sections, others),
+      const peers = others.map((edge) => ({ edge, segments: sectionSegments(edge.sections) }));
+      const old = localQuality(edge, edge.sections, peers),
         length = routeMetrics(edge.sections.flatMap((s) => s.points)).length;
       const gap = Math.max(
         ...others.filter((e) => old.nearNets.has(net(e))).map((e) => wireClearance(edge, e)),
@@ -259,12 +276,14 @@ export function separateApproachSpacing(result, compiled) {
               i === s ? { ...section, points: replacement } : section,
             );
             if (!attachmentSafe(edge.sections, sections, ref)) continue;
-            const quality = localQuality(edge, sections, others);
+            const quality = localQuality(edge, sections, peers);
+            // Moving a long rail past a peer can briefly align their returns.
+            // Try separating the shorter overlap on a draft before publishing.
+            const shorterOverlap =
+              allowBatch && quality.overlap > old.overlap + EPS && quality.nearSpan < old.nearSpan - EPS;
             if (
               quality.near > old.near ||
-              (quality.near === old.near && quality.missing >= old.missing - EPS) ||
-              quality.overlap > old.overlap + EPS ||
-              [...quality.nearNets].some((key) => !old.nearNets.has(key)) ||
+              (quality.near === old.near && quality.missing >= old.missing - EPS && !shorterOverlap) ||
               quality.contactNets.size > old.contactNets.size + Math.max(0, old.near - quality.near)
             )
               continue;
@@ -278,6 +297,13 @@ export function separateApproachSpacing(result, compiled) {
               nextLength - length,
               Math.abs(coordinate - a[axis]),
             ];
+            if (
+              quality.overlap > old.overlap + EPS ||
+              [...quality.nearNets].some((key) => !old.nearNets.has(key))
+            ) {
+              if (allowBatch) deferred.push({ edge, sections, score });
+              continue;
+            }
             if (better(score, bestScore)) {
               best = { edge, sections };
               bestScore = score;
@@ -285,8 +311,70 @@ export function separateApproachSpacing(result, compiled) {
           }
         }
     }
-    if (!best) break;
+    if (!best) {
+      if (allowBatch && deferred.length && commitSpacingBatch(result, compiled, issues, deferred)) continue;
+      break;
+    }
     best.edge.sections = best.sections;
     best.edge.routingInfo = { ...best.edge.routingInfo, approachSpacing: 'separated' };
   }
+}
+
+// A single rail can be trapped between a reserved channel and a clear ordinary
+// rail. Permit a temporary conflict only inside a disposable two-stage batch;
+// publish it only after ordinary repairs remove every newly introduced pair.
+function commitSpacingBatch(result, compiled, before, offers) {
+  const ids = new Map(result.connections.map((e) => [e.id, net(e)]));
+  const pair = (i) => JSON.stringify([ids.get(i.a), ids.get(i.b)].sort());
+  const oldPairs = new Set(before.map(pair));
+  const oldMissing = before.reduce((sum, i) => sum + i.missing, 0);
+  const overlaps = (edges) => {
+    const totals = new Map();
+    const segments = edges.map((edge) => sectionSegments(edge.sections));
+    for (let i = 0; i < edges.length; i++)
+      for (let j = i + 1; j < edges.length; j++) {
+        if (net(edges[i]) === net(edges[j])) continue;
+        let length = 0;
+        for (const [a, b] of segments[i])
+          for (const [c, d] of segments[j]) {
+            if (!collinearOverlap(a, b, c, d)) continue;
+            const axis = Math.abs(a.x - b.x) < EPS ? 'y' : 'x';
+            length +=
+              Math.min(Math.max(a[axis], b[axis]), Math.max(c[axis], d[axis])) -
+              Math.max(Math.min(a[axis], b[axis]), Math.min(c[axis], d[axis]));
+          }
+        if (length) {
+          const key = JSON.stringify([net(edges[i]), net(edges[j])].sort());
+          totals.set(key, (totals.get(key) ?? 0) + length);
+        }
+      }
+    return totals;
+  };
+  const oldOverlap = overlaps(result.connections);
+  offers.sort((a, b) =>
+    better(a.score, b.score) ? -1 : better(b.score, a.score) ? 1 : a.edge.id.localeCompare(b.edge.id, 'en'),
+  );
+  for (const offer of offers.slice(0, 2)) {
+    const draft = structuredClone(result);
+    const edge = draft.connections.find((e) => e.id === offer.edge.id);
+    edge.sections = structuredClone(offer.sections);
+    edge.routingInfo = { ...edge.routingInfo, approachSpacing: 'separated' };
+    repairSpacing(draft, compiled, false);
+    const after = parallelApproachIssues(draft.connections);
+    if (
+      after.some((i) => !oldPairs.has(pair(i))) ||
+      after.length > before.length ||
+      (after.length === before.length && after.reduce((sum, i) => sum + i.missing, 0) >= oldMissing - EPS)
+    )
+      continue;
+    if ([...overlaps(draft.connections)].some(([key, length]) => length > (oldOverlap.get(key) ?? 0) + EPS))
+      continue;
+    for (const candidate of draft.connections) {
+      const original = result.connections.find((e) => e.id === candidate.id);
+      original.sections = candidate.sections;
+      if (candidate.routingInfo) original.routingInfo = candidate.routingInfo;
+    }
+    return true;
+  }
+  return false;
 }
