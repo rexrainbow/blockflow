@@ -58,6 +58,7 @@ test('copied standalone Flowchart kit compiles Mermaid to portable JSON and exac
   assert.deepEqual((await readdir(kit)).sort(), [
     'README.md',
     'blockchart-convert.mjs',
+    'blockchart-edit.mjs',
     'blockchart.schema.json',
     'flowchart-convert.mjs',
     'flowchart.schema.json',

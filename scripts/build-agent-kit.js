@@ -31,6 +31,7 @@ async function buildDomain(domain, overview) {
   hash.update(lf(await readFile(join(root, 'package-lock.json'), 'utf8')));
   for (const path of [
     entry,
+    ...(domain === 'blockchart' ? [join(root, 'src/agent-kit/blockchart-edit.js')] : []),
     fileURLToPath(import.meta.url),
     ...(await sources(join(root, `src/lib/${domain}`))),
     ...(domain === 'statechart' ? await sources(join(root, 'src/lib/flowchart')) : []),
@@ -38,6 +39,15 @@ async function buildDomain(domain, overview) {
   ].sort())
     hash.update(path.slice(root.length).replaceAll('\\', '/')).update(lf(await readFile(path, 'utf8')));
   const version = domain + '-agent-kit-' + hash.digest('hex').slice(0, 20);
+  const code = await buildBundle(entry, domain, version);
+  const bundle =
+    `/* ${version}\nIncludes elkjs ${elk.version}, Copyright Kiel University and contributors.\nDistributed under EPL-2.0; source: https://github.com/kieler/elkjs\nFull third-party license is in the accompanying README.md. */\n` +
+    code;
+  const guide = template.replaceAll('{{KIT_VERSION}}', version).replaceAll('{{ELK_VERSION}}', elk.version);
+  return { domain, schema, bundle, guide, version, license, bytes: Buffer.byteLength(bundle) };
+}
+
+async function buildBundle(entry, domain, version) {
   const result = await build({
     configFile: false,
     root,
@@ -49,7 +59,7 @@ async function buildDomain(domain, overview) {
       write: false,
       target: 'node22',
       minify: true,
-      lib: { entry, formats: ['es'], fileName: () => `${domain}-convert.mjs` },
+      lib: { entry, formats: ['es'], fileName: () => 'bundle.mjs' },
       rolldownOptions: {
         platform: 'node',
         external: (id) => id.startsWith('node:'),
@@ -60,11 +70,7 @@ async function buildDomain(domain, overview) {
   const outputs = (Array.isArray(result) ? result : [result]).flatMap((r) => r.output);
   if (outputs.length !== 1 || outputs[0].type !== 'chunk')
     throw new Error('Agent kit must produce exactly one JavaScript file.');
-  const bundle =
-    `/* ${version}\nIncludes elkjs ${elk.version}, Copyright Kiel University and contributors.\nDistributed under EPL-2.0; source: https://github.com/kieler/elkjs\nFull third-party license is in the accompanying README.md. */\n` +
-    outputs[0].code;
-  const guide = template.replaceAll('{{KIT_VERSION}}', version).replaceAll('{{ELK_VERSION}}', elk.version);
-  return { domain, schema, bundle, guide, version, license, bytes: Buffer.byteLength(bundle) };
+  return outputs[0].code;
 }
 
 /** Generate all domains together so the shared guide and build IDs stay matched. */
@@ -73,6 +79,7 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
   const block = await buildDomain('blockchart', overview);
   const flow = await buildDomain('flowchart', overview);
   const state = await buildDomain('statechart', overview);
+  const edit = await buildBundle(join(root, 'src/agent-kit/blockchart-edit.js'), 'blockchart', block.version);
   const versions = overview
     .replaceAll('{{BLOCKCHART_KIT_VERSION}}', block.version)
     .replaceAll('{{FLOWCHART_KIT_VERSION}}', flow.version)
@@ -94,6 +101,7 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
     await writeFile(join(target, `${item.domain}.schema.json`), item.schema, 'utf8');
     await writeFile(join(target, `${item.domain}-convert.mjs`), item.bundle, 'utf8');
   }
+  await writeFile(join(target, 'blockchart-edit.mjs'), edit, 'utf8');
   await writeFile(join(target, 'README.md'), readme, 'utf8');
   return {
     version: block.version,
@@ -109,6 +117,6 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const result = await buildAgentKit();
   console.log(
-    `${result.version}\n${result.flowchartVersion}\n${result.statechartVersion}\nGenerated seven files in ${result.directory}.`,
+    `${result.version}\n${result.flowchartVersion}\n${result.statechartVersion}\nGenerated eight files in ${result.directory}.`,
   );
 }

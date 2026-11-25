@@ -82,7 +82,7 @@ export function createGridPlan(cells, members, groups = [], path = 'layout', fai
       if (id === null) continue;
       const at = `${path}.cells[${r}][${c}]`;
       if (typeof id !== 'string') fail('Grid cells must contain member IDs or null', at);
-      if (seen.has(id)) fail('A member may occur only once in a grid', at);
+      if (seen.has(id)) fail('A member may occur only once in a grid: ' + id, at);
       seen.add(id);
       positions.set(id, at);
     }
@@ -97,7 +97,7 @@ export function createGridPlan(cells, members, groups = [], path = 'layout', fai
   const eligible = new Set(expandedGridMembers(members, groups, expandedContainers));
   for (const [id, at] of positions)
     if (!eligible.has(id))
-      fail('Grid cells must reference direct members or direct children of nonempty Containers', at);
+      fail('Grid cells must reference direct members or direct children of nonempty Containers: ' + id, at);
   for (const id of expandedContainers) {
     const group = groups.find((g) => g.id === id),
       missing = group.members.filter((id) => !seen.has(id));

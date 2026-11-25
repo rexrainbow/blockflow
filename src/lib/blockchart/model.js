@@ -30,6 +30,17 @@ function fail(message, path) {
   throw new DiagramValidationError(message, path);
 }
 
+/** Validate an authoring document without returning normalized data. */
+export function validateDiagram(document) {
+  try {
+    createDiagramModel(document);
+  } catch (error) {
+    error.stage ??= 'validation';
+    throw error;
+  }
+  return { ok: true };
+}
+
 function object(value, keys, path) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) fail('Expected an object', path);
   for (const key of Object.keys(value)) {

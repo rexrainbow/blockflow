@@ -301,15 +301,16 @@ sources combined into a 32-bit Mux input.
 
 ## Standalone Agent Kit
 
-The [agent-kit](agent-kit/README.md) directory ships two independent converters and Schemas:
-`blockchart-convert.mjs`, `blockchart.schema.json`, `flowchart-convert.mjs`,
-`flowchart.schema.json`, and a shared English README. With Node.js 22.12+
+The [agent-kit](agent-kit/README.md) directory ships converters and Schemas for
+Blockchart, Flowchart and Statechart, the Blockchart editor and a shared README. With Node.js 22.12+
 they work offline without this source checkout, `node_modules`, a browser or the editor.
 Agents can author/validate Blockchart JSON or Mermaid/Flowchart JSON and export authoring
 JSON or SVG. Standalone PNG is not included; the project CLI and Node APIs provide it.
 
 ```powershell
 node agent-kit/blockchart-convert.mjs diagram.json --check
+node agent-kit/blockchart-edit.mjs inspect diagram.json --module TimerA
+node agent-kit/blockchart-edit.mjs apply diagram.json --ops changes.json
 node agent-kit/blockchart-convert.mjs diagram.json --output diagram.svg
 node agent-kit/blockchart-convert.mjs diagram.json --output formatted.json
 node agent-kit/flowchart-convert.mjs process.mmd --output process.json
@@ -317,8 +318,8 @@ node agent-kit/flowchart-convert.mjs process.json --output process.svg
 npm.cmd run build:agent-kit
 ```
 
-The last command regenerates all five matched artifacts from the current implementation.
-Both CLIs support stdin/stdout and structured stderr diagnostics. Blockchart additionally
+The last command regenerates all eight matched artifacts from the current implementation.
+The converters support stdin/stdout and structured stderr diagnostics. Blockchart additionally
 supports scoped group SVG; see the kit README. JSON export retains the full original authoring document and omissions.
 
 ## Flow direction
@@ -981,7 +982,7 @@ cross-domain model or layout dependencies.
 ## Project and artifact names
 
 **blockflow** remains the project/editor name: Blockchart + Flowchart. Hardware diagram
-artifacts are named `blockchart-convert.mjs` and `blockchart.schema.json`; the source Schema
+artifacts are named `blockchart-convert.mjs`, `blockchart-edit.mjs` and `blockchart.schema.json`; the source Schema
 is `schema/blockchart.schema.json`. Standalone Flowchart artifacts
 are `flowchart-convert.mjs` and `flowchart.schema.json` in the same `agent-kit` directory.
 The existing Flowchart CLI remains available through `npm run flowchart`.

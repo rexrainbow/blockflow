@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "diagram": { "name": "Inspect and edit a clock branch" },
+  "modules": [
+    { "id": "TimerA", "ports": [{ "id": "out", "direction": "output" }] },
+    { "id": "Sampler", "ports": [{ "id": "in", "direction": "input" }] },
+    { "id": "Monitor", "ports": [{ "id": "in", "direction": "input" }] }
+  ],
+  "groups": [{ "id": "Bank0", "members": ["TimerA", "Sampler"] }],
+  "connections": [
+    {
+      "id": "Clock",
+      "from": "TimerA.out",
+      "label": "Clock",
+      "feedback": true,
+      "constraint": true,
+      "style": { "strokeColor": "#315585" },
+      "to": [
+        "Sampler.in",
+        { "endpoint": "Monitor.in", "constraint": false, "feedback": false, "style": { "strokeWidth": 3 } }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,8 @@ import { readFile, mkdir, writeFile, rename, unlink, realpath, stat } from 'node
 import { resolve, dirname, extname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { createDiagramModel, layoutDiagram, renderSvg } from '../lib/blockchart/index.js';
+import { createDiagramModel, layoutDiagram, renderSvg, validateDiagram } from '../lib/blockchart/index.js';
+export { validateDiagram };
 
 export const KIT_VERSION =
   typeof __BLOCKCHART_KIT_VERSION__ === 'string' ? __BLOCKCHART_KIT_VERSION__ : 'development';
@@ -14,11 +15,6 @@ function staged(stage, operation) {
     error.stage ??= stage;
     throw error;
   }
-}
-
-export function validateDiagram(document) {
-  staged('validation', () => createDiagramModel(document));
-  return { ok: true };
 }
 
 /** JSON output is the original authoring document, never a normalized model. */

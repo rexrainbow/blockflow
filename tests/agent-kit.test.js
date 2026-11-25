@@ -6,12 +6,13 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { buildAgentKit } from '../scripts/build-agent-kit.js';
-import { createDiagramModel, layoutDiagram, renderSvg } from '../src/lib/index.js';
+import { applyDiagramOps, createDiagramModel, layoutDiagram, renderSvg } from '../src/lib/index.js';
 
 let directory, kit, cli, raw, built;
 const names = [
   'README.md',
   'blockchart-convert.mjs',
+  'blockchart-edit.mjs',
   'blockchart.schema.json',
   'flowchart-convert.mjs',
   'flowchart.schema.json',
@@ -42,7 +43,7 @@ after(async () => {
     await rm(directory, { recursive: true, force: true });
 });
 
-function run(args, input) {
+function run(args, input, executable = cli) {
   // Restrict reads/writes to a temporary folder outside the checkout. A runtime
   // dependency on project files or node_modules must fail, rather than pass by accident.
   return spawnSync(
@@ -52,7 +53,7 @@ function run(args, input) {
       permissionFlag,
       `--allow-fs-read=${directory}`,
       `--allow-fs-write=${directory}`,
-      cli,
+      executable,
       ...args,
     ],
     {
@@ -172,7 +173,7 @@ test('isolated kit uses the same Port adjustment and preserves authoring JSON wi
   assert.deepEqual(JSON.parse(json.stdout), document);
 });
 
-test('seven matched artifacts are reproducible, current and contain no extra runtime files', async () => {
+test('eight matched artifacts are reproducible, current and contain no extra runtime files', async () => {
   assert.deepEqual((await readdir(kit)).sort(), names);
   assert.match(built.version, /^blockchart-agent-kit-/);
   assert.match(built.flowchartVersion, /^flowchart-agent-kit-/);
@@ -417,13 +418,208 @@ test('importable API has no CLI side effects and preserves the supplied object',
   assert.equal(result.stderr, '');
 });
 
+test('isolated edit CLI previews and atomically applies the same diff; failures preserve input bytes', async () => {
+  const file = join(directory, 'fanout.json'),
+    edit = join(kit, 'blockchart-edit.mjs');
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/agent-edit-fanout.json', import.meta.url)),
+  );
+  const original = '\uFEFF' + JSON.stringify(raw, null, '\t').replaceAll('\n', '\r\n') + '\r\n';
+  await writeFile(file, original);
+  const remove = { op: 'removeBranch', from: 'TimerA.out', to: 'Sampler.in' };
+  await writeFile(join(directory, 'ops.json'), JSON.stringify([remove]));
+  const command = ['apply', 'fanout.json', '--ops', 'ops.json'];
+  const preview = run(command, undefined, edit);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.deepEqual(JSON.parse(preview.stdout), applyDiagramOps(raw, [remove]).diff);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const inspected = run(['inspect', 'fanout.json', '--group', 'Bank0', '--recursive'], undefined, edit);
+  assert.equal(inspected.status, 0, inspected.stderr);
+  assert.deepEqual(
+    JSON.parse(inspected.stdout).branches.map((b) => b.relation),
+    ['internal', 'outgoing'],
+  );
+  for (const [ops, error] of [
+    [[remove, { ...remove, to: 'Unknown.in' }], /ops\[1\].*Unknown.in/],
+    [[{ op: 'updateModule', id: 'TimerA', patch: { ports: [] } }], /Validation.*connections\[0\].*TimerA/],
+  ]) {
+    const bad = run(['apply', 'fanout.json', '--ops', '-', '--write'], JSON.stringify(ops), edit);
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, error);
+    assert.equal(bad.stdout, '');
+    assert.equal(await readFile(file, 'utf8'), original);
+  }
+  const lock = file + '.blockflow-edit.lock';
+  await writeFile(lock, 'another writer');
+  const busy = run([...command, '--write'], undefined, edit);
+  assert.notEqual(busy.status, 0);
+  assert.equal(await readFile(file, 'utf8'), original);
+  assert.equal(await readFile(lock, 'utf8'), 'another writer');
+  await rm(lock);
+  const committed = run([...command, '--write'], undefined, edit);
+  assert.equal(committed.status, 0, committed.stderr);
+  assert.equal(committed.stdout, preview.stdout);
+  const saved = await readFile(file, 'utf8');
+  assert.ok(saved.startsWith('\uFEFF{\r\n\t'));
+  assert.deepEqual(JSON.parse(saved.slice(1)).connections, [
+    { ...raw.connections[0], to: [raw.connections[0].to[1]] },
+  ]);
+  assert.ok(!(await readdir(directory)).some((n) => n.startsWith('fanout.json.')));
+  const noop = run(['apply', 'fanout.json', '--ops', '-', '--write'], '[]', edit);
+  assert.equal(noop.status, 0, noop.stderr);
+  assert.equal(noop.stdout.trim(), '[]');
+  assert.equal(await readFile(file, 'utf8'), saved);
+  const source = `import {inspectDiagram,applyDiagramOps,KIT_VERSION} from ${JSON.stringify(pathToFileURL(edit).href)};
+    import assert from 'node:assert/strict'; const doc=${JSON.stringify(raw)};
+    assert.equal(KIT_VERSION,${JSON.stringify(built.version)});
+    assert.equal(inspectDiagram(doc,{moduleId:'TimerA'}).branches.length,2);
+    assert.deepEqual(applyDiagramOps(doc,[${JSON.stringify(remove)}]).document.connections[0].to,[doc.connections[0].to[1]]);`;
+  const api = spawnSync(
+    process.execPath,
+    ['--no-warnings', permissionFlag, `--allow-fs-read=${directory}`, '--input-type=module', '-e', source],
+    { cwd: directory, encoding: 'utf8' },
+  );
+  assert.equal(api.status, 0, api.stderr);
+  assert.equal(api.stdout, '');
+  assert.equal(api.stderr, '');
+});
+
+test('standalone editor renames with identical preview/write diffs and atomic failures', async () => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/agent-edit-fanout.json', import.meta.url)),
+  );
+  const name = 'rename-edit.json',
+    file = join(directory, name),
+    edit = join(kit, 'blockchart-edit.mjs');
+  const original = JSON.stringify(raw);
+  await writeFile(file, original);
+  const ops = [
+    { op: 'renameModule', id: 'TimerA', newId: 'TickSource' },
+    { op: 'updateModule', id: 'TickSource', patch: { label: 'Tick' } },
+  ];
+  const args = ['apply', name, '--ops', '-', '--diff-format', 'semantic'];
+  const preview = run(args, JSON.stringify(ops), edit);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(await readFile(file, 'utf8'), original);
+  assert.deepEqual(JSON.parse(preview.stdout), applyDiagramOps(raw, ops, { diffFormat: 'semantic' }).diff);
+  for (const bad of [
+    { op: 'renameModule', id: 'Missing', newId: 'New' },
+    { op: 'renameModule', id: 'TickSource', newId: 'Bank0' },
+  ]) {
+    const failed = run([...args, '--write'], JSON.stringify([...ops, bad]), edit);
+    assert.notEqual(failed.status, 0);
+    assert.match(failed.stderr, /ops\[2\] renameModule/);
+    assert.equal(await readFile(file, 'utf8'), original);
+  }
+  const written = run([...args, '--write'], JSON.stringify(ops), edit);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, preview.stdout);
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), applyDiagramOps(raw, ops).document);
+});
+
+test('standalone editor uses the same semantic diff and diagram for preview and write', async () => {
+  const raw = JSON.parse(
+    await readFile(new URL('../examples/blockchart/agent-edit-fanout.json', import.meta.url)),
+  );
+  const name = 'semantic-edit.json',
+    file = join(directory, name),
+    edit = join(kit, 'blockchart-edit.mjs');
+  const original = JSON.stringify(raw);
+  await writeFile(file, original);
+  const ops = [
+    { op: 'updateNet', id: 'Clock', patch: { label: 'Tick' } },
+    { op: 'updateBranch', from: 'TimerA.out', to: 'Sampler.in', patch: { style: { strokeWidth: 2 } } },
+  ];
+  const args = ['apply', name, '--ops', '-', '--diff-format', 'semantic'];
+  const expected = applyDiagramOps(raw, ops, { diffFormat: 'semantic' });
+  const preview = run(args, JSON.stringify(ops), edit);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.deepEqual(JSON.parse(preview.stdout), expected.diff);
+  assert.deepEqual(
+    expected.diff.map((r) => r.kind),
+    ['net', 'branch'],
+  );
+  const invalid = run(
+    ['apply', name, '--ops', '-', '--diff-format', 'bad', '--write'],
+    JSON.stringify(ops),
+    edit,
+  );
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /diffFormat/);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const written = run([...args, '--write'], JSON.stringify(ops), edit);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, preview.stdout);
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), expected.document);
+  const repeat = run([...args, '--write'], JSON.stringify(ops), edit);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.deepEqual(JSON.parse(repeat.stdout), []);
+});
+
 test('standalone Blockchart guide JSON examples validate and render without upstream examples', async () => {
   const readme = await readFile(join(kit, 'README.md'), 'utf8'),
     guide = readme.split('## Blockchart Agent Kit')[1].split('## Flowchart Agent Kit')[0],
     examples = [...guide.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)];
-  assert.equal(examples.length, 4);
-  for (const match of examples) {
-    const model = createDiagramModel(JSON.parse(match[1]));
+  const values = examples.map((match) => JSON.parse(match[1]));
+  const diagrams = values.filter((value) => !Array.isArray(value));
+  assert.equal(diagrams.length, 5);
+  const operations = values.filter(Array.isArray);
+  assert.equal(operations.length, 2);
+  const sample = JSON.parse(
+    await readFile(new URL('../examples/blockchart/agent-edit-fanout.json', import.meta.url)),
+  );
+  assert.deepEqual(
+    diagrams.find((doc) => doc.diagram.name === sample.diagram.name),
+    sample,
+  );
+  assert.deepEqual(applyDiagramOps(sample, operations[0]).document.connections[0].to, [
+    sample.connections[0].to[1],
+  ]);
+  const edit = join(kit, 'blockchart-edit.mjs');
+  const name = 'grid-net-example.json',
+    file = join(directory, name);
+  const original = JSON.stringify(sample);
+  await writeFile(file, original);
+  const command = ['apply', name, '--ops', '-'];
+  const batch = operations[1];
+  const preview = run(command, JSON.stringify(batch), edit);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const bad = run(
+    [...command, '--write'],
+    JSON.stringify([...batch, { op: 'setGridCells', id: 'Bank0', cells: [['Unknown']] }]),
+    edit,
+  );
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr, /Unknown.*setGridCells Bank0/);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const written = run([...command, '--write'], JSON.stringify(batch), edit);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, preview.stdout);
+  const edited = JSON.parse(await readFile(file, 'utf8'));
+  assert.deepEqual(edited.groups[0], {
+    id: 'Bank0',
+    members: ['TimerA', 'Sampler', 'Monitor'],
+    layout: {
+      type: 'grid',
+      cells: [
+        ['TimerA', 'Sampler'],
+        [null, 'Monitor'],
+      ],
+    },
+  });
+  assert.deepEqual(edited.connections, [
+    {
+      ...sample.connections[0],
+      label: 'Sample clock',
+      to: [
+        { endpoint: 'Sampler.in', constraint: false, style: { strokeWidth: 2 } },
+        sample.connections[0].to[1],
+      ],
+    },
+  ]);
+  for (const diagram of diagrams) {
+    const model = createDiagramModel(diagram);
     assert.ok(renderSvg(await layoutDiagram(model)).startsWith('<svg'));
   }
   assert.ok(!/\]\((?:\.\.\/|examples\/)/.test(readme));
