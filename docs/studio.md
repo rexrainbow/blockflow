@@ -445,7 +445,14 @@ has no Story mode and no story code; it imports only `src/story/handoff.js`.
     fill in when the hop arrives.
   - A block is its `block` rect or `block-body` wrapper (`data-module`). Its tooltip and
     note name come from the `block-label` text. Terminals are `@terminal:ID`.
-  - Reference checks use the same metadata (`svgIndex` in `model.js`).
+  - Reference checks use the same metadata (`svgIndex`).
+- **Runtime story contract.** The format, validation, reference index, problems, page
+  sources and fingerprints are the runtime's ([Story runtime contract](story-runtime.md),
+  `schema/story.schema.json`, `src/lib/story/`). `src/story/model.js` only re-exports
+  them, so the GUI keeps no copy of the checks. Field errors show the runtime's path, for
+  example `wave.bits[0]: must be 0 or 1.` under the chapter's timing-strip JSON. The
+  Agent Kit's `story-edit.mjs` edits, checks and exports the same files without a GUI; its
+  exported page is the Story editor's page byte for byte and opens here for editing.
 - **Authoring.** The left pane lists chapters and steps. The right pane edits the selected
   step or chapter:
   - title, caption, *Animated hops* or *Chapter overview*, and camera;
@@ -492,7 +499,8 @@ has no Story mode and no story code; it imports only `src/story/handoff.js`.
 - **Tests** use the Story editor's own Block diagram and story,
   `tests/fixtures/story/signal-path.json` and `signal-path.story.json`. They contain
   terminals at both ends, a group and a start Net that fans out over a shared trunk.
-  Coverage: `tests/story/model.test.js` and `e2e/story.spec.js`.
+  Coverage: `tests/lib/story-model.test.js` (runtime), `tests/story/editor.test.js`
+  (import point, hand-off) and `e2e/story.spec.js`.
 
 ## Keyboard
 
@@ -537,7 +545,7 @@ src/studio/
 src/story/                  Story editor (story.html); reuses src/studio/ui and styles
   main.js, editor.js       entry; StoryEditor: page, files, hand-off, story history, list and step panes
   handoff.js               Studio → Story editor hand-off (the only file the Studio imports)
-  model.js                 story format, validation, SVG identity index, sources of exported pages
+  model.js                 re-exports the runtime story model (src/lib/story); the export's import point
   player.js, player.css    presentation player shared with the exported page (no imports)
   present.js, present.css  exported page shell around the player
   export.js                standalone presentation HTML (inlines player, shell, SVG and sources)

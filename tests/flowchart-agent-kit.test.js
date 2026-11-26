@@ -60,10 +60,14 @@ test('copied standalone Flowchart kit compiles Mermaid to portable JSON and exac
     'blockchart-convert.mjs',
     'blockchart-edit.mjs',
     'blockchart.schema.json',
+    'docs',
     'flowchart-convert.mjs',
     'flowchart.schema.json',
+    'licenses',
     'statechart-convert.mjs',
     'statechart.schema.json',
+    'story-edit.mjs',
+    'story.schema.json',
   ]);
   const json = run(['source.mmd', '--output', '-', '--format', 'json']);
   assert.equal(json.status, 0, json.stderr);
@@ -153,9 +157,9 @@ test('importable standalone Flowchart API has no CLI side effects, no source dep
   assert.equal(result.stderr, '');
 });
 
-test('shared README Mermaid and Flowchart JSON examples execute from the standalone module', async () => {
+test('linked Flowchart guide Mermaid and JSON examples execute from the standalone module', async () => {
   const readme = await readFile(join(kit, 'README.md'), 'utf8'),
-    guide = readme.split('## Flowchart Agent Kit')[1].split('## Bundled elkjs license')[0];
+    guide = await readFile(join(kit, 'docs/flowchart.md'), 'utf8');
   assert.ok(!readme.includes('{{'));
   assert.ok(readme.includes(built.flowchartVersion) && readme.includes(built.version));
   const blocks = [...guide.matchAll(/```(mermaid|json)\r?\n([\s\S]*?)\r?\n```/g)];

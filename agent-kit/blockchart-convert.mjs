@@ -1,7 +1,7 @@
-/* blockchart-agent-kit-c625d92bd8ed00789e87
+/* blockchart-agent-kit-8ae585e89d19286c40f2
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
-Full third-party license is in the accompanying README.md. */
+Full third-party license: licenses/elkjs-EPL-2.0.md (see README.md). */
 import { createRequire as e } from "node:module";
 import { mkdir as t, readFile as n, realpath as r, rename as i, stat as a, unlink as o, writeFile as s } from "node:fs/promises";
 import { dirname as c, extname as l, resolve as u } from "node:path";
@@ -53042,7 +53042,7 @@ function Pr(e, t, n) {
 	return r > 0 ? `rx="${r}" ry="${r}" ` : "";
 }
 // src/agent-kit/blockchart-converter.js
-var Fr = "blockchart-agent-kit-c625d92bd8ed00789e87";
+var Fr = "blockchart-agent-kit-8ae585e89d19286c40f2";
 function Ir(e, t) {
 	try {
 		return t();

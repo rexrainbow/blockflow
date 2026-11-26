@@ -3,8 +3,41 @@ import { randomUUID as o } from "node:crypto";
 import { resolve as s } from "node:path";
 import { pathToFileURL as c } from "node:url";
 import { parseArgs as l } from "node:util";
+// src/agent-kit/edit-file.js
+function u(e, t) {
+	try {
+		return JSON.parse(e.replace(/^\uFEFF/, ""));
+	} catch (e) {
+		throw Error(t + ": " + e.message, { cause: e });
+	}
+}
+function d(e, t) {
+	let n = t.match(/\n([ \t]+)"/)?.[1] ?? (t.includes("\n") ? 2 : void 0), r = t.includes("\r\n") ? "\r\n" : "\n";
+	return (t.startsWith("﻿") ? "﻿" : "") + JSON.stringify(e, null, n).replaceAll("\n", r) + (t.endsWith("\n") ? r : "");
+}
+async function f(n, s, c) {
+	let l = n + ".blockflow-edit.lock", u = await e(l, "wx");
+	try {
+		let l = n + "." + o() + ".tmp", u = await e(l, "wx", (await i(n)).mode);
+		try {
+			try {
+				await u.writeFile(d(c, s), "utf8");
+			} finally {
+				await u.close();
+			}
+			if (await t(n, "utf8") !== s) throw Error("Diagram changed during apply: " + n);
+			await r(l, n);
+		} finally {
+			await a(l).catch((e) => {
+				if (e.code !== "ENOENT") throw e;
+			});
+		}
+	} finally {
+		await u.close(), await a(l);
+	}
+}
 // src/lib/blockchart/layout-defaults.js
-var u = Object.freeze({
+var p = Object.freeze({
 	blockMinWidth: 64,
 	blockMinHeight: 36,
 	blockPaddingX: 12,
@@ -17,20 +50,20 @@ var u = Object.freeze({
 	portPitch: 16,
 	edgeNode: 6,
 	edgeEdge: 6
-}), d = (e) => e.type ?? "container", f = (e) => typeof e == "string" ? e : e?.terminal === void 0 ? e?.moduleId === void 0 ? String(e) : `${e.moduleId}.${e.portId}` : `@terminal:${e.terminal}`, p = (e) => e.to, m = (e) => e && typeof e == "object" && Object.hasOwn(e, "endpoint") ? e.endpoint : e;
-function h(e, t) {
-	e.connections = (e.connections ?? []).filter((e) => !t(e.from) && (e.to = e.to.filter((e) => !t(m(e))), e.to.length > 0));
+}), m = (e) => e.type ?? "container", h = (e) => typeof e == "string" ? e : e?.terminal === void 0 ? e?.moduleId === void 0 ? String(e) : `${e.moduleId}.${e.portId}` : `@terminal:${e.terminal}`, g = (e) => e.to, _ = (e) => e && typeof e == "object" && Object.hasOwn(e, "endpoint") ? e.endpoint : e;
+function v(e, t) {
+	e.connections = (e.connections ?? []).filter((e) => !t(e.from) && (e.to = e.to.filter((e) => !t(_(e))), e.to.length > 0));
 }
 // src/lib/blockchart/hierarchy.js
-function g(e, t) {
+function ee(e, t) {
 	return e.groups?.find((e) => e.members.includes(t))?.id ?? "";
 }
-function _(e, t) {
+function y(e, t) {
 	let n = [], r = /* @__PURE__ */ new Set([t]);
-	for (let i = g(e, t); i && !r.has(i); i = g(e, i)) r.add(i), n.unshift(i);
+	for (let i = ee(e, t); i && !r.has(i); i = ee(e, i)) r.add(i), n.unshift(i);
 	return n;
 }
-function v(e, t) {
+function b(e, t) {
 	let n = new Map((e.groups ?? []).map((e) => [e.id, e])), r = /* @__PURE__ */ new Set(), i = [...n.get(t)?.members ?? []];
 	for (; i.length;) {
 		let e = i.pop();
@@ -39,14 +72,14 @@ function v(e, t) {
 	return r;
 }
 // src/lib/blockchart/connectivity.js
-var ee = (e) => f(e.ref) + (e.isGroup && e.port.direction === "inout" ? e.inside ? ":inside" : ":outside" : ""), y = (e) => (e.groups ?? []).filter((e) => d(e) === "boundary");
-function b(e) {
+var x = (e) => h(e.ref) + (e.isGroup && e.port.direction === "inout" ? e.inside ? ":inside" : ":outside" : ""), S = (e) => (e.groups ?? []).filter((e) => m(e) === "boundary");
+function C(e) {
 	let t = new Map((e.groups ?? []).map((e) => [e.id, e])), n = new Map((e.terminals ?? []).map((e) => [e.id, e])), r = new Map([
 		...e.modules,
 		...t.values(),
 		...n.values()
-	].map((e) => [e.id, e])), i = new Map([...r.keys()].map((t) => [t, _(e, t)])), a = /* @__PURE__ */ new Map();
-	for (let e of r.values()) if (!(t.has(e.id) && d(e) !== "boundary")) for (let t of e.ports ?? []) a.set(e.id + "." + t.id, {
+	].map((e) => [e.id, e])), i = new Map([...r.keys()].map((t) => [t, y(e, t)])), a = /* @__PURE__ */ new Map();
+	for (let e of r.values()) if (!(t.has(e.id) && m(e) !== "boundary")) for (let t of e.ports ?? []) a.set(e.id + "." + t.id, {
 		owner: e,
 		port: t
 	});
@@ -116,24 +149,24 @@ function b(e) {
 			error: `Expected ${n} port${e.isGroup ? " on the " + (e.inside ? "inside" : "outside") + " of group " + e.owner.id : ""}`,
 			field: t
 		};
-		for (let t of y(e)) if (i.get(s.owner.id).includes(t.id) !== i.get(c.owner.id).includes(t.id) && s.owner.id !== t.id && c.owner.id !== t.id) return {
+		for (let t of S(e)) if (i.get(s.owner.id).includes(t.id) !== i.get(c.owner.id).includes(t.id) && s.owner.id !== t.id && c.owner.id !== t.id) return {
 			error: `Connection crosses boundary of group ${t.id}; connect through its ports`,
 			field: "to"
 		};
-		let f = [...i.get(s.owner.id), ...s.inside ? [s.owner.id] : []], p = [...i.get(c.owner.id), ...c.inside ? [c.owner.id] : []], m = "";
-		for (let e = 0; e < Math.min(f.length, p.length) && f[e] === p[e]; e++) m = f[e];
-		let h = m ? [...i.get(m), m] : [];
+		let d = [...i.get(s.owner.id), ...s.inside ? [s.owner.id] : []], f = [...i.get(c.owner.id), ...c.inside ? [c.owner.id] : []], p = "";
+		for (let e = 0; e < Math.min(d.length, f.length) && d[e] === f[e]; e++) p = d[e];
+		let h = p ? [...i.get(p), p] : [];
 		return {
 			source: s,
 			target: c,
-			scope: m,
+			scope: p,
 			insideSelfLoop: l,
-			boundaryScoped: h.some((e) => t.has(e) && d(t.get(e)) === "boundary")
+			boundaryScoped: h.some((e) => t.has(e) && m(t.get(e)) === "boundary")
 		};
 	} };
 }
 // src/lib/shared/text.js
-var x = Object.freeze({
+var w = Object.freeze({
 	color: "#000000",
 	fontSize: 12,
 	backgroundColor: "#00000000",
@@ -142,44 +175,44 @@ var x = Object.freeze({
 	backgroundOpacity: 1,
 	hidden: !1
 }), te = Object.freeze({
-	...x,
+	...w,
 	borderColor: "#00000000",
 	borderWidth: 1,
 	borderOpacity: 1,
 	borderRadius: 0,
 	repeatAtEnd: "auto",
 	longThreshold: 600
-}), S = Object.freeze({
+}), T = Object.freeze({
 	borderColor: "#000000",
 	borderWidth: 1,
 	borderStyle: "solid",
 	borderOpacity: 1,
 	fillColor: "#ffffff",
 	fillOpacity: 1
-}), C = Object.freeze({
-	...S,
+}), E = Object.freeze({
+	...T,
 	borderColor: "#8793a5",
 	borderStyle: "dashed",
 	fillColor: "#f7f9fc",
 	borderRadius: 0
-}), w = (e) => ({
+}), ne = (e) => ({
 	strokeColor: "#000000",
 	strokeWidth: e > 1 ? 2.5 : 1.5,
 	lineStyle: "solid",
 	opacity: 1,
 	endArrow: "none",
 	startArrow: "none"
-}), T = [
+}), D = [
 	"label",
 	"portLabel",
 	"inputPortLabel",
 	"outputPortLabel"
-], E = {
-	text: [...Object.keys(x), "textAlign"],
+], re = {
+	text: [...Object.keys(w), "textAlign"],
 	connectionLabel: [...Object.keys(te), "textAlign"],
-	group: [...Object.keys(C), ...T],
-	connection: [...Object.keys(w(1)), "label"],
-	module: [...Object.keys(S), ...T],
+	group: [...Object.keys(E), ...D],
+	connection: [...Object.keys(ne(1)), "label"],
+	module: [...Object.keys(T), ...D],
 	diagram: [
 		"text",
 		"module",
@@ -189,12 +222,12 @@ var x = Object.freeze({
 		"caption"
 	]
 };
-function D(e, t, n, r) {
+function O(e, t, n, r) {
 	(!e || typeof e != "object" || Array.isArray(e)) && r("Expected a style object", n);
 	let i = {};
 	for (let [a, o] of Object.entries(e)) {
 		let e = `${n}.${a}`;
-		if (E[t].includes(a) || r(`Unsupported style property: ${a}`, e), t === "diagram" || ["module", "group"].includes(t) && T.includes(a) || ["group", "connection"].includes(t) && a === "label") i[a] = D(o, t === "diagram" ? [
+		if (re[t].includes(a) || r(`Unsupported style property: ${a}`, e), t === "diagram" || ["module", "group"].includes(t) && D.includes(a) || ["group", "connection"].includes(t) && a === "label") i[a] = O(o, t === "diagram" ? [
 			"text",
 			"terminal",
 			"caption"
@@ -226,7 +259,7 @@ function D(e, t, n, r) {
 	}
 	return i;
 }
-function O(e = {}, t, n = "", r = {}, i = {}) {
+function k(e = {}, t, n = "", r = {}, i = {}) {
 	let a = [], o = (e, t) => {
 		e && a.push({
 			value: e,
@@ -238,8 +271,8 @@ function O(e = {}, t, n = "", r = {}, i = {}) {
 		"caption",
 		"port"
 	].includes(t) || !!n;
-	o(s ? t === "connection" ? te : x : t === "group" ? C : t === "module" ? S : {
-		...w(i.width),
+	o(s ? t === "connection" ? te : w : t === "group" ? E : t === "module" ? T : {
+		...ne(i.width),
 		endArrow: "triangle",
 		...i.direction === "both" ? { startArrow: "triangle" } : {}
 	}, "Built-in"), s && t !== "text" && o(e.text, "Diagram > Text");
@@ -271,19 +304,19 @@ function O(e = {}, t, n = "", r = {}, i = {}) {
 		"outputPortLabel"
 	].includes(n) ? (t === "group" && (o(e.module?.portLabel, "Diagram > Blocks > All ports"), n !== "portLabel" && o(e.module?.[n], "Diagram > Blocks > " + l[n])), o(e[t]?.portLabel, "Diagram > " + c[t] + " > All ports"), n !== "portLabel" && o(e[t]?.[n], "Diagram > " + c[t] + " > " + l[n]), o(r.portLabel, "This object > All ports"), n !== "portLabel" && o(r[n], "This object > " + l[n]), a) : (o(n ? e[t]?.[n] : e[t], "Diagram > " + c[t] + (n ? " > " + l[n] : "")), i.netStyle && o(n ? i.netStyle[n] : i.netStyle, "This Net"), o(n ? r[n] : r, "This object"), a);
 }
-var k = (e) => Object.assign({}, ...e.map((e) => e.value));
-function ne(e = {}, t = {}, n = {}) {
+var A = (e) => Object.assign({}, ...e.map((e) => e.value));
+function j(e = {}, t = {}, n = {}) {
 	let r = {
 		module: e,
 		text: n
-	}, i = k(O(r, "module", "", t));
+	}, i = A(k(r, "module", "", t));
 	return {
-		...Object.fromEntries(Object.keys(S).map((e) => [e, i[e]])),
-		label: k(O(r, "module", "label", t))
+		...Object.fromEntries(Object.keys(T).map((e) => [e, i[e]])),
+		label: A(k(r, "module", "label", t))
 	};
 }
-function A(e = {}, t = {}, n, r = {}, i = void 0) {
-	return k(O({
+function ie(e = {}, t = {}, n, r = {}, i = void 0) {
+	return A(k({
 		module: e,
 		text: r,
 		group: i
@@ -293,19 +326,19 @@ function A(e = {}, t = {}, n, r = {}, i = void 0) {
 		ownerKind: i ? "group" : "module"
 	}));
 }
-function j(e = {}, t = {}, n = {}) {
+function M(e = {}, t = {}, n = {}) {
 	let r = {
 		group: t,
 		text: n
-	}, i = k(O(r, "group", "", e));
+	}, i = A(k(r, "group", "", e));
 	return {
-		...Object.fromEntries(Object.keys(C).map((e) => [e, i[e]])),
-		label: k(O(r, "group", "label", e))
+		...Object.fromEntries(Object.keys(E).map((e) => [e, i[e]])),
+		label: A(k(r, "group", "label", e))
 	};
 }
 // src/lib/blockchart/appearances.js
-var re = (e) => e;
-function M(e, t) {
+var N = (e) => e;
+function P(e, t) {
 	let n = t.stroke / 2, r = Object.fromEntries([...t.inputs, ...t.outputs].map((n) => [n.id, {
 		x: n.direction === "input" ? 0 : e.width,
 		y: n.direction === "input" || t.outputs.length > 1 ? e.rowCenters[n.order] : (e.rowCenters[0] + e.rowCenters.at(-1)) / 2
@@ -325,7 +358,7 @@ function M(e, t) {
 		}
 	};
 }
-function N(e, t, n) {
+function F(e, t, n) {
 	let r = n.layers, i = r * 6, a = t.stroke / 2, o = [];
 	for (let n = r; n >= 0; n--) o.push({
 		kind: "rect",
@@ -346,7 +379,7 @@ function N(e, t, n) {
 		}
 	};
 }
-function P(e, t, n) {
+function I(e, t, n) {
 	let r = n.rightHeightRatio, i = 12 + t.border, a = Math.max(e.width, t.titleWidth + 2 * Math.max(0, ...t.inputs.map((e) => e.width), ...t.outputs.map((e) => e.width)) + 48 + 2 * t.border), o = (e) => e.reduce((e, t) => e + t.height, 0) + 12 * (e.length + 1) + 2 * i, s = Math.max(0, ...t.inputs.map((e) => e.width)), c = s ? Math.min(1, (e.portInset + s) / a) : 0, l = 1 - (1 - r) * c, u = Math.max(e.height, (t.titleHeight + 2 * i) / r, o(t.inputs) / l, o(t.outputs) / r), d = u * (1 - r) / 2, f = Object.create(null);
 	for (let [e, n, o, s] of [[
 		t.inputs,
@@ -399,31 +432,31 @@ function P(e, t, n) {
 		}
 	};
 }
-var F = Object.freeze({
+var L = Object.freeze({
 	rectangle: {
 		keys: ["type"],
 		defaults: {},
-		geometry: re
+		geometry: N
 	},
 	bar: {
 		keys: ["type"],
 		defaults: {},
-		geometry: M
+		geometry: P
 	},
 	stacked: {
 		keys: ["type", "layers"],
 		defaults: { layers: 2 },
-		geometry: N
+		geometry: F
 	},
 	trapezoid: {
 		keys: ["type", "rightHeightRatio"],
 		defaults: { rightHeightRatio: .6 },
-		geometry: P
+		geometry: I
 	}
 });
-function ie(e, t, n) {
-	(!e || typeof e != "object" || Array.isArray(e)) && n("Expected an appearance object", t), Object.hasOwn(F, e.type) || n("Expected rectangle, bar, stacked or trapezoid appearance", `${t}.type`);
-	let r = F[e.type];
+function ae(e, t, n) {
+	(!e || typeof e != "object" || Array.isArray(e)) && n("Expected an appearance object", t), Object.hasOwn(L, e.type) || n("Expected rectangle, bar, stacked or trapezoid appearance", `${t}.type`);
+	let r = L[e.type];
 	for (let i of Object.keys(e)) r.keys.includes(i) || n("Unsupported appearance property: " + i, `${t}.${i}`);
 	let i = {
 		...r.defaults,
@@ -432,11 +465,11 @@ function ie(e, t, n) {
 	return e.type === "stacked" && (!Number.isInteger(i.layers) || i.layers < 1 || i.layers > 3) && n("Stack layers must be an integer from 1 to 3", `${t}.layers`), e.type === "trapezoid" && (typeof i.rightHeightRatio != "number" || !Number.isFinite(i.rightHeightRatio) || i.rightHeightRatio < .2 || i.rightHeightRatio > 1) && n("Right height ratio must be between 0.2 and 1", `${t}.rightHeightRatio`), i;
 }
 // src/lib/blockchart/grid.js
-function I(e, t, n = []) {
+function R(e, t, n = []) {
 	let r = new Map(t.map((e) => [e.id, e]));
 	return e.flatMap((e) => n.includes(e) ? r.get(e)?.members ?? [] : [e]);
 }
-function ae(e, t, n, r = "layout", i = (e) => {
+function z(e, t, n, r = "layout", i = (e) => {
 	throw Error(e);
 }) {
 	let a = [];
@@ -460,7 +493,7 @@ function ae(e, t, n, r = "layout", i = (e) => {
 	}
 	return a;
 }
-function oe(e, t, n = [], r = "layout", i = L) {
+function B(e, t, n = [], r = "layout", i = oe) {
 	Array.isArray(e) && e.length && Array.isArray(e[0]) && e[0].length || i("Grid needs at least one row and column", r + ".cells");
 	let a = e[0].length, o = /* @__PURE__ */ new Set(), s = /* @__PURE__ */ new Map();
 	for (let [t, n] of e.entries()) {
@@ -471,9 +504,9 @@ function oe(e, t, n = [], r = "layout", i = L) {
 			typeof a != "string" && i("Grid cells must contain member IDs or null", n), o.has(a) && i("A member may occur only once in a grid: " + a, n), o.add(a), s.set(a, n);
 		}
 	}
-	let c = n.filter((e) => t.includes(e.id) && d(e) === "container" && !e.collapsed && e.members.length).filter((e) => e.members.some((e) => o.has(e))).map((e) => e.id);
+	let c = n.filter((e) => t.includes(e.id) && m(e) === "container" && !e.collapsed && e.members.length).filter((e) => e.members.some((e) => o.has(e))).map((e) => e.id);
 	for (let e of c) o.has(e) && i(`Container ${e} and its children cannot occur in the same Grid`, s.get(e));
-	let l = new Set(I(t, n, c));
+	let l = new Set(R(t, n, c));
 	for (let [e, t] of s) l.has(e) || i("Grid cells must reference direct members or direct children of nonempty Containers: " + e, t);
 	for (let e of c) {
 		let t = n.find((t) => t.id === e), r = t.members.filter((e) => !o.has(e));
@@ -481,10 +514,10 @@ function oe(e, t, n = [], r = "layout", i = L) {
 	}
 	return {
 		expandedContainers: c,
-		regions: ae(e, c, n, r, i)
+		regions: z(e, c, n, r, i)
 	};
 }
-function L(e, t) {
+function oe(e, t) {
 	let n = Error(e);
 	throw n.path = t, n;
 }
@@ -515,7 +548,7 @@ function se(e, t, n, r, i = !1, a = []) {
 	return o === "auto" ? (Object.hasOwn(e, "cells") && r("Grid cells require type grid", n + ".cells"), {
 		type: o,
 		...c
-	}) : (oe(e.cells, t, a, n, r), {
+	}) : (B(e.cells, t, a, n, r), {
 		type: o,
 		...c,
 		...l,
@@ -525,48 +558,48 @@ function se(e, t, n, r, i = !1, a = []) {
 		columnGap: e.columnGap ?? 80
 	});
 }
-function R(e, t, n) {
+function ce(e, t, n) {
 	for (let r of [e.layout, ...(e.groups ?? []).map((e) => e.layout)]) r?.cells && (r.cells = r.cells.map((e) => e.map((e) => e === t ? n : e)));
 }
 // src/lib/blockchart/model.js
-var z = /^[A-Za-z_][A-Za-z0-9_]*$/, B = (e, t) => Object.hasOwn(e, t), ce = class extends Error {
+var le = /^[A-Za-z_][A-Za-z0-9_]*$/, V = (e, t) => Object.hasOwn(e, t), ue = class extends Error {
 	constructor(e, t) {
 		super(e), this.name = "DiagramValidationError", this.path = t;
 	}
 };
-function V(e, t) {
-	throw new ce(e, t);
+function H(e, t) {
+	throw new ue(e, t);
 }
-function H(e) {
+function de(e) {
 	try {
-		le(e);
+		fe(e);
 	} catch (e) {
 		throw e.stage ??= "validation", e;
 	}
 	return { ok: !0 };
 }
 function U(e, t, n) {
-	(typeof e != "object" || !e || Array.isArray(e)) && V("Expected an object", n);
-	for (let r of Object.keys(e)) t.includes(r) || V(`Unsupported property: ${r}`, n ? `${n}.${r}` : r);
+	(typeof e != "object" || !e || Array.isArray(e)) && H("Expected an object", n);
+	for (let r of Object.keys(e)) t.includes(r) || H(`Unsupported property: ${r}`, n ? `${n}.${r}` : r);
 }
 function W(e, t, n = !1) {
-	typeof e == "string" && e.trim() || V("Expected a non-empty string", t), n && (e = e.replace(/\r\n/g, "\n"));
+	typeof e == "string" && e.trim() || H("Expected a non-empty string", t), n && (e = e.replace(/\r\n/g, "\n"));
 	for (let r of e) {
 		let e = r.codePointAt(0);
-		(e < 32 && !(n && e === 10) || e >= 55296 && e <= 57343 || e === 65534 || e === 65535 || e === 8232 || e === 8233) && V(n ? "Expected XML-compatible display text" : "Expected single-line XML-compatible text", t);
+		(e < 32 && !(n && e === 10) || e >= 55296 && e <= 57343 || e === 65534 || e === 65535 || e === 8232 || e === 8233) && H(n ? "Expected XML-compatible display text" : "Expected single-line XML-compatible text", t);
 	}
 	return e;
 }
 function G(e, t) {
-	return (typeof e != "string" || z.exec(e)?.[0] !== e) && V("Invalid ID", t), e;
+	return (typeof e != "string" || le.exec(e)?.[0] !== e) && H("Invalid ID", t), e;
 }
 function K(e, t, n = 0) {
-	(!Array.isArray(e) || e.length < n) && V(`Expected array with at least ${n} item(s)`, t);
+	(!Array.isArray(e) || e.length < n) && H(`Expected array with at least ${n} item(s)`, t);
 }
 function q(e, t) {
-	return (typeof e != "number" || !Number.isFinite(e) || e <= 0) && V("Expected a finite positive number", t), e;
+	return (typeof e != "number" || !Number.isFinite(e) || e <= 0) && H("Expected a finite positive number", t), e;
 }
-function le(e) {
+function fe(e) {
 	U(e, [
 		"version",
 		"diagram",
@@ -575,15 +608,15 @@ function le(e) {
 		"groups",
 		"terminals",
 		"layout"
-	], ""), e.version !== 1 && V("Only version 1 is supported", "version"), U(e.diagram, [
+	], ""), e.version !== 1 && H("Only version 1 is supported", "version"), U(e.diagram, [
 		"name",
 		"style",
 		"caption"
 	], "diagram");
 	let t = {
 		name: W(e.diagram.name, "diagram.name"),
-		...B(e.diagram, "caption") ? { caption: W(e.diagram.caption, "diagram.caption", !0) } : {},
-		style: B(e.diagram, "style") ? D(e.diagram.style, "diagram", "diagram.style", V) : {}
+		...V(e.diagram, "caption") ? { caption: W(e.diagram.caption, "diagram.caption", !0) } : {},
+		style: V(e.diagram, "style") ? O(e.diagram.style, "diagram", "diagram.style", H) : {}
 	};
 	K(e.modules, "modules", Array.isArray(e.groups) && e.groups.length ? 0 : 1);
 	let n = /* @__PURE__ */ new Set();
@@ -604,27 +637,27 @@ function le(e) {
 				"side"
 			], l);
 			let u = G(n.id, `${l}.id`);
-			o.has(u) && V("Duplicate port ID", `${l}.id`), o.add(u), [
+			o.has(u) && H("Duplicate port ID", `${l}.id`), o.add(u), [
 				"input",
 				"output",
 				"inout"
-			].includes(n.direction) || V("Unsupported port direction", `${l}.direction`), B(n, "side") && ![
+			].includes(n.direction) || H("Unsupported port direction", `${l}.direction`), V(n, "side") && ![
 				"left",
 				"right",
 				"top",
 				"bottom"
-			].includes(n.side) && V("Expected left, right, top or bottom", l + ".side");
-			let d = B(n, "style") ? D(n.style, "text", `${l}.style`, V) : {}, f = B(n, "width") ? n.width : null;
-			B(n, "width") && (!Number.isSafeInteger(f) || f <= 0) && V("Expected a positive safe integer", `${l}.width`);
-			let p = B(n, "label") ? W(n.label, `${l}.label`, !0) : u;
+			].includes(n.side) && H("Expected left, right, top or bottom", l + ".side");
+			let d = V(n, "style") ? O(n.style, "text", `${l}.style`, H) : {}, f = V(n, "width") ? n.width : null;
+			V(n, "width") && (!Number.isSafeInteger(f) || f <= 0) && H("Expected a positive safe integer", `${l}.width`);
+			let p = V(n, "label") ? W(n.label, `${l}.label`, !0) : u;
 			return {
 				id: u,
 				direction: n.direction,
 				width: f,
 				displayName: f > 1 ? `${p}[${f - 1}:0]` : p,
-				side: B(n, "side") ? n.side : e.layout?.direction === "down" ? n.direction === "input" ? "top" : "bottom" : n.direction === "input" ? "left" : "right",
+				side: V(n, "side") ? n.side : e.layout?.direction === "down" ? n.direction === "input" ? "top" : "bottom" : n.direction === "input" ? "left" : "right",
 				order: s[n.direction]++,
-				style: A(t.style.module, i, {
+				style: ie(t.style.module, i, {
 					direction: n.direction,
 					style: d
 				}, t.style.text, a ? t.style.group ?? {} : void 0)
@@ -644,33 +677,33 @@ function le(e) {
 			"type"
 		], o);
 		let s = i.type ?? "block";
-		B(i, "type") && !["block", "concat"].includes(i.type) && V("Expected block or concat", `${o}.type`);
-		let c = B(i, "style") ? D(i.style, "module", `${o}.style`, V) : {}, l = G(i.id, `${o}.id`);
-		n.has(l) && V("Duplicate module ID", `${o}.id`), n.add(l);
-		let u = B(i, "label") ? W(i.label, `${o}.label`, !0) : l;
-		B(i, "ports") && K(i.ports, `${o}.ports`);
+		V(i, "type") && !["block", "concat"].includes(i.type) && H("Expected block or concat", `${o}.type`);
+		let c = V(i, "style") ? O(i.style, "module", `${o}.style`, H) : {}, l = G(i.id, `${o}.id`);
+		n.has(l) && H("Duplicate module ID", `${o}.id`), n.add(l);
+		let u = V(i, "label") ? W(i.label, `${o}.label`, !0) : l;
+		V(i, "ports") && K(i.ports, `${o}.ports`);
 		let d = r(i.ports ?? [], `${o}.ports`, c);
 		if (s === "concat") {
 			let t = d.filter((e) => e.direction === "input"), n = d.filter((e) => e.direction === "output");
-			d.some((e) => e.direction === "inout") && V("Concat cannot have bidirectional ports", o + ".ports"), t.length && n.length === 1 || V("Concat requires at least one input and exactly one output", `${o}.ports`);
+			d.some((e) => e.direction === "inout") && H("Concat cannot have bidirectional ports", o + ".ports"), t.length && n.length === 1 || H("Concat requires at least one input and exactly one output", `${o}.ports`);
 			let r = e.layout?.direction === "down";
 			for (let [e, t] of d.entries()) {
 				let n = r ? t.direction === "input" ? "top" : "bottom" : t.direction === "input" ? "left" : "right";
-				t.side !== n && V(`Concat ${t.direction} ports must use the ${n} side for this Flow; omit side to follow Flow`, `${o}.ports[${e}].side`);
+				t.side !== n && H(`Concat ${t.direction} ports must use the ${n} side for this Flow; omit side to follow Flow`, `${o}.ports[${e}].side`);
 			}
-			B(i, "appearance") && i.appearance?.type !== "bar" && V("Concat has a fixed bar appearance; omit appearance or use bar", `${o}.appearance`), d.every((e) => e.width !== null) && t.reduce((e, t) => e + BigInt(t.width), 0n) !== BigInt(n[0].width) && V("Concat output width must equal the sum of all input widths", `${o}.ports`);
+			V(i, "appearance") && i.appearance?.type !== "bar" && H("Concat has a fixed bar appearance; omit appearance or use bar", `${o}.appearance`), d.every((e) => e.width !== null) && t.reduce((e, t) => e + BigInt(t.width), 0n) !== BigInt(n[0].width) && H("Concat output width must equal the sum of all input widths", `${o}.ports`);
 		}
 		return {
 			id: l,
 			label: u,
 			ports: d,
-			...B(i, "type") ? { type: s } : {},
-			...B(i, "appearance") ? { appearance: ie(i.appearance, `${o}.appearance`, V) } : {},
-			...B(i, "width") ? { width: q(i.width, `${o}.width`) } : {},
-			...B(i, "height") ? { height: q(i.height, `${o}.height`) } : {},
-			style: ne(t.style.module, c, t.style.text)
+			...V(i, "type") ? { type: s } : {},
+			...V(i, "appearance") ? { appearance: ae(i.appearance, `${o}.appearance`, H) } : {},
+			...V(i, "width") ? { width: q(i.width, `${o}.width`) } : {},
+			...V(i, "height") ? { height: q(i.height, `${o}.height`) } : {},
+			style: j(t.style.module, c, t.style.text)
 		};
-	}), a = B(e, "groups") ? e.groups : [];
+	}), a = V(e, "groups") ? e.groups : [];
 	K(a, "groups");
 	let o = /* @__PURE__ */ new Set();
 	for (let [e, t] of a.entries()) {
@@ -687,7 +720,7 @@ function le(e) {
 			"layout"
 		], `groups[${e}]`);
 		let r = G(t.id, `groups[${e}].id`);
-		(n.has(r) || o.has(r)) && V("Group ID must be unique across blocks and groups", `groups[${e}].id`), o.add(r);
+		(n.has(r) || o.has(r)) && H("Group ID must be unique across blocks and groups", `groups[${e}].id`), o.add(r);
 	}
 	let s = /* @__PURE__ */ new Set(), c = a.map((e, i) => {
 		let a = `groups[${i}]`;
@@ -707,42 +740,42 @@ function le(e) {
 		K(e.members, `${a}.members`);
 		let l = e.members.map((e, t) => {
 			let r = `${a}.members[${t}]`;
-			return !n.has(e) && !o.has(e) && V("Unknown group member: " + e, r), s.has(e) && V("An item may belong to only one group", r), s.add(e), e;
-		}), u = B(e, "style") ? D(e.style, "group", `${a}.style`, V) : {}, d = B(e, "type") ? e.type : "container";
+			return !n.has(e) && !o.has(e) && H("Unknown group member: " + e, r), s.has(e) && H("An item may belong to only one group", r), s.add(e), e;
+		}), u = V(e, "style") ? O(e.style, "group", `${a}.style`, H) : {}, d = V(e, "type") ? e.type : "container";
 		[
 			"container",
 			"boundary",
 			"collection"
-		].includes(d) || V("Expected container, boundary or collection group type", `${a}.type`);
-		let f = B(e, "collapsed") ? e.collapsed : !1;
-		typeof f != "boolean" && V("Expected a boolean", `${a}.collapsed`), f && d === "container" && V("Only boundary or collection groups may hide contents", `${a}.collapsed`);
-		let p = B(e, "ports") ? e.ports : [];
+		].includes(d) || H("Expected container, boundary or collection group type", `${a}.type`);
+		let f = V(e, "collapsed") ? e.collapsed : !1;
+		typeof f != "boolean" && H("Expected a boolean", `${a}.collapsed`), f && d === "container" && H("Only boundary or collection groups may hide contents", `${a}.collapsed`);
+		let p = V(e, "ports") ? e.ports : [];
 		K(p, `${a}.ports`);
 		let m = r(p, `${a}.ports`, u, !0);
 		return {
 			id: c,
-			label: B(e, "label") ? W(e.label, `${a}.label`, !0) : c,
+			label: V(e, "label") ? W(e.label, `${a}.label`, !0) : c,
 			members: l,
 			type: d,
 			portMode: d === "boundary" ? "boundary" : "direct",
 			ports: m,
 			collapsed: f,
 			...d === "collection" ? { portLabelStyle: u } : {},
-			...B(e, "width") ? { width: q(e.width, `${a}.width`) } : {},
-			...B(e, "height") ? { height: q(e.height, `${a}.height`) } : {},
-			style: j(u, t.style.group, t.style.text)
+			...V(e, "width") ? { width: q(e.width, `${a}.width`) } : {},
+			...V(e, "height") ? { height: q(e.height, `${a}.height`) } : {},
+			style: M(u, t.style.group, t.style.text)
 		};
 	}), l = new Map(c.flatMap((e) => e.members.map((t) => [t, e.id])));
 	for (let [e, t] of c.entries()) {
 		let n = /* @__PURE__ */ new Set();
-		for (let r = t.id; r; r = l.get(r)) n.has(r) && V("Group hierarchy contains a cycle", `groups[${e}].members`), n.add(r);
+		for (let r = t.id; r; r = l.get(r)) n.has(r) && H("Group hierarchy contains a cycle", `groups[${e}].members`), n.add(r);
 	}
-	let d = B(e, "terminals") ? e.terminals : [];
-	K(d, "terminals");
-	let h = /* @__PURE__ */ new Set(), g = {
+	let u = V(e, "terminals") ? e.terminals : [];
+	K(u, "terminals");
+	let d = /* @__PURE__ */ new Set(), f = {
 		input: 0,
 		output: 0
-	}, _ = d.map((e, r) => {
+	}, m = u.map((e, r) => {
 		let i = `terminals[${r}]`;
 		U(e, [
 			"id",
@@ -752,31 +785,31 @@ function le(e) {
 			"style"
 		], i);
 		let a = G(e.id, `${i}.id`);
-		(n.has(a) || o.has(a) || h.has(a)) && V("Terminal ID must be unique across blocks, groups and terminals", `${i}.id`), h.add(a), ["input", "output"].includes(e.direction) || V("Unsupported terminal direction", `${i}.direction`);
-		let s = B(e, "width") ? e.width : null;
-		B(e, "width") && (!Number.isSafeInteger(s) || s <= 0) && V("Expected a positive safe integer", `${i}.width`);
-		let c = B(e, "label") ? W(e.label, `${i}.label`, !0) : a, l = B(e, "style") ? D(e.style, "text", `${i}.style`, V) : {};
+		(n.has(a) || o.has(a) || d.has(a)) && H("Terminal ID must be unique across blocks, groups and terminals", `${i}.id`), d.add(a), ["input", "output"].includes(e.direction) || H("Unsupported terminal direction", `${i}.direction`);
+		let s = V(e, "width") ? e.width : null;
+		V(e, "width") && (!Number.isSafeInteger(s) || s <= 0) && H("Expected a positive safe integer", `${i}.width`);
+		let c = V(e, "label") ? W(e.label, `${i}.label`, !0) : a, l = V(e, "style") ? O(e.style, "text", `${i}.style`, H) : {};
 		return {
 			id: a,
 			direction: e.direction,
 			label: c,
 			displayName: s > 1 ? `${c}[${s - 1}:0]` : c,
 			width: s,
-			order: g[e.direction]++,
+			order: f[e.direction]++,
 			style: {
-				...x,
+				...w,
 				...t.style.text,
 				...t.style.terminal,
 				...l
 			}
 		};
-	}), v = B(e, "connections") ? e.connections : [];
+	}), v = V(e, "connections") ? e.connections : [];
 	K(v, "connections");
-	let S = /* @__PURE__ */ new Set(), C = /* @__PURE__ */ new Map(), T = /* @__PURE__ */ new Map(), E = /* @__PURE__ */ new Set(), O = /* @__PURE__ */ new Map(), k = b({
+	let ee = /* @__PURE__ */ new Set(), y = /* @__PURE__ */ new Map(), b = /* @__PURE__ */ new Map(), T = /* @__PURE__ */ new Set(), E = /* @__PURE__ */ new Map(), D = C({
 		modules: i,
 		groups: c,
-		terminals: _
-	}), re = y({ groups: c }).length > 0, M = v.flatMap((e, n) => {
+		terminals: m
+	}), re = S({ groups: c }).length > 0, k = v.flatMap((e, n) => {
 		let r = `connections[${n}]`;
 		U(e, [
 			"id",
@@ -788,40 +821,40 @@ function le(e) {
 			"direction",
 			"constraint"
 		], r), K(e.to, r + ".to", 1);
-		let i = B(e, "id") ? G(e.id, r + ".id") : `connection_${n}`;
-		E.has(i) && V("Duplicate connection ID", r + ".id"), E.add(i);
-		let a = p(e);
-		a.length || V("Net requires at least one target", r + ".to");
-		let o = B(e, "style") ? D(e.style, "connection", r + ".style", V) : {}, s = e.direction ?? "forward";
-		B(e, "direction") && !["forward", "both"].includes(e.direction) && V("Expected forward or both", r + ".direction");
-		let c = B(e, "label") ? W(e.label, r + ".label", !0) : void 0, l = /* @__PURE__ */ new Set(), u = /* @__PURE__ */ new Set(), d, h = a.map((p, h) => {
-			let g = `${r}.to[${h}]`, _ = p && typeof p == "object" && B(p, "endpoint");
-			_ && U(p, [
+		let i = V(e, "id") ? G(e.id, r + ".id") : `connection_${n}`;
+		T.has(i) && H("Duplicate connection ID", r + ".id"), T.add(i);
+		let a = g(e);
+		a.length || H("Net requires at least one target", r + ".to");
+		let o = V(e, "style") ? O(e.style, "connection", r + ".style", H) : {}, s = e.direction ?? "forward";
+		V(e, "direction") && !["forward", "both"].includes(e.direction) && H("Expected forward or both", r + ".direction");
+		let c = V(e, "label") ? W(e.label, r + ".label", !0) : void 0, l = /* @__PURE__ */ new Set(), u = /* @__PURE__ */ new Set(), d, f = a.map((f, p) => {
+			let m = `${r}.to[${p}]`, g = f && typeof f == "object" && V(f, "endpoint");
+			g && U(f, [
 				"endpoint",
 				"constraint",
 				"feedback",
 				"style"
-			], g);
-			let v = m(p), y = f(v);
-			y === f(e.from) && V("Target must differ from the main endpoint", g), l.has(y) && V("Duplicate net target", g), l.add(y);
-			let b = k.resolve(e.from, v, s);
-			b.error && V(b.error, b.field === "from" ? r + ".from" : g);
-			let { source: x, target: E } = b;
-			for (let e of [x, E]) e.port.width !== null && e.port.width !== void 0 && u.add(e.port.width);
-			let ne = f(e.from) + "->" + y;
-			S.has(ne) && V("Duplicate connection", g), S.add(ne);
-			let A = ee(x), j = ee(E);
-			d !== void 0 && d !== A && V("Use separate Nets for inside and outside boundary-port faces", g), d = A;
-			for (let e of [A, j]) O.has(e) && O.get(e) !== i && V("Port already has a driver or belongs to another net", g);
-			s === "both" && (T.has(j) && T.get(j).id !== i && V("Port already has a driver or belongs to another net", g), O.set(A, i), O.set(j, i));
-			let M = T.get(A);
-			M && M.id !== i && V("Source already belongs to another net; add its target to that net", r + ".from"), T.set(A, { id: i }), C.has(j) && C.get(j) !== i && V("Input already has a driver", g), s === "both" && C.has(A) && C.get(A) !== i && V("Port already has a driver or belongs to another net", r + ".from"), x.port.direction === "inout" && C.has(A) && C.get(A) !== i && V("Port already has a driver or belongs to another net", r + ".from"), C.set(j, i), s === "both" && C.set(A, i);
-			let N = _ && B(p, "style") ? D(p.style, "connection", g + ".style", V) : {};
-			B(N, "label") && V("Net label styles belong to the whole connection", g + ".style.label"), B(N, "startArrow") && V("Net source arrow belongs to the whole connection", g + ".style.startArrow");
-			let P = _ && B(p, "feedback") ? p.feedback : B(e, "feedback") ? e.feedback : !1, F = _ && B(p, "constraint") ? p.constraint : !B(e, "constraint") || e.constraint;
-			typeof P != "boolean" && V("Expected a boolean", r + ".feedback"), typeof F != "boolean" && V("Expected a boolean", r + ".constraint");
-			let ie = x.port.width ?? E.port.width, I = {
-				...w(ie),
+			], m);
+			let v = _(f), S = h(v);
+			S === h(e.from) && H("Target must differ from the main endpoint", m), l.has(S) && H("Duplicate net target", m), l.add(S);
+			let C = D.resolve(e.from, v, s);
+			C.error && H(C.error, C.field === "from" ? r + ".from" : m);
+			let { source: w, target: T } = C;
+			for (let e of [w, T]) e.port.width !== null && e.port.width !== void 0 && u.add(e.port.width);
+			let k = h(e.from) + "->" + S;
+			ee.has(k) && H("Duplicate connection", m), ee.add(k);
+			let A = x(w), j = x(T);
+			d !== void 0 && d !== A && H("Use separate Nets for inside and outside boundary-port faces", m), d = A;
+			for (let e of [A, j]) E.has(e) && E.get(e) !== i && H("Port already has a driver or belongs to another net", m);
+			s === "both" && (b.has(j) && b.get(j).id !== i && H("Port already has a driver or belongs to another net", m), E.set(A, i), E.set(j, i));
+			let ie = b.get(A);
+			ie && ie.id !== i && H("Source already belongs to another net; add its target to that net", r + ".from"), b.set(A, { id: i }), y.has(j) && y.get(j) !== i && H("Input already has a driver", m), s === "both" && y.has(A) && y.get(A) !== i && H("Port already has a driver or belongs to another net", r + ".from"), w.port.direction === "inout" && y.has(A) && y.get(A) !== i && H("Port already has a driver or belongs to another net", r + ".from"), y.set(j, i), s === "both" && y.set(A, i);
+			let M = g && V(f, "style") ? O(f.style, "connection", m + ".style", H) : {};
+			V(M, "label") && H("Net label styles belong to the whole connection", m + ".style.label"), V(M, "startArrow") && H("Net source arrow belongs to the whole connection", m + ".style.startArrow");
+			let N = g && V(f, "feedback") ? f.feedback : V(e, "feedback") ? e.feedback : !1, P = g && V(f, "constraint") ? f.constraint : !V(e, "constraint") || e.constraint;
+			typeof N != "boolean" && H("Expected a boolean", r + ".feedback"), typeof P != "boolean" && H("Expected a boolean", r + ".constraint");
+			let F = w.port.width ?? T.port.width, I = {
+				...ne(F),
 				endArrow: "triangle",
 				...s === "both" ? {
 					startArrow: "triangle",
@@ -838,32 +871,32 @@ function le(e) {
 			};
 			return {
 				...c === void 0 ? {} : { label: c },
-				id: a.length === 1 ? `connection_${n}` : `connection_${n}_branch_${h}`,
-				source: x.ref,
-				target: E.ref,
-				width: ie,
-				feedback: P,
+				id: a.length === 1 ? `connection_${n}` : `connection_${n}_branch_${p}`,
+				source: w.ref,
+				target: T.ref,
+				width: F,
+				feedback: N,
 				netId: i,
 				connectionIndex: n,
-				branchIndex: h,
+				branchIndex: p,
 				netStyle: I,
-				...B(e, "direction") ? { direction: s } : {},
-				...B(e, "constraint") || _ && B(p, "constraint") ? { constraint: F } : {},
+				...V(e, "direction") ? { direction: s } : {},
+				...V(e, "constraint") || g && V(f, "constraint") ? { constraint: P } : {},
 				...re ? {
-					scope: b.scope,
-					boundaryScoped: b.boundaryScoped,
-					insideSelfLoop: b.insideSelfLoop
+					scope: C.scope,
+					boundaryScoped: C.boundaryScoped,
+					insideSelfLoop: C.insideSelfLoop
 				} : {},
 				style: {
 					...I,
-					...N
+					...M
 				}
 			};
 		});
-		if (u.size > 1 && V("Connection width mismatch", r + ".to"), u.size) for (let [e, n] of h.entries()) n.width = [...u][0], t.style.connection?.strokeWidth === void 0 && o.strokeWidth === void 0 && (n.netStyle.strokeWidth = w(n.width).strokeWidth, a[e]?.style?.strokeWidth === void 0 && (n.style.strokeWidth = n.netStyle.strokeWidth));
-		return h;
-	}), N = B(e, "layout") ? e.layout : {};
-	N && Object.hasOwn(N, "density") && V("Remove density; layout uses a single default configuration", "layout.density"), N && Object.hasOwn(N, "expandGroups") && V("Remove expandGroups; Container expansion is inferred from cells", "layout.expandGroups"), U(N, [
+		if (u.size > 1 && H("Connection width mismatch", r + ".to"), u.size) for (let [e, n] of f.entries()) n.width = [...u][0], t.style.connection?.strokeWidth === void 0 && o.strokeWidth === void 0 && (n.netStyle.strokeWidth = ne(n.width).strokeWidth, a[e]?.style?.strokeWidth === void 0 && (n.style.strokeWidth = n.netStyle.strokeWidth));
+		return f;
+	}), A = V(e, "layout") ? e.layout : {};
+	A && Object.hasOwn(A, "density") && H("Remove density; layout uses a single default configuration", "layout.density"), A && Object.hasOwn(A, "expandGroups") && H("Remove expandGroups; Container expansion is inferred from cells", "layout.expandGroups"), U(A, [
 		"direction",
 		"routing",
 		"placement",
@@ -883,57 +916,57 @@ function le(e) {
 		"blockMinHeight",
 		"blockAlign"
 	], "layout");
-	let P = (e, t) => B(N, e) ? N[e] : t, F = P("direction", "right"), I = P("routing", "orthogonal"), ae = P("placement", "default"), oe = u;
-	["fixed", "reduce-bends"].includes(P("portAdjustment", "reduce-bends")) || V("Expected fixed or reduce-bends", "layout.portAdjustment");
-	let L = P("maxPortShift", 40);
-	(typeof L != "number" || !Number.isFinite(L) || L < 0) && V("Expected a finite non-negative shift", "layout.maxPortShift");
-	let R = P("feedbackRouting", "elk"), z = P("feedbackSide", "auto");
+	let N = (e, t) => V(A, e) ? A[e] : t, P = N("direction", "right"), F = N("routing", "orthogonal"), I = N("placement", "default"), L = p;
+	["fixed", "reduce-bends"].includes(N("portAdjustment", "reduce-bends")) || H("Expected fixed or reduce-bends", "layout.portAdjustment");
+	let R = N("maxPortShift", 40);
+	(typeof R != "number" || !Number.isFinite(R) || R < 0) && H("Expected a finite non-negative shift", "layout.maxPortShift");
+	let z = N("feedbackRouting", "elk"), B = N("feedbackSide", "auto");
 	[
 		"auto",
 		"top",
 		"bottom",
 		"left",
 		"right"
-	].includes(z) || V("Expected auto, top, bottom, left or right feedback side", "layout.feedbackSide"), ["right", "down"].includes(F) || V("Unsupported layout direction", "layout.direction"), I !== "orthogonal" && V("Unsupported routing", "layout.routing"), [
+	].includes(B) || H("Expected auto, top, bottom, left or right feedback side", "layout.feedbackSide"), ["right", "down"].includes(P) || H("Unsupported layout direction", "layout.direction"), F !== "orthogonal" && H("Unsupported routing", "layout.routing"), [
 		"default",
 		"relaxed",
 		"simple"
-	].includes(ae) || V("Unsupported placement strategy", "layout.placement"), ["elk", "outer"].includes(R) || V("Unsupported feedback routing", "layout.feedbackRouting"), R === "outer" && !["right", "down"].includes(F) && V("Outer feedback routing requires right or down direction", "layout.direction"), z !== "auto" && !(F === "down" ? ["left", "right"] : ["top", "bottom"]).includes(z) && V("Feedback side does not match flow direction", "layout.feedbackSide");
-	let ce = new Set(c.flatMap((e) => e.members)), H = se(N, [...i, ...c].filter((e) => !ce.has(e.id)).map((e) => e.id), "layout", V, !0, c);
-	for (let [t, n] of c.entries()) B(e.groups[t], "layout") && (n.layout = se(e.groups[t].layout, n.members, `groups[${t}].layout`, V, !1, c));
+	].includes(I) || H("Unsupported placement strategy", "layout.placement"), ["elk", "outer"].includes(z) || H("Unsupported feedback routing", "layout.feedbackRouting"), z === "outer" && !["right", "down"].includes(P) && H("Outer feedback routing requires right or down direction", "layout.direction"), B !== "auto" && !(P === "down" ? ["left", "right"] : ["top", "bottom"]).includes(B) && H("Feedback side does not match flow direction", "layout.feedbackSide");
+	let oe = new Set(c.flatMap((e) => e.members)), ce = se(A, [...i, ...c].filter((e) => !oe.has(e.id)).map((e) => e.id), "layout", H, !0, c);
+	for (let [t, n] of c.entries()) V(e.groups[t], "layout") && (n.layout = se(e.groups[t].layout, n.members, `groups[${t}].layout`, H, !1, c));
 	return {
 		version: 1,
 		diagram: t,
 		modules: i,
-		connections: M,
+		connections: k,
 		groups: c,
-		..._.length ? { terminals: _ } : {},
+		...m.length ? { terminals: m } : {},
 		layout: {
-			direction: F,
-			routing: I,
-			placement: ae,
-			feedbackRouting: R,
-			feedbackSide: z,
-			...H.type === "grid" ? H : B(N, "type") ? { type: "auto" } : {},
-			feedbackMargin: q(P("feedbackMargin", 20), "layout.feedbackMargin"),
-			feedbackLaneSpacing: q(P("feedbackLaneSpacing", 12), "layout.feedbackLaneSpacing"),
-			moduleSpacing: q(P("moduleSpacing", oe.moduleSpacing), "layout.moduleSpacing"),
-			layerSpacing: q(P("layerSpacing", oe.layerSpacing), "layout.layerSpacing"),
-			...B(N, "portAdjustment") ? { portAdjustment: N.portAdjustment } : {},
-			...B(N, "maxPortShift") ? { maxPortShift: L } : {}
+			direction: P,
+			routing: F,
+			placement: I,
+			feedbackRouting: z,
+			feedbackSide: B,
+			...ce.type === "grid" ? ce : V(A, "type") ? { type: "auto" } : {},
+			feedbackMargin: q(N("feedbackMargin", 20), "layout.feedbackMargin"),
+			feedbackLaneSpacing: q(N("feedbackLaneSpacing", 12), "layout.feedbackLaneSpacing"),
+			moduleSpacing: q(N("moduleSpacing", L.moduleSpacing), "layout.moduleSpacing"),
+			layerSpacing: q(N("layerSpacing", L.layerSpacing), "layout.layerSpacing"),
+			...V(A, "portAdjustment") ? { portAdjustment: A.portAdjustment } : {},
+			...V(A, "maxPortShift") ? { maxPortShift: R } : {}
 		}
 	};
 }
 // src/lib/blockchart/edit-diff.js
 var J = (e) => typeof e == "object" && !!e && !Array.isArray(e);
-function ue(e, t) {
+function pe(e, t) {
 	if (e === t) return !0;
-	if (Array.isArray(e)) return Array.isArray(t) && e.length === t.length && e.every((e, n) => ue(e, t[n]));
+	if (Array.isArray(e)) return Array.isArray(t) && e.length === t.length && e.every((e, n) => pe(e, t[n]));
 	if (!J(e) || !J(t)) return !1;
 	let n = Object.keys(e);
-	return n.length === Object.keys(t).length && n.every((n) => Object.hasOwn(t, n) && ue(e[n], t[n]));
+	return n.length === Object.keys(t).length && n.every((n) => Object.hasOwn(t, n) && pe(e[n], t[n]));
 }
-function de(e, t) {
+function me(e, t) {
 	let n = [];
 	function r(e, t, i, a) {
 		if (e !== t) {
@@ -943,8 +976,8 @@ function de(e, t) {
 					return;
 				}
 				let o = 0, s = e.length, c = t.length;
-				for (; o < s && o < c && ue(e[o], t[o]);) o++;
-				for (; s > o && c > o && ue(e[s - 1], t[c - 1]);) s--, c--;
+				for (; o < s && o < c && pe(e[o], t[o]);) o++;
+				for (; s > o && c > o && pe(e[s - 1], t[c - 1]);) s--, c--;
 				n.push({
 					...a,
 					path: i,
@@ -1009,22 +1042,22 @@ function Z(e, t, n, r, i) {
 		after: c.map((e) => e.selector)
 	});
 }
-function fe(e) {
+function he(e) {
 	let t = /* @__PURE__ */ new Map();
 	for (let n of e.connections ?? []) {
-		let e = f(n.from);
+		let e = h(n.from);
 		t.has(e) || t.set(e, []), t.get(e).push(n);
 	}
 	return t;
 }
-function pe(e, t) {
-	let n = new Set(e.to.map((e) => f(m(e))));
+function ge(e, t) {
+	let n = new Set(e.to.map((e) => h(_(e))));
 	return t.filter((e) => !e.id).map((e) => ({
 		other: e,
-		common: e.to.map((e) => f(m(e))).filter((e) => n.has(e))
+		common: e.to.map((e) => h(_(e))).filter((e) => n.has(e))
 	})).filter((e) => e.common.length);
 }
-function me(e, t, n) {
+function _e(e, t, n) {
 	let r;
 	return (e.connections ?? []).map((i) => {
 		if (i.id) return {
@@ -1032,13 +1065,13 @@ function me(e, t, n) {
 			selector: { id: i.id },
 			value: i
 		};
-		let { from: a } = i, o = f(a), s = t.get(o), c = n.get(o) ?? [];
+		let { from: a } = i, o = h(a), s = t.get(o), c = n.get(o) ?? [];
 		if (s.length > 1 || c.length > 1) {
-			let t = m(i.to[0]), n = {
+			let t = _(i.to[0]), n = {
 				from: a,
 				to: t
-			}, l = pe(i, c);
-			if (l.length === 1 && pe(l[0].other, s).length === 1) {
+			}, l = ge(i, c);
+			if (l.length === 1 && ge(l[0].other, s).length === 1) {
 				let e = l[0].common.sort()[0];
 				return {
 					key: "pair:" + JSON.stringify([o, e]),
@@ -1046,10 +1079,10 @@ function me(e, t, n) {
 					value: i
 				};
 			}
-			r ??= b(e);
+			r ??= C(e);
 			let u = r.resolve(a, t, i.direction);
 			if (u.source) return {
-				key: "face:" + ee(u.source),
+				key: "face:" + x(u.source),
 				selector: n,
 				value: i
 			};
@@ -1061,11 +1094,11 @@ function me(e, t, n) {
 		};
 	});
 }
-function he(e) {
+function ve(e) {
 	return e.to.map((t) => {
-		let n = m(t);
+		let n = _(t);
 		return {
-			key: JSON.stringify([f(e.from), f(n)]),
+			key: JSON.stringify([h(e.from), h(n)]),
 			selector: {
 				from: e.from,
 				to: n
@@ -1074,10 +1107,10 @@ function he(e) {
 		};
 	});
 }
-function ge(e, t) {
+function ye(e, t) {
 	let n = [];
 	function r(e, t, r) {
-		let i = de(e, t);
+		let i = me(e, t);
 		i.length && n.push({
 			...r,
 			change: "updated",
@@ -1125,15 +1158,15 @@ function ge(e, t) {
 		}
 	}
 	Z(Y(e.modules), Y(t.modules), { kind: "module" }, n, o), Z(Y(e.groups), Y(t.groups), { kind: "group" }, n, o);
-	let s = fe(e), c = fe(t);
-	Z(me(e, s, c), me(t, c, s), { kind: "net" }, n, (e, t, i) => {
+	let s = he(e), c = he(t);
+	Z(_e(e, s, c), _e(t, c, s), { kind: "net" }, n, (e, t, i) => {
 		r(X(e, ["to"]), X(t, ["to"]), i);
 		let { kind: a, ...o } = i;
-		Z(he(e), he(t), {
+		Z(ve(e), ve(t), {
 			kind: "branch",
 			net: o
 		}, n, (e, t, r) => {
-			let i = Object.hasOwn(e, "endpoint"), a = Object.hasOwn(t, "endpoint"), o = de(i ? X(e, ["endpoint"]) : {}, a ? X(t, ["endpoint"]) : {});
+			let i = Object.hasOwn(e, "endpoint"), a = Object.hasOwn(t, "endpoint"), o = me(i ? X(e, ["endpoint"]) : {}, a ? X(t, ["endpoint"]) : {});
 			o.length ? n.push({
 				...r,
 				change: "updated",
@@ -1154,7 +1187,7 @@ function ge(e, t) {
 	return r(a(e, l), a(t, l), { kind: "diagram" }), i(e.layout?.cells, t.layout?.cells, null), structuredClone(n);
 }
 // src/lib/blockchart/edit-rename.js
-function _e(e, t) {
+function be(e, t) {
 	let n = new Map([...t.keys()].map((e) => [e, []]));
 	function r(e, r, i = !1) {
 		let a = i ? typeof e == "string" ? e.split(".")[0] : e?.moduleId : e;
@@ -1190,9 +1223,9 @@ function _e(e, t) {
 	}), n;
 }
 // src/lib/blockchart/edit.js
-var ve = (e) => typeof e == "object" && !!e && !Array.isArray(e), ye = (e) => typeof e == "string" ? e.split(".")[0] : e.terminal;
+var xe = (e) => typeof e == "object" && !!e && !Array.isArray(e), Se = (e) => typeof e == "string" ? e.split(".")[0] : e.terminal;
 function Q(e, t) {
-	if (!ve(e)) throw Error("Expected an object");
+	if (!xe(e)) throw Error("Expected an object");
 	for (let n of Object.keys(e)) if (!t.includes(n)) throw Error("Unexpected field: " + n);
 }
 function $(e, t, n) {
@@ -1200,7 +1233,7 @@ function $(e, t, n) {
 	if (!r) throw Error("Unknown " + n + " ID: " + String(t));
 	return r;
 }
-function be(e, t) {
+function Ce(e, t) {
 	Q(t, [
 		"moduleId",
 		"groupId",
@@ -1209,18 +1242,18 @@ function be(e, t) {
 	let n = Object.hasOwn(t, "groupId");
 	if (n === Object.hasOwn(t, "moduleId")) throw Error("Specify exactly one groupId or moduleId");
 	if (Object.hasOwn(t, "recursive") && (typeof t.recursive != "boolean" || !n)) throw Error("recursive requires a group query and a boolean");
-	H(e);
+	de(e);
 	let r = e.groups ?? [], i = n ? $(r, t.groupId, "group") : $(e.modules, t.moduleId, "module"), a = /* @__PURE__ */ new Set([i.id]);
-	if (n) for (let n of t.recursive ? v(e, i.id) : i.members) a.add(n);
+	if (n) for (let n of t.recursive ? b(e, i.id) : i.members) a.add(n);
 	let o = /* @__PURE__ */ new Map();
 	function s(t) {
-		return o.has(t) || o.set(t, _(e, t)), o.get(t);
+		return o.has(t) || o.set(t, y(e, t)), o.get(t);
 	}
 	let c = new Set(r.filter((e) => e.type === "boundary").map((e) => e.id)), l = [];
 	for (let { from: t, to: n, ...r } of e.connections ?? []) for (let e of n) {
-		let n = m(e), i = ye(t), o = ye(n), u = a.has(i), d = a.has(o);
+		let n = _(e), i = Se(t), o = Se(n), u = a.has(i), d = a.has(o);
 		if (!u && !d) continue;
-		let f = c.has(i) ? [...s(i), i] : s(i), p = c.has(o) ? [...s(o), o] : s(o), { endpoint: h, ...g } = Object.hasOwn(e, "endpoint") ? e : {};
+		let f = c.has(i) ? [...s(i), i] : s(i), p = c.has(o) ? [...s(o), o] : s(o), { endpoint: m, ...h } = Object.hasOwn(e, "endpoint") ? e : {};
 		l.push({
 			from: t,
 			to: n,
@@ -1229,7 +1262,7 @@ function be(e, t) {
 			relation: u && d ? "internal" : u ? "outgoing" : "incoming",
 			crossGroup: f.length !== p.length || f.some((e, t) => e !== p[t]),
 			net: r,
-			branch: g
+			branch: h
 		});
 	}
 	return structuredClone({
@@ -1240,34 +1273,34 @@ function be(e, t) {
 		branches: l
 	});
 }
-function xe(e, t) {
-	return !ve(e) || !ve(t) ? t : {
+function we(e, t) {
+	return !xe(e) || !xe(t) ? t : {
 		...e,
-		...Object.fromEntries(Object.entries(t).map(([t, n]) => [t, xe(Object.hasOwn(e, t) ? e[t] : void 0, n)]))
+		...Object.fromEntries(Object.entries(t).map(([t, n]) => [t, we(Object.hasOwn(e, t) ? e[t] : void 0, n)]))
 	};
 }
-function Se(e, t, n) {
+function Te(e, t, n) {
 	Q(t, n);
-	for (let [n, r] of Object.entries(t)) e[n] = n === "style" ? xe(e.style, r) : r;
+	for (let [n, r] of Object.entries(t)) e[n] = n === "style" ? we(e.style, r) : r;
 }
-function Ce(e) {
-	if (typeof e == "string" && /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/.test(e) || ve(e) && Object.keys(e).length === 1 && typeof e.terminal == "string" && /^[A-Za-z_]\w*$/.test(e.terminal)) return e;
+function Ee(e) {
+	if (typeof e == "string" && /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/.test(e) || xe(e) && Object.keys(e).length === 1 && typeof e.terminal == "string" && /^[A-Za-z_]\w*$/.test(e.terminal)) return e;
 	throw Error("Invalid endpoint: " + JSON.stringify(e));
 }
-var we = [
+var De = [
 	"style",
 	"feedback",
 	"constraint"
 ];
-function Te(e, t) {
-	let n = f(Ce(t));
-	return (e.connections ?? []).filter((e) => f(e.from) === n);
+function Oe(e, t) {
+	let n = h(Ee(t));
+	return (e.connections ?? []).filter((e) => h(e.from) === n);
 }
-function Ee(e, t) {
-	let n = f(t);
-	return e.to.findIndex((e) => f(m(e)) === n);
+function ke(e, t) {
+	let n = h(t);
+	return e.to.findIndex((e) => h(_(e)) === n);
 }
-function De(e, t) {
+function Ae(e, t) {
 	Q(t, [
 		"op",
 		"id",
@@ -1280,18 +1313,18 @@ function De(e, t) {
 		if (typeof t.id != "string" || Object.hasOwn(t, "from") || Object.hasOwn(t, "to")) throw Error("Select a Net by its authored ID or by endpoints");
 		n = $(e.connections, t.id, "Net");
 	} else {
-		let r = Te(e, t.from);
+		let r = Oe(e, t.from);
 		if (Object.hasOwn(t, "to")) {
-			let e = Ce(t.to);
-			r = r.filter((t) => Ee(t, e) >= 0);
+			let e = Ee(t.to);
+			r = r.filter((t) => ke(t, e) >= 0);
 		}
 		if (!r.length) throw Error("Net not found");
 		if (r.length > 1) throw Error("Ambiguous source: specify a destination or a Net ID");
 		[n] = r;
 	}
-	Se(n, t.patch, ["label", "style"]);
+	Te(n, t.patch, ["label", "style"]);
 }
-function Oe(e, t) {
+function je(e, t) {
 	let n = t.op === "addBranch", r = t.op === "updateBranch";
 	Q(t, [
 		"op",
@@ -1299,14 +1332,14 @@ function Oe(e, t) {
 		"to",
 		...n ? ["branch", "net"] : r ? ["patch"] : []
 	]);
-	let i = t.from, a = Ce(t.to), o = Te(e, i);
+	let i = t.from, a = Ee(t.to), o = Oe(e, i);
 	for (let i of o) {
-		let o = Ee(i, a);
+		let o = ke(i, a);
 		if (!(o < 0)) {
 			if (n) throw Error("Branch already exists");
 			if (r) {
 				let e = i.to[o], n = Object.hasOwn(e, "endpoint") ? e : { endpoint: e };
-				Se(n, t.patch, we), Object.keys(t.patch).length && (i.to[o] = n);
+				Te(n, t.patch, De), Object.keys(t.patch).length && (i.to[o] = n);
 				return;
 			}
 			i.to.splice(o, 1), i.to.length || e.connections.splice(e.connections.indexOf(i), 1);
@@ -1314,7 +1347,7 @@ function Oe(e, t) {
 		}
 	}
 	if (!n) throw Error("Branch not found");
-	Object.hasOwn(t, "branch") && Q(t.branch, we), Object.hasOwn(t, "net") && Q(t.net, [
+	Object.hasOwn(t, "branch") && Q(t.branch, De), Object.hasOwn(t, "net") && Q(t.net, [
 		"id",
 		"label",
 		"style",
@@ -1322,13 +1355,13 @@ function Oe(e, t) {
 		"constraint",
 		"direction"
 	]);
-	let s = b(e);
+	let s = C(e);
 	function c(e, t) {
 		let n = s.resolve(i, e, t);
 		if (n.error) throw Error(n.error);
-		return ee(n.source);
+		return x(n.source);
 	}
-	let l = c(a, t.net?.direction), u = o.find((e) => c(m(e.to[0]), e.direction) === l), d = t.branch ? {
+	let l = c(a, t.net?.direction), u = o.find((e) => c(_(e.to[0]), e.direction) === l), d = t.branch ? {
 		endpoint: a,
 		...t.branch
 	} : a;
@@ -1341,7 +1374,7 @@ function Oe(e, t) {
 		to: [d]
 	});
 }
-var ke = [
+var Me = [
 	"label",
 	"ports",
 	"style",
@@ -1350,7 +1383,7 @@ var ke = [
 	"appearance",
 	"type"
 ];
-function Ae(e, t) {
+function Ne(e, t) {
 	switch (t?.op) {
 		case "renameModule":
 			if (Q(t, [
@@ -1359,10 +1392,10 @@ function Ae(e, t) {
 				"newId"
 			]), $(e.modules, t.id, "module"), typeof t.newId != "string" || !/^[A-Za-z_]\w*$/.test(t.newId)) throw Error("Invalid new module ID: " + String(t.newId));
 			if ([...e.modules, ...e.groups ?? []].some((e) => e.id === t.newId)) throw Error("ID already exists: " + t.newId);
-			_e(e, /* @__PURE__ */ new Map([[t.id, t.newId]]));
+			be(e, /* @__PURE__ */ new Map([[t.id, t.newId]]));
 			break;
 		case "addModule":
-			if (Q(t, ["op", "module"]), Q(t.module, ["id", ...ke]), !t.module.id) throw Error("Expected a module ID");
+			if (Q(t, ["op", "module"]), Q(t.module, ["id", ...Me]), !t.module.id) throw Error("Expected a module ID");
 			if ([
 				...e.modules,
 				...e.groups ?? [],
@@ -1375,14 +1408,14 @@ function Ae(e, t) {
 				"op",
 				"id",
 				"patch"
-			]), Se($(e.modules, t.id, "module"), t.patch, ke);
+			]), Te($(e.modules, t.id, "module"), t.patch, Me);
 			break;
 		case "removeModule": {
 			Q(t, ["op", "id"]);
 			let n = $(e.modules, t.id, "module");
 			e.modules.splice(e.modules.indexOf(n), 1);
 			for (let n of e.groups ?? []) n.members = n.members.filter((e) => e !== t.id);
-			R(e, t.id, null), e.connections && h(e, (e) => ye(e) === t.id);
+			ce(e, t.id, null), e.connections && v(e, (e) => Se(e) === t.id);
 			break;
 		}
 		case "setGroupMembers": {
@@ -1414,21 +1447,21 @@ function Ae(e, t) {
 			break;
 		}
 		case "updateNet":
-			De(e, t);
+			Ae(e, t);
 			break;
 		case "addBranch":
 		case "updateBranch":
 		case "removeBranch":
-			Oe(e, t);
+			je(e, t);
 			break;
 		default: throw Error("Unknown operation: " + String(t?.op));
 	}
 }
-function je(e, t) {
-	let n = e?.from !== void 0 || e?.to !== void 0 ? f(e.from) + (e.to === void 0 ? "" : " -> " + f(e.to)) : e?.id ?? e?.module?.id ?? "";
+function Pe(e, t) {
+	let n = e?.from !== void 0 || e?.to !== void 0 ? h(e.from) + (e.to === void 0 ? "" : " -> " + h(e.to)) : e?.id ?? e?.module?.id ?? "";
 	return `ops[${t}] ${e?.op ?? "?"} ${n}`.trimEnd();
 }
-function Me(e, t, n = {}) {
+function Fe(e, t, n = {}) {
 	Q(n, ["diffFormat"]);
 	let { diffFormat: r = "pointer" } = n;
 	if (!["pointer", "semantic"].includes(r)) throw Error("diffFormat must be pointer or semantic");
@@ -1438,22 +1471,22 @@ function Me(e, t, n = {}) {
 		id: e.id
 	}));
 	for (let [e, n] of t.entries()) try {
-		Ae(i, structuredClone(n));
+		Ne(i, structuredClone(n));
 	} catch (t) {
-		throw Error(je(n, e) + ": " + t.message, { cause: t });
+		throw Error(Pe(n, e) + ": " + t.message, { cause: t });
 	}
 	!Object.hasOwn(e, "connections") && i.connections?.length === 0 && delete i.connections;
 	try {
-		H(i);
+		de(i);
 	} catch (e) {
-		let n = t.map(je).join(", ");
+		let n = t.map(Pe).join(", ");
 		throw Error(`Validation at ${e.path || "/"}: ${e.message}${n ? " after " + n : ""}`, { cause: e });
 	}
 	if (r === "pointer") return {
 		document: i,
-		diff: de(e, i)
+		diff: me(e, i)
 	};
-	let o = new Map(a.filter(({ module: e, id: t }) => i.modules.includes(e) && e.id !== t).map(({ module: e, id: t }) => [t, e.id])), s = structuredClone(e), c = _e(s, o);
+	let o = new Map(a.filter(({ module: e, id: t }) => i.modules.includes(e) && e.id !== t).map(({ module: e, id: t }) => [t, e.id])), s = structuredClone(e), c = be(s, o);
 	return {
 		document: i,
 		diff: [...[...o].map(([e, t]) => ({
@@ -1462,54 +1495,22 @@ function Me(e, t, n = {}) {
 			id: e,
 			newId: t,
 			references: c.get(e)
-		})), ...ge(s, i)]
+		})), ...ye(s, i)]
 	};
 }
 // src/agent-kit/blockchart-edit.js
-var Ne = "blockchart-agent-kit-c625d92bd8ed00789e87", Pe = "Usage:\n  node blockchart-edit.mjs inspect diagram.json --module ID\n  node blockchart-edit.mjs inspect diagram.json --group ID [--recursive]\n  node blockchart-edit.mjs apply diagram.json --ops changes.json [--diff-format pointer|semantic] [--write]\n  node blockchart-edit.mjs --help | --version\napply prints a JSON diff. Only --write replaces the diagram. Use --ops - to read operations from stdin.";
-function Fe(e, t) {
-	try {
-		return JSON.parse(e.replace(/^\uFEFF/, ""));
-	} catch (e) {
-		throw Error(t + ": " + e.message, { cause: e });
-	}
-}
-function Ie(e, t) {
-	let n = t.match(/\n([ \t]+)"/)?.[1] ?? (t.includes("\n") ? 2 : void 0), r = t.includes("\r\n") ? "\r\n" : "\n";
-	return (t.startsWith("﻿") ? "﻿" : "") + JSON.stringify(e, null, n).replaceAll("\n", r) + (t.endsWith("\n") ? r : "");
-}
-async function Le(n, s, c) {
-	let l = n + ".blockflow-edit.lock", u = await e(l, "wx");
-	try {
-		let l = n + "." + o() + ".tmp", u = await e(l, "wx", (await i(n)).mode);
-		try {
-			try {
-				await u.writeFile(Ie(c, s), "utf8");
-			} finally {
-				await u.close();
-			}
-			if (await t(n, "utf8") !== s) throw Error("Diagram changed during apply: " + n);
-			await r(l, n);
-		} finally {
-			await a(l).catch((e) => {
-				if (e.code !== "ENOENT") throw e;
-			});
-		}
-	} finally {
-		await u.close(), await a(l);
-	}
-}
+var Ie = "blockchart-agent-kit-8ae585e89d19286c40f2", Le = "Usage:\n  node blockchart-edit.mjs inspect diagram.json --module ID\n  node blockchart-edit.mjs inspect diagram.json --group ID [--recursive]\n  node blockchart-edit.mjs apply diagram.json --ops changes.json [--diff-format pointer|semantic] [--write]\n  node blockchart-edit.mjs --help | --version\napply prints a JSON diff. Only --write replaces the diagram. Use --ops - to read operations from stdin.";
 async function Re(e) {
 	if (e.length === 1 && [
 		"--help",
 		"-h",
 		"--version"
 	].includes(e[0])) {
-		console.log(e[0] === "--version" ? Ne : Pe);
+		console.log(e[0] === "--version" ? Ie : Le);
 		return;
 	}
 	let [r, ...i] = e;
-	if (!["inspect", "apply"].includes(r)) throw Error(Pe);
+	if (!["inspect", "apply"].includes(r)) throw Error(Le);
 	let { values: a, positionals: o } = l({
 		args: i,
 		allowPositionals: !0,
@@ -1524,8 +1525,8 @@ async function Re(e) {
 		}
 	});
 	if (o.length !== 1) throw Error("Expected a single diagram filename");
-	let s = await n(o[0]), c = await t(s, "utf8"), u = Fe(c, s), d;
-	if (r === "inspect") d = be(u, {
+	let s = await n(o[0]), c = await t(s, "utf8"), d = u(c, s), p;
+	if (r === "inspect") p = Ce(d, {
 		...a.module !== void 0 && { moduleId: a.module },
 		...a.group !== void 0 && { groupId: a.group },
 		...a.recursive && { recursive: !0 }
@@ -1537,14 +1538,14 @@ async function Re(e) {
 			process.stdin.setEncoding("utf8");
 			for await (let t of process.stdin) e += t;
 		} else e = await t(a.ops, "utf8");
-		let n = Me(u, Fe(e, a.ops), { diffFormat: a["diff-format"] });
-		a.write && n.diff.length && await Le(s, c, n.document), d = n.diff;
+		let n = Fe(d, u(e, a.ops), { diffFormat: a["diff-format"] });
+		a.write && n.diff.length && await f(s, c, n.document), p = n.diff;
 	}
-	console.log(JSON.stringify(d, null, 2));
+	console.log(JSON.stringify(p, null, 2));
 }
 if (process.argv[1] && c(s(process.argv[1])).href === import.meta.url) try {
 	await Re(process.argv.slice(2));
 } catch (e) {
 	console.error(e.path ? e.path + ": " + e.message : e.message), process.exitCode = 1;
 }
-export { Ne as KIT_VERSION, Me as applyDiagramOps, be as inspectDiagram };
+export { Ie as KIT_VERSION, Fe as applyDiagramOps, Ce as inspectDiagram };

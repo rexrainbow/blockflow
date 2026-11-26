@@ -1,7 +1,7 @@
-/* flowchart-agent-kit-7e77070a5e76bde58be4
+/* flowchart-agent-kit-ec8e4e3a99c036e5fd46
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
-Full third-party license is in the accompanying README.md. */
+Full third-party license: licenses/elkjs-EPL-2.0.md (see README.md). */
 import { createRequire as e } from "node:module";
 import { mkdir as t, readFile as n, realpath as r, rename as i, unlink as a, writeFile as o } from "node:fs/promises";
 import { dirname as s, extname as c, resolve as l } from "node:path";
@@ -48256,7 +48256,7 @@ function qe(e, t, n) {
 	}), r.push("</svg>"), r.join("\n");
 }
 // src/agent-kit/flowchart-converter.js
-var Je = "flowchart-agent-kit-7e77070a5e76bde58be4", Ye = class extends Error {
+var Je = "flowchart-agent-kit-ec8e4e3a99c036e5fd46", Ye = class extends Error {
 	constructor(e) {
 		super(e), this.stage = "arguments";
 	}

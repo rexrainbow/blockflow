@@ -14,10 +14,20 @@ const names = [
   'blockchart-convert.mjs',
   'blockchart-edit.mjs',
   'blockchart.schema.json',
+  'docs',
   'flowchart-convert.mjs',
   'flowchart.schema.json',
+  'licenses',
   'statechart-convert.mjs',
   'statechart.schema.json',
+  'story-edit.mjs',
+  'story.schema.json',
+];
+const guideNames = ['blockchart-edit.md', 'blockchart.md', 'flowchart.md', 'statechart.md', 'story.md'];
+const artifacts = [
+  ...names.filter((name) => !['docs', 'licenses'].includes(name)),
+  ...guideNames.map((name) => 'docs/' + name),
+  'licenses/elkjs-EPL-2.0.md',
 ];
 const permissionFlag = process.allowedNodeEnvironmentFlags.has('--permission')
   ? '--permission'
@@ -173,14 +183,16 @@ test('isolated kit uses the same Port adjustment and preserves authoring JSON wi
   assert.deepEqual(JSON.parse(json.stdout), document);
 });
 
-test('eight matched artifacts are reproducible, current and contain no extra runtime files', async () => {
+test('tools, linked guides and license are reproducible and complete', async () => {
   assert.deepEqual((await readdir(kit)).sort(), names);
+  assert.deepEqual((await readdir(join(kit, 'docs'))).sort(), guideNames);
+  assert.deepEqual(await readdir(join(kit, 'licenses')), ['elkjs-EPL-2.0.md']);
   assert.match(built.version, /^blockchart-agent-kit-/);
   assert.match(built.flowchartVersion, /^flowchart-agent-kit-/);
   const help = run(['--help']);
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /node blockchart-convert\.mjs/);
-  for (const name of names)
+  for (const name of artifacts)
     assert.equal(
       lf(await readFile(join(kit, name), 'utf8')),
       lf(await readFile(new URL('../agent-kit/' + name, import.meta.url), 'utf8')),
@@ -198,6 +210,140 @@ test('eight matched artifacts are reproducible, current and contain no extra run
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), built.version);
   assert.equal(result.stderr, '');
+});
+
+test('all generated local Markdown links resolve within the moved standalone kit', async () => {
+  const markdown = artifacts.filter((name) => name.endsWith('.md'));
+  const home = await readFile(join(kit, 'README.md'), 'utf8');
+  assert.ok(home.split('\n').length < 120);
+  for (const name of guideNames) assert.ok(home.includes(`](docs/${name})`));
+  for (const file of markdown) {
+    const text = await readFile(join(kit, file), 'utf8');
+    assert.ok(!text.includes('{{'), file);
+    for (const [, target] of text.matchAll(/\]\(([^)]+)\)/g)) {
+      if (/^(https?:|mailto:)/.test(target)) continue;
+      const path = resolve(dirname(join(kit, file)), decodeURIComponent(target.split('#')[0]));
+      assert.ok(
+        path.startsWith(resolve(kit) + (process.platform === 'win32' ? '\\' : '/')) || path === resolve(kit),
+        `${file}: ${target}`,
+      );
+      assert.ok((await readFile(path)).length > 0, `${file}: ${target}`);
+    }
+  }
+  assert.equal(
+    lf(await readFile(join(kit, 'licenses/elkjs-EPL-2.0.md'), 'utf8')),
+    lf(await readFile(new URL('../node_modules/elkjs/LICENSE.md', import.meta.url), 'utf8')),
+  );
+});
+
+test('isolated Story CLI inspects and edits transactionally, with explicit missing-reference control', async () => {
+  const executable = join(kit, 'story-edit.mjs');
+  assert.equal(run(['--version'], undefined, executable).stdout.trim(), built.storyVersion);
+  const diagram = JSON.parse(
+    await readFile(new URL('../tests/fixtures/story/signal-path.json', import.meta.url)),
+  );
+  const story = JSON.parse(
+    await readFile(new URL('../tests/fixtures/story/signal-path.story.json', import.meta.url)),
+  );
+  await writeFile(join(directory, 'story-diagram.json'), JSON.stringify(diagram));
+  const original = '\uFEFF' + JSON.stringify(story, null, 2).replaceAll('\n', '\r\n') + '\r\n';
+  const file = join(directory, 'draft.story.json');
+  await writeFile(file, original);
+  const inspect = run(['inspect', 'story-diagram.json', 'draft.story.json'], undefined, executable);
+  assert.equal(inspect.status, 0, inspect.stderr);
+  const index = JSON.parse(inspect.stdout);
+  assert.equal(Object.keys(index.wires).length, 7);
+  assert.ok(index.modules['@terminal:Pad']);
+  const args = ['edit', 'story-diagram.json', 'draft.story.json', '--ops', '-'];
+  const ops = [{ op: 'replace', path: '/chapters/0/steps/0/title', value: 'Clock starts the timer' }];
+  const preview = run(args, JSON.stringify(ops), executable);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const invalid = run(
+    [...args, '--write'],
+    JSON.stringify([...ops, { op: 'remove', path: '/chapters/99' }]),
+    executable,
+  );
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /ops\[1\].*chapters\/99/);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const missing = [
+    { op: 'add', path: '/chapters/0/steps/0/notes', value: [{ module: 'Missing', text: 'Note' }] },
+  ];
+  assert.equal(run([...args, '--write'], JSON.stringify(missing), executable).status, 1);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const written = run([...args, '--write'], JSON.stringify(ops), executable);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, preview.stdout);
+  const saved = await readFile(file, 'utf8');
+  assert.ok(saved.startsWith('\uFEFF'));
+  assert.ok(saved.endsWith('\r\n'));
+  const allowed = run([...args, '--allow-missing', '--write'], JSON.stringify(missing), executable);
+  assert.equal(allowed.status, 0, allowed.stderr);
+  assert.equal(JSON.parse(allowed.stdout).problems[0].ref, 'Missing');
+  const check = run(['check', 'story-diagram.json', 'draft.story.json'], undefined, executable);
+  assert.equal(check.status, 1);
+  assert.equal(JSON.parse(check.stdout)[0].ref, 'Missing');
+});
+
+test('isolated Story HTML matches GUI page assembly and extracts both escaped sources', async () => {
+  const executable = join(kit, 'story-edit.mjs');
+  const diagram = JSON.parse(
+    await readFile(new URL('../tests/fixtures/story/signal-path.json', import.meta.url)),
+  );
+  const { parseStory, presentationData, readPresentationSources } = await import('../src/lib/story/model.js');
+  const story = parseStory(
+    JSON.parse(await readFile(new URL('../tests/fixtures/story/signal-path.story.json', import.meta.url))),
+  );
+  story.title = 'Title </script> \u2028 \u2029';
+  story.chapters[0].steps[0].body = '<b>Text</b>';
+  await writeFile(join(directory, 'page-diagram.json'), JSON.stringify(diagram));
+  await writeFile(join(directory, 'page.story.json'), JSON.stringify(story));
+  const assets = await Promise.all(
+    ['player.js', 'present.js', 'player.css', 'present.css'].map((file) =>
+      readFile(new URL('../src/story/' + file, import.meta.url), 'utf8'),
+    ),
+  );
+  const assembly = (await readFile(new URL('../src/story/export.js', import.meta.url), 'utf8'))
+    .replace(/^import .*$/gm, '')
+    .replace(/^export /gm, '');
+  const guiHtml = new Function(
+    'playerJs',
+    'presentJs',
+    'playerCss',
+    'presentCss',
+    'SOURCES_ID',
+    assembly + '\nreturn presentationHtml;',
+  )(...assets, 'blockflow-sources');
+  const svg = renderSvg(await layoutDiagram(createDiagramModel(diagram)));
+  const expected = guiHtml(presentationData({ svg, story }), { diagram, story });
+  const exported = run(
+    ['export', 'page-diagram.json', 'page.story.json', '-o', 'page.html'],
+    undefined,
+    executable,
+  );
+  assert.equal(exported.status, 0, exported.stderr);
+  const html = await readFile(join(directory, 'page.html'), 'utf8');
+  assert.equal(html, expected);
+  assert.ok(html.includes('\\u003c'));
+  assert.ok(html.includes('\\u2028'));
+  assert.ok(html.includes('\\u2029'));
+  const extracted = run(['extract', 'page.html'], undefined, executable);
+  assert.equal(extracted.status, 0, extracted.stderr);
+  assert.deepEqual(JSON.parse(extracted.stdout), { diagram, story });
+  assert.deepEqual(readPresentationSources(html), { diagram, story });
+  const protectedSource = await readFile(join(directory, 'page.story.json'), 'utf8');
+  assert.equal(
+    run(['export', 'page-diagram.json', 'page.story.json', '-o', 'page.story.json'], undefined, executable)
+      .status,
+    1,
+  );
+  assert.equal(await readFile(join(directory, 'page.story.json'), 'utf8'), protectedSource);
+  const probe = `import assert from 'node:assert/strict';import fs from 'node:fs';import {parseStory,emptyStory,applyStoryOps,inspectStory,checkStory,editStory,exportStory,readPresentationSources} from ${JSON.stringify(pathToFileURL(executable).href)}; const d=JSON.parse(fs.readFileSync('page-diagram.json'));const s=JSON.parse(fs.readFileSync('page.story.json'));assert.deepEqual(await checkStory(d,s),[]);assert.equal((await inspectStory(d)).fingerprint.length,16);const e=await editStory(d,s,[{op:'replace',path:'/title',value:'New'}]);assert.equal(e.document.title,'New');assert.equal(readPresentationSources(await exportStory(d,s)).story.title,s.title);assert.equal(emptyStory().format,'blockflow-story');assert.throws(()=>parseStory({version:2,chapters:[]}));assert.equal(typeof applyStoryOps,'function');`;
+  await writeFile(join(directory, 'story-probe.mjs'), probe);
+  const api = run([], undefined, join(directory, 'story-probe.mjs'));
+  assert.equal(api.status, 0, api.stderr);
+  assert.equal(api.stdout, '');
 });
 
 test('isolated no-install CLI exports the same vertical SVG as the shared renderer', async () => {
@@ -557,8 +703,10 @@ test('standalone editor uses the same semantic diff and diagram for preview and 
 });
 
 test('standalone Blockchart guide JSON examples validate and render without upstream examples', async () => {
-  const readme = await readFile(join(kit, 'README.md'), 'utf8'),
-    guide = readme.split('## Blockchart Agent Kit')[1].split('## Flowchart Agent Kit')[0],
+  const guide =
+      (await readFile(join(kit, 'docs/blockchart.md'), 'utf8')) +
+      '\n' +
+      (await readFile(join(kit, 'docs/blockchart-edit.md'), 'utf8')),
     examples = [...guide.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)];
   const values = examples.map((match) => JSON.parse(match[1]));
   const diagrams = values.filter((value) => !Array.isArray(value));
@@ -622,8 +770,8 @@ test('standalone Blockchart guide JSON examples validate and render without upst
     const model = createDiagramModel(diagram);
     assert.ok(renderSvg(await layoutDiagram(model)).startsWith('<svg'));
   }
-  assert.ok(!/\]\((?:\.\.\/|examples\/)/.test(readme));
-  assert.ok(!readme.includes('{{KIT_VERSION}}'));
+  assert.ok(guide.includes('](../README.md)'));
+  assert.ok(!guide.includes('{{KIT_VERSION}}'));
 });
 
 test('isolated kit applies Grid Block minima to SVG and preserves authored JSON without backfilling', async () => {

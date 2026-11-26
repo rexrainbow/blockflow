@@ -1,7 +1,7 @@
-/* statechart-agent-kit-e22450b41f976624cbe2
+/* statechart-agent-kit-f92b60d52c4539839138
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
-Full third-party license is in the accompanying README.md. */
+Full third-party license: licenses/elkjs-EPL-2.0.md (see README.md). */
 import { createRequire as e } from "node:module";
 import { mkdir as t, readFile as n, realpath as r, rename as i, unlink as a, writeFile as o } from "node:fs/promises";
 import { dirname as s, extname as c, resolve as l } from "node:path";
@@ -48255,7 +48255,7 @@ function it(e) {
 	});
 }
 // src/agent-kit/statechart-converter.js
-var at = "statechart-agent-kit-e22450b41f976624cbe2", ot = class extends Error {
+var at = "statechart-agent-kit-f92b60d52c4539839138", ot = class extends Error {
 	constructor(e) {
 		super(e), this.stage = "arguments";
 	}

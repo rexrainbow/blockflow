@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:blockflow:story:1",
+  "title": "Normalized Blockflow Story v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "blockflow-story"
+    },
+    "version": {
+      "const": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "diagram": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["name"]
+    },
+    "chapters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/chapter"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": ["format", "version", "title", "chapters"],
+  "$defs": {
+    "wave": {
+      "type": "object",
+      "properties": {
+        "period": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "bits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [0, 1]
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "perBit": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              },
+              "tick": {
+                "type": "number"
+              },
+              "showBit": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true,
+            "required": ["name"],
+            "anyOf": [
+              {
+                "required": ["perBit"]
+              },
+              {
+                "required": ["tick"]
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": ["period", "bits", "rows"]
+    },
+    "stepWave": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "from": {
+          "type": "number"
+        },
+        "to": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["rows"]
+    },
+    "hop": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": ["event", "level", "data", "control"]
+        },
+        "badge": {
+          "type": "string"
+        },
+        "wires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": ["kind", "wires"]
+    },
+    "note": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["module", "text"]
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "scope": {
+          "const": true
+        },
+        "camera": {
+          "const": "all"
+        },
+        "hops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hop"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/note"
+          }
+        },
+        "wave": {
+          "$ref": "#/$defs/stepWave"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["title", "body", "hops"]
+    },
+    "chapter": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "wave": {
+          "$ref": "#/$defs/wave"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": ["title", "steps"]
+    }
+  }
+}
