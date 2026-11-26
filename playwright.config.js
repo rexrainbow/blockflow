@@ -3,10 +3,12 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   // studio.spec.js (Block diagram), flowchart.spec.js and statechart.spec.js cover the current UI (src/studio);
-  // story.spec.js covers the Story editor (story.html, src/story).
+  // story.spec.js covers the Story editor (story.html, src/story), wave.spec.js the Waveform
+  // editor (wave.html, src/wave).
   testMatch: [
     'studio.spec.js',
     'story.spec.js',
+    'wave.spec.js',
     'flowchart.spec.js',
     'statechart.spec.js',
     'alignment.spec.js',

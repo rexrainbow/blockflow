@@ -3,6 +3,7 @@
 // survives connection reordering. The same endpoint pairs are what the runtime SVG exposes.
 
 import { validateDiagram } from '../blockchart/model.js';
+import { parseWaveform, layoutWaveform, renderWaveformSvg } from '../waveform/index.js';
 
 export const STORY_FORMAT = 'blockflow-story';
 export const STORY_KINDS = ['event', 'level', 'data', 'control'];
@@ -62,7 +63,14 @@ export function parseStory(value) {
       const at = `chapters[${ci}]`;
       if (!ch || typeof ch !== 'object' || Array.isArray(ch)) fail(at, 'must be an object.');
       const chapter = { title: text(ch.title, `${at}.title`), steps: [] };
-      if (ch.wave !== undefined) chapter.wave = parseWave(ch.wave, `${at}.wave`);
+      if (ch.waveform !== undefined) {
+        try {
+          chapter.waveform = parseWaveform(ch.waveform);
+        } catch (error) {
+          const path = (error.path ?? '').replace(/^waveform(?:\.|$)/, '');
+          fail(`${at}.waveform${path ? '.' + path : ''}`, error.message);
+        }
+      }
       chapter.steps = list(ch.steps, `${at}.steps`).map((s, si) => parseStep(s, `${at}.steps[${si}]`));
       return chapter;
     }),
@@ -92,15 +100,24 @@ function parseStep(s, at) {
     text: text(n?.text, `${at}.notes[${ni}].text`),
   }));
   if (notes.length) step.notes = notes;
-  if (s.wave !== undefined) {
-    const w = s.wave;
-    if (!w || typeof w !== 'object') fail(`${at}.wave`, 'must be an object.');
-    step.wave = { rows: list(w.rows, `${at}.wave.rows`).map(String) };
-    for (const k of ['from', 'to'])
+  if (s.waveform !== undefined) {
+    const w = s.waveform,
+      wp = `${at}.waveform`;
+    if (!w || typeof w !== 'object' || Array.isArray(w)) fail(wp, 'must be an object.');
+    step.waveform = {};
+    for (const k of ['from', 'to']) {
       if (w[k] !== undefined) {
-        step.wave[k] = Number(w[k]);
-        if (!Number.isFinite(step.wave[k])) fail(`${at}.wave.${k}`, 'must be finite.');
+        if (!Number.isSafeInteger(w[k])) fail(`${wp}.${k}`, 'must be a safe integer tick.');
+        step.waveform[k] = w[k];
       }
+    }
+    for (const k of ['signals', 'links', 'markers']) {
+      if (w[k] !== undefined)
+        step.waveform[k] = list(w[k], `${wp}.${k}`).map((ref, i) => {
+          const value = text(ref, `${wp}.${k}[${i}]`);
+          return k === 'links' ? normalizeRef(value) : value;
+        });
+    }
   }
   return step;
 }
@@ -209,22 +226,89 @@ export function viewOf(svg) {
 /** References in the story that the rendered diagram does not identify (index from svgIndex). */
 export function storyProblems(story, geo) {
   const problems = [];
-  story.chapters.forEach((chapter, ci) =>
+  story.chapters.forEach((chapter, ci) => {
+    const waveform = chapter.waveform;
+    const signals = new Set(waveform?.signals.map((s) => s.id));
+    const links = new Set(waveform?.links?.map(endpointRef));
+    const markers = new Set(waveform?.markers?.map((m) => m.id));
     chapter.steps.forEach((step, si) => {
       for (const hop of step.hops ?? [])
         for (const ref of hop.wires)
           if (!Object.hasOwn(geo.wires, ref)) problems.push({ ci, si, type: 'wire', ref });
       for (const n of step.notes ?? [])
         if (!Object.hasOwn(geo.modules, n.module)) problems.push({ ci, si, type: 'module', ref: n.module });
-    }),
-  );
+      const focus = step.waveform;
+      if (!focus) return;
+      if (!waveform) {
+        problems.push({ ci, si, type: 'waveform', ref: 'waveform' });
+        return;
+      }
+      const from = focus.from ?? 0,
+        to = focus.to ?? waveform.length;
+      if (from < 0 || from >= to || to > waveform.length)
+        problems.push({ ci, si, type: 'window', ref: `${from} -> ${to}` });
+      for (const [key, type, ids] of [
+        ['signals', 'signal', signals],
+        ['links', 'link', links],
+        ['markers', 'marker', markers],
+      ])
+        for (const ref of focus[key] ?? []) if (!ids.has(ref)) problems.push({ ci, si, type, ref });
+    });
+  });
   return problems;
 }
 
-/** Everything the player needs: the runtime SVG, its view box and the story. The player finds
- *  wires and blocks through the SVG's identity metadata, so no layout geometry is passed. */
+/** All rendered branches touching an exact port, including every fan-out destination.
+ * An absent or unconnected port yields an empty list, without a missing-port problem. */
+export function wiresForPort(index, port) {
+  return Object.values(index.wires)
+    .filter((wire) => wire.from === port || wire.to === port)
+    .map(({ from, to }) => ({ from, to }));
+}
+
+/** Stable authoring identities available to step focus and Agent Kit inspection. */
+export function waveformIndex(value) {
+  const waveform = parseWaveform(value);
+  return {
+    signals: waveform.signals.map(({ id, label, port }) => ({ id, label, ...(port ? { port } : {}) })),
+    edges: waveform.signals.flatMap((signal) =>
+      signal.changes.flatMap(([t, , id], i) => (id && i > 0 ? [{ id, signal: signal.id, t }] : [])),
+    ),
+    links: (waveform.links ?? []).map((link) => ({ ref: endpointRef(link), ...link })),
+    markers: structuredClone(waveform.markers ?? []),
+  };
+}
+
+/** Offline player data: owned Story, pre-rendered chapter waveforms and cursor geometry. */
 export function presentationData({ svg, story }) {
-  return { title: story.title, svg, view: viewOf(svg), chapters: structuredClone(story.chapters) };
+  story = parseStory(story);
+  const index = svgIndex(svg);
+  const chapters = story.chapters.map((chapter, ci) => {
+    if (!chapter.waveform) return chapter;
+    const options = { idPrefix: `blockflow-story-waveform-${ci}` };
+    const l = layoutWaveform(chapter.waveform, options);
+    return {
+      ...chapter,
+      waveformView: {
+        svg: renderWaveformSvg(chapter.waveform, options),
+        left: l.left,
+        pixelsPerTick: l.pixelsPerTick,
+        from: l.from,
+        to: l.to,
+        right: l.right,
+        width: l.width,
+        height: l.height,
+        top: l.top,
+        lanes: Object.fromEntries(l.lanes.map((lane) => [lane.id, lane.y])),
+        portWires: Object.fromEntries(
+          chapter.waveform.signals
+            .filter((signal) => signal.port)
+            .map((signal) => [signal.id, wiresForPort(index, signal.port)]),
+        ),
+      },
+    };
+  });
+  return { title: story.title, svg, view: viewOf(svg), chapters, problems: storyProblems(story, index) };
 }
 
 /** Id of the script element in an exported presentation that holds its editable sources. */

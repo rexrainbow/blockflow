@@ -1,4 +1,4 @@
-/* statechart-agent-kit-f92b60d52c4539839138
+/* statechart-agent-kit-d932343d6d614decb575
 Includes elkjs 0.12.1, Copyright Kiel University and contributors.
 Distributed under EPL-2.0; source: https://github.com/kieler/elkjs
 Full third-party license: licenses/elkjs-EPL-2.0.md (see README.md). */
@@ -48255,7 +48255,7 @@ function it(e) {
 	});
 }
 // src/agent-kit/statechart-converter.js
-var at = "statechart-agent-kit-f92b60d52c4539839138", ot = class extends Error {
+var at = "statechart-agent-kit-d932343d6d614decb575", ot = class extends Error {
 	constructor(e) {
 		super(e), this.stage = "arguments";
 	}

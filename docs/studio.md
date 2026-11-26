@@ -435,8 +435,8 @@ has no Story mode and no story code; it imports only `src/story/handoff.js`.
   player shows the resulting SVG, the same text Studio *Export › SVG* writes for the whole
   diagram, unchanged.
 - **The player** (`src/story/player.js`, no imports) adds a dimming mask, wire highlights,
-  moving dots, note and badge chips, a camera that follows each hop, and the chapter timing
-  strip. The Story editor runs it with editing picks; the exported page runs the same file
+  moving dots, note and badge chips, a camera that follows each hop, and the chapter
+  waveform strip. The Story editor runs it with editing picks; the exported page runs the same file
   without them. It receives no layout geometry: it finds wires and blocks through the
   SVG [identity metadata](blockchart-layout.md#rendered-svg-identity-contract).
   - A wire is every `connection-path` whose owners include its endpoint pair, either
@@ -449,8 +449,7 @@ has no Story mode and no story code; it imports only `src/story/handoff.js`.
 - **Runtime story contract.** The format, validation, reference index, problems, page
   sources and fingerprints are the runtime's ([Story runtime contract](story-runtime.md),
   `schema/story.schema.json`, `src/lib/story/`). `src/story/model.js` only re-exports
-  them, so the GUI keeps no copy of the checks. Field errors show the runtime's path, for
-  example `wave.bits[0]: must be 0 or 1.` under the chapter's timing-strip JSON. The
+  them, so the GUI keeps no copy of the checks. Field errors show the runtime's path. The
   Agent Kit's `story-edit.mjs` edits, checks and exports the same files without a GUI; its
   exported page is the Story editor's page byte for byte and opens here for editing.
 - **Authoring.** The left pane lists chapters and steps. The right pane edits the selected
@@ -459,7 +458,28 @@ has no Story mode and no story code; it imports only `src/story/handoff.js`.
   - hops in order, each with a kind and an optional badge. Clicking a wire on the stage
     adds it to the selected hop or removes it, and Shift+click starts a new hop;
   - notes, added by clicking a block or terminal;
-  - timing-strip rows and range when the chapter has a strip (chapter JSON in the chapter view).
+  - with a chapter waveform: the step's *Waveform focus* (see below).
+- **Chapter waveforms.** A chapter can embed one `blockflow-waveform` document (runtime
+  contract), shown as a strip under the diagram while the chapter plays.
+  - Chapter pane:
+    - *Create in Waveform editor* or *Edit in Waveform editor* opens `wave.html` with
+      the chapter's waveform (`openInWaveEditor` in `handoff.js`). Its *Send to Story
+      editor* button posts the document back and replaces the chapter's waveform as one
+      undoable change; only the tab this page opened is accepted.
+    - *Open waveform JSON…* reads a saved waveform; *Remove* drops it.
+  - Step focus `{ from, to, signals, links, markers }`: the window, prefilled with
+    0 and the length, and checklists of the waveform's signals, links and markers from
+    `waveformIndex`. When anything is checked, the rest is dimmed.
+  - The strip is the runtime SVG from `presentationData`'s `waveformView`, one id prefix
+    per chapter. It shows the whole capture:
+    - focused items get `pv-wf-on` by `data-signal`, `data-link` and `data-marker`;
+    - a band marks the window, and the cursor sweeps it while the step plays.
+  - A focused signal with a Block `port` lights that port's diagram wires
+    (`waveformView.portWires`) steadily, unless a hop already plays them.
+  - Missing signals, links and markers, an invalid window, or a focus in a chapter without a
+    waveform are story problems. They are marked in the step editor and skipped by the
+    player; an invalid window plays the whole capture.
+  - Old `chapter.wave` / `step.wave` data is dropped by the runtime and never drawn.
 - **References by endpoint.** A hop names wires as `Module.port -> Module.port` (a terminal
   end is `@terminal:ID`), the same pairs the SVG exposes, never by layout ids. Reordering
   connections therefore keeps the story. References the diagram does not have are kept:
@@ -501,6 +521,102 @@ has no Story mode and no story code; it imports only `src/story/handoff.js`.
   terminals at both ends, a group and a start Net that fans out over a shared trunk.
   Coverage: `tests/lib/story-model.test.js` (runtime), `tests/story/editor.test.js`
   (import point, hand-off) and `e2e/story.spec.js`.
+
+## Waveform editor (timing diagrams)
+
+The **Waveform editor** (`wave.html`, `src/wave/`) draws synchronous timing diagrams:
+integer ticks, an optional bit grid, bit and bus lanes, named transitions, causal links and
+markers. Phase 1 is synchronous only. Format, checks, edits, drawing and VCD import are the
+runtime's ([Waveform runtime contract](waveform-runtime.md), `schema/waveform.schema.json`,
+`src/lib/waveform/`). The page keeps no copy of them:
+
+- every change is one `applyWaveformOps` batch;
+- lane reordering, lane removal and lane renames build the next document, which
+  `parseWaveform` checks.
+
+Edits are applied with `allowProblems: true`: delay mismatches, missing link ends and
+changes beyond the length are listed, not refused. Structural errors and the protection of
+named transitions still refuse an edit; the runtime's message shows in a toast or field.
+
+- **Drawing.** The stage shows `renderWaveformSvg` output unchanged on a white sheet, at
+  the current zoom (pixels per tick) with a grid-label step chosen within the renderer's
+  limits. Selection is drawn on a separate overlay; a selected link or marker is the
+  runtime's own group (`data-link`, `data-marker`) with a highlight class. The SVG is rebuilt
+  only when the document or the view changes, so a selection change keeps the elements
+  under the pointer (double-clicks rely on it).
+- **Hits** use the runtime layout geometry (`layoutWaveform`; lane y values are not evenly
+  spaced, because gutters grow with link tracks), checked in this order:
+  1. a link's label or delay dimension (`data-role="link-label"` / `"delay-dimension"`, boxes
+     padded 4 px);
+  2. a transition within 6 px on the lane under the pointer. Linked transitions stay
+     draggable where link paths start and arrows end;
+  3. a link path or arrow stroke (within 3 px). An arrow sits on its target transition, so a
+     click there selects that transition;
+  4. a marker's label or cursor line (a span's shaded band never takes the click). The
+     runtime stacks labels of markers at the same or nearby ticks in rows under the
+     lanes (`data-role="marker-label"`); the sheet grows with them, so each stays clickable;
+  5. the lane label (selects the signal);
+  6. the lane.
+
+  Links into the same transition share one arrow position; the topmost link's arrow is drawn
+  last.
+- **Link drawing.** *Links: Auto | Local | Rail* in the canvas head sets the renderer's
+  `linkRoute` for the view and for SVG/PNG export.
+  - **Auto:** local gutter routes, with the right-hand rail for far or crowded links.
+  - **Local:** every link runs between the lanes.
+  - **Rail:** the former exterior drawing.
+
+  The choice is a view preference of this browser (`blockflow.wave.view`), never stored in
+  the waveform. The Story strip always uses Auto.
+- **Pointer.**
+  - Drag a transition to move it (`moveEdge`). Locked links follow; Alt drags without
+    following.
+  - Times snap to ticks or to bit boundaries (*Tick | Bit* in the canvas head; Shift swaps
+    while dragging).
+  - A refused move leaves the document as it was and shows why.
+  - Drag along a lane to select ticks; a click selects the value segment.
+  - Double-click a bit segment to flip it between 0 and 1.
+- **Keys** (outside text fields):
+  - 0, 1, X, Z set the selected ticks of a bit lane;
+  - ← → move the selected transition by one tick or bit (Shift: without following);
+  - Delete removes the selected link, marker, transition or signal;
+  - + and − zoom, Shift+1 fits, Escape clears the selection or cancels linking;
+  - Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y, Ctrl+O and Ctrl+S.
+- **Links.** Select a transition, choose *Link to…*, click the transition it causes.
+  - Unnamed ends are named `signal_t`.
+  - The link is locked, with its current distance as the expected delay.
+  - The link inspector edits the label, delay and lock. *Apply the delay now* runs
+    `followLocked`.
+  - Renaming a transition updates its links in the same batch.
+- **Inspector.**
+  - Waveform: title, timescale, length and bit grid.
+  - Selected ticks: value (0/1/X/Z or bus text), insert or delete those ticks, span marker.
+  - Signal: id, width, label, scope, Block port, color. Bit lanes on a grid add
+    *Generate from bits*, which is `encodeBits` (DShot: high 6 for a 1 and 3 for a 0, of 8).
+  - Transition: time, name, its links.
+  - Link and marker: their fields.
+- **Files.**
+  - *Open…*, Ctrl+O or a drop accepts a waveform JSON or a VCD. Block diagrams and other
+    diagrams are refused.
+  - A VCD opens an import dialog built from the runtime's `listVcdSignals`:
+    - a checklist of the declared signals (name with range, width, wire or reg), with a
+      filter and All/None for the listed rows. All are chosen when there are at most 256,
+      the import limit;
+    - the source-tick window, prefilled with the capture's first and last timestamps;
+    - an optional timescale conversion.
+
+    A VCD the runtime cannot read is reported before the dialog. Import errors (an
+    empty choice, a fractional conversion) stay in the dialog.
+  - *Save JSON* writes the normalized document. *Export* writes SVG (the runtime renderer at
+    its default scale) or PNG 2×.
+  - The DShot example is bundled (`examples/waveform/dshot.json`).
+  - The open waveform is kept in this browser (`blockflow.wave.session`). Undo history is per
+    page session.
+- **Builds.** `wave.html` is the third page of the web build. Offline it is
+  `dist-offline/wave/`, listed in `dist-offline/index.html`.
+- **Tests:** `e2e/wave.spec.js` and the Waveform test in `e2e/offline.spec.js`. The runtime's
+  own tests are `tests/lib/waveform.test.js`; the fixtures are `tests/fixtures/waveform/dshot.json`
+  and `small.vcd`.
 
 ## Keyboard
 
@@ -550,6 +666,9 @@ src/story/                  Story editor (story.html); reuses src/studio/ui and 
   present.js, present.css  exported page shell around the player
   export.js                standalone presentation HTML (inlines player, shell, SVG and sources)
   story.css                story list, step editor and stage
+src/wave/                   Waveform editor (wave.html); reuses src/studio/ui, styles and story.css
+  main.js, editor.js       entry; WaveEditor: page, files, VCD dialog, history, hits, drags, panes
+  wave.css                 scrolling sheet, overlay and selection marks
 ```
 
 Editor support comes from `src/editor/` ([Editor support APIs](editor-runtime.md)): each
@@ -559,7 +678,8 @@ resolves each domain service's `./worker-factory.js` to the sibling
 diagram kind gets its own inline Worker. `e2e/studio.spec.js` covers the Block diagram
 editor, `e2e/flowchart.spec.js` the Flowchart editor and `e2e/statechart.spec.js` the
 Statechart editor (both also cover kind switching), and `e2e/alignment.spec.js` text
-alignment in all three. `e2e/story.spec.js` covers the Story editor.
+alignment in all three. `e2e/story.spec.js` covers the Story editor and `e2e/wave.spec.js`
+the Waveform editor.
 
 `e2e/offline.spec.js` (`npm run test:e2e:offline`) copies the whole `dist-offline/` folder
 and opens both pages from `file://` with no network. Studio checks:

@@ -66,3 +66,30 @@ export function receiveHandoff(win = window, timeout = 3000) {
     }
   });
 }
+
+// ---------- Story editor ⇄ Waveform editor ----------
+// The Story editor opens the Waveform editor with a chapter's waveform (same READY/HANDOFF
+// exchange as above, read with receiveHandoff). The Waveform editor sends the edited document
+// back to its opener with WAVE_RETURN; the Story editor accepts it only from the tab it opened.
+
+/** Sent by the Waveform editor to its opener: { type, ci, waveform }. */
+export const WAVE_RETURN = 'blockflow-wave-return';
+/* global __BLOCKFLOW_WAVE_PAGE__ */
+export const WAVE_PAGE = typeof __BLOCKFLOW_WAVE_PAGE__ !== 'undefined' ? __BLOCKFLOW_WAVE_PAGE__ : 'wave.html';
+
+/**
+ * Opens the Waveform editor with `message` ({ waveform, ci, label }). `onReturn(data)` runs for
+ * every WAVE_RETURN the tab sends while this page lives. Returns a stop function, or null when
+ * the browser blocked the tab.
+ */
+export function openInWaveEditor(message, onReturn, win = window) {
+  const tab = win.open(pageUrl(WAVE_PAGE, win), '_blank');
+  if (!tab) return null;
+  const onMessage = (event) => {
+    if (event.source !== tab) return;
+    if (event.data?.type === READY) tab.postMessage({ type: HANDOFF, message }, '*');
+    else if (event.data?.type === WAVE_RETURN) onReturn(event.data);
+  };
+  win.addEventListener('message', onMessage);
+  return () => win.removeEventListener('message', onMessage);
+}

@@ -13,7 +13,7 @@ import {
   svgIndex,
   storyProblems,
   parseStory,
-  parseWave,
+  waveformIndex,
   emptyStory,
   newStep,
   newHop,
@@ -25,7 +25,8 @@ import {
   STORY_KINDS,
 } from './model.js';
 import { presentationHtml } from './export.js';
-import { receiveHandoff, pageUrl, STUDIO_PAGE } from './handoff.js';
+import { receiveHandoff, pageUrl, STUDIO_PAGE, openInWaveEditor } from './handoff.js';
+import { parseWaveform } from '../lib/waveform/index.js';
 
 /** Browser copies of stories, one per diagram name. */
 export const STORIES_KEY = 'blockflow.story.stories';
@@ -73,6 +74,7 @@ export class StoryEditor {
   }
 
   dispose() {
+    this.stopWave?.();
     this.layoutService.dispose();
     this.player?.destroy();
     closeMenu();
@@ -130,7 +132,17 @@ export class StoryEditor {
         e.target.value = '';
       },
     });
-    this.el = h('div', { class: 'studio story-app', 'data-kind': 'story' }, topbar, h('div', { class: 'workspace' }, this.listEl, center, this.editEl, this.scrim), this.fileInput);
+    // A chapter's waveform file (Open waveform JSON… in the chapter pane).
+    this.waveInput = h('input', {
+      type: 'file',
+      accept: '.json,application/json',
+      hidden: true,
+      onchange: (e) => {
+        this.openWaveformFile(e.target.files[0], this.waveTarget);
+        e.target.value = '';
+      },
+    });
+    this.el = h('div', { class: 'studio story-app', 'data-kind': 'story' }, topbar, h('div', { class: 'workspace' }, this.listEl, center, this.editEl, this.scrim), this.fileInput, this.waveInput);
     this.root.replaceChildren(this.el);
     const narrow = matchMedia('(max-width: 1000px)');
     const sync = () => this.el.classList.toggle('narrow', narrow.matches);
@@ -521,7 +533,7 @@ export class StoryEditor {
     if (!flatSteps(this.story).length) return this.notify('Add at least one step before exporting.', 'error');
     downloadBlob(new Blob([this.pageHtml(data)], { type: 'text/html' }), `${safeName(this.diagramName)}-presentation.html`);
     const missing = this.problems.length;
-    this.notify(`Exported presentation HTML. Open it here again to keep editing.${missing ? ` ${plural(missing, 'missing reference')} skipped.` : ''}`);
+    this.notify(`Exported presentation HTML. Open it here again to keep editing.${missing ? ` ${plural(missing, 'story problem')} skipped when playing.` : ''}`);
   }
 
   preview() {
@@ -597,7 +609,7 @@ export class StoryEditor {
       this.status,
       this.diagram ? h('span', `${plural(this.story.chapters.length, 'chapter')} · ${plural(steps, 'step')}`) : h('span', 'No diagram open'),
       state,
-      this.problems.length ? h('span', { class: 'st warn' }, icon('warn', 12), ` ${plural(this.problems.length, 'missing reference')}`) : null,
+      this.problems.length ? h('span', { class: 'st warn' }, icon('warn', 12), ` ${plural(this.problems.length, 'story problem')}`) : null,
       h('div', { class: 'spacer' }),
       this.diagram ? h('span', { class: 'hints' }, 'Click wires to add them to the selected hop · Shift+click starts a new hop · ← → steps') : h('span', { class: 'hints' }, `${modKey} O opens a file`),
     );
@@ -658,7 +670,7 @@ export class StoryEditor {
       h('div', { class: 'story-title' }, field('Presentation title', textInput({ value: this.story.title, fidKey: 'story-title', commit: (v) => this.commit((st) => (st.title = v.trim() || 'Presentation')) }))),
       h('div', { class: 'rows story-rows' }, rows.length ? rows : h('div', { class: 'empty-row' }, 'No chapters yet')),
       h('div', { class: 'insp-actions' }, button('Add chapter', () => this.addChapter(), { icon: 'plus', variant: 'ghost' })),
-      this.problems.length ? h('p', { class: 'insp-hint story-problems' }, icon('warn', 12), ` ${plural(this.problems.length, 'reference')} not in the diagram. They are kept in the story and skipped when playing.`) : null,
+      this.problems.length ? h('p', { class: 'insp-hint story-problems' }, icon('warn', 12), ` ${plural(this.problems.length, 'reference')} the diagram or a chapter waveform lacks. They are kept in the story and skipped when playing.`) : null,
     );
   }
 
@@ -724,7 +736,8 @@ export class StoryEditor {
     ];
     if (!step.scope) sections.push(this.hopsSection(step, edit));
     sections.push(this.notesSection(step, edit));
-    if (chapter.wave) sections.push(this.stepWaveSection(step, chapter.wave, edit));
+    if (chapter.waveform) sections.push(this.stepWaveformSection(step, chapter.waveform, edit));
+    else if (step.waveform) sections.push(this.orphanFocusSection(edit));
     replaceKeepingFocus(this.editBody, ...sections);
   }
 
@@ -802,36 +815,146 @@ export class StoryEditor {
     );
   }
 
-  stepWaveSection(step, wave, edit) {
-    const rows = step.wave?.rows ?? [];
-    const total = wave.period * wave.bits.length;
-    const setRows = (name, on) =>
+  /** Step focus on its chapter's waveform: the window the cursor sweeps and what to emphasise. */
+  stepWaveformSection(step, waveform, edit) {
+    const index = waveformIndex(waveform);
+    const focus = step.waveform ?? {};
+    const refs = (type) => new Set(this.problems.filter((p) => p.ci === this.sel.ci && p.si === this.sel.si && p.type === type).map((p) => p.ref));
+    const tidy = (s) => {
+      for (const key of ['signals', 'links', 'markers']) if (s.waveform?.[key] && !s.waveform[key].length) delete s.waveform[key];
+      if (s.waveform && !Object.keys(s.waveform).length) delete s.waveform;
+    };
+    const setList = (key, id, on) =>
       edit((s) => {
-        const w = (s.wave ??= { rows: [], from: 0, to: total });
-        w.rows = on ? [...new Set([...w.rows, name])] : w.rows.filter((r) => r !== name);
-        if (!w.rows.length) delete s.wave;
+        const f = (s.waveform ??= {});
+        const list = new Set(f[key] ?? []);
+        if (on) list.add(id);
+        else list.delete(id);
+        f[key] = [...list];
+        tidy(s);
       });
     const num = (key) =>
       textInput({
         type: 'number',
-        value: String(step.wave?.[key] ?? (key === 'from' ? 0 : total)),
-        ariaLabel: key === 'from' ? 'Highlight from clock' : 'Highlight to clock',
-        fidKey: `story-wave-${key}`,
+        value: focus[key] == null ? '' : String(focus[key]),
+        placeholder: String(key === 'from' ? 0 : waveform.length),
+        ariaLabel: key === 'from' ? 'Window from tick' : 'Window to tick',
+        fidKey: `story-wf-${key}`,
         min: 0,
         commit: (v) => {
+          if (!v.trim()) return edit((s) => (s.waveform && delete s.waveform[key], tidy(s)));
           const n = Number(v);
-          if (!Number.isFinite(n) || n < 0) throw new Error('Enter a clock number of 0 or more.');
-          edit((s) => ((s.wave ??= { rows: [], from: 0, to: total })[key] = n));
+          if (!Number.isSafeInteger(n) || n < 0) throw new Error('Enter a whole tick, 0 or more.');
+          edit((s) => ((s.waveform ??= {})[key] = n));
         },
       });
+    const group = (title, key, items, idOf, label) =>
+      items.length
+        ? h(
+            'div',
+            { class: 'story-wf-group' },
+            h('div', { class: 'story-wf-label' }, title),
+            h('div', { class: 'story-wave-rows' }, items.map((it) => checkbox(label(it), (focus[key] ?? []).includes(idOf(it)), (on) => setList(key, idOf(it), on), { fidKey: `story-wf-${key}-${idOf(it)}` }))),
+          )
+        : null;
+    const missing = [...refs('signal'), ...refs('link'), ...refs('marker')];
     return h(
       'div',
       { class: 'insp-section stack' },
-      h('div', { class: 'insp-section-head' }, h('h3', 'Timing strip')),
-      h('p', { class: 'insp-hint' }, 'Rows to emphasise while this step plays, and the clock range the cursor sweeps.'),
-      h('div', { class: 'story-wave-rows' }, wave.rows.map((r) => checkbox(r.name, rows.includes(r.name), (on) => setRows(r.name, on)))),
-      h('div', { class: 'grid2' }, field('From clock', num('from')), field('To clock', num('to'))),
+      h('div', { class: 'insp-section-head' }, h('h3', 'Waveform focus')),
+      h('p', { class: 'insp-hint' }, 'The ticks the cursor sweeps while this step plays, and what to emphasise: when anything is checked, the rest is dimmed. A signal with a Block port also lights the wires at that port.'),
+      h('div', { class: 'grid2' }, field('From tick', num('from')), field('To tick', num('to'))),
+      refs('window').size ? h('p', { class: 'insp-hint story-problems' }, icon('warn', 12), ` From ${focus.from ?? 0} to ${focus.to ?? waveform.length} is not a window of this waveform (0–${waveform.length}); the whole capture plays.`) : null,
+      group('Signals', 'signals', index.signals, (s) => s.id, (s) => `${s.label ?? s.id}${s.port ? ` · ${s.port}` : ''}`),
+      group('Links', 'links', index.links, (l) => l.ref, (l) => l.label || l.ref),
+      group('Markers', 'markers', index.markers, (m) => m.id, (m) => m.label || m.id),
+      missing.length
+        ? h(
+            'ul',
+            { class: 'story-wires' },
+            missing.map((ref) =>
+              h(
+                'li',
+                { class: 'missing', title: 'Not in this chapter’s waveform' },
+                icon('warn', 12),
+                h('span', { class: 'mono' }, ref),
+                iconButton('close', `Remove ${ref}`, () => edit((s) => { for (const key of ['signals', 'links', 'markers']) if (s.waveform?.[key]) s.waveform[key] = s.waveform[key].filter((x) => x !== ref); tidy(s); }), { class: 'small' }),
+              ),
+            ),
+          )
+        : null,
     );
+  }
+
+  /** A step that focuses a waveform its chapter does not have: say so and offer to clear it. */
+  orphanFocusSection(edit) {
+    return h(
+      'div',
+      { class: 'insp-section stack' },
+      h('div', { class: 'insp-section-head' }, h('h3', 'Waveform focus')),
+      h('p', { class: 'insp-hint story-problems' }, icon('warn', 12), ' This step focuses a waveform, but its chapter has none. Add one in the chapter, or clear the focus.'),
+      h('div', { class: 'insp-actions' }, button('Clear the focus', () => edit((s) => delete s.waveform), { variant: 'ghost', icon: 'trash' })),
+    );
+  }
+
+  /** The chapter's waveform: open a saved one, or create/edit it in the Waveform editor. */
+  chapterWaveformSection(chapter, ci) {
+    const wf = chapter.waveform;
+    return h(
+      'div',
+      { class: 'insp-section stack' },
+      h('div', { class: 'insp-section-head' }, h('h3', 'Waveform')),
+      wf
+        ? h('p', { class: 'insp-hint' }, `${wf.title} · ${plural(wf.signals.length, 'signal')} · ${wf.length} ${wf.timescale}. Shown under the diagram while this chapter plays.`)
+        : h('p', { class: 'insp-hint' }, 'Optional. A waveform shown under the diagram while this chapter plays; each step can focus a window, signals, links and markers of it.'),
+      h(
+        'div',
+        { class: 'insp-actions' },
+        button(wf ? 'Edit in Waveform editor' : 'Create in Waveform editor', () => this.editWaveform(ci), { variant: wf ? 'ghost' : 'primary', icon: 'enter' }),
+        button('Open waveform JSON…', () => ((this.waveTarget = ci), this.waveInput.click()), { variant: 'ghost', icon: 'file' }),
+        wf ? button('Remove', () => (this.commit((st) => delete st.chapters[ci].waveform), this.notify('Removed the chapter waveform.', 'info', { label: 'Undo', run: () => this.undo() })), { variant: 'ghost', icon: 'trash' }) : null,
+      ),
+    );
+  }
+
+  /** Opens the chapter's waveform in the Waveform editor; its "Send to Story editor" comes back here. */
+  editWaveform(ci) {
+    const chapter = this.story.chapters[ci];
+    const waveform = chapter.waveform ?? {
+      format: 'blockflow-waveform',
+      version: 1,
+      title: chapter.title || `Chapter ${ci + 1}`,
+      timescale: 'clk',
+      grid: { ticksPerBit: 8, offset: 0 },
+      length: 32,
+      signals: [{ id: 'sig1', label: 'Signal 1', width: 1, changes: [[0, 0]] }],
+    };
+    this.stopWave?.();
+    this.stopWave = openInWaveEditor({ waveform, ci, label: `${this.story.title} · ${chapter.title || `Chapter ${ci + 1}`}` }, (data) => this.receiveWaveform(data));
+    if (!this.stopWave) this.notify('The browser blocked the Waveform editor tab. Allow pop-ups for this page, then try again.', 'error');
+  }
+
+  /** A waveform sent back by the Waveform editor (or opened from a file) replaces the chapter's. */
+  receiveWaveform({ ci, waveform }, source = 'the Waveform editor') {
+    try {
+      const wf = parseWaveform(waveform);
+      const chapter = this.story.chapters[ci];
+      if (!chapter) throw new Error(`chapter ${ci + 1} no longer exists.`);
+      this.commit((st) => (st.chapters[ci].waveform = wf), { keepCamera: true });
+      this.notify(`Updated the waveform of “${chapter.title || `Chapter ${ci + 1}`}” from ${source}.`, 'info', { label: 'Undo', run: () => this.undo() });
+    } catch (error) {
+      this.notify(`The waveform was not applied: ${error.message}`, 'error');
+    }
+  }
+
+  async openWaveformFile(file, ci) {
+    if (!file || ci == null) return;
+    try {
+      const value = JSON.parse((await file.text()).replace(/^﻿/, ''));
+      this.receiveWaveform({ ci, waveform: value }, file.name);
+    } catch (error) {
+      this.notify(`Could not open ${file.name}: ${error.message}`, 'error');
+    }
   }
 
   renderChapter(chapter) {
@@ -852,34 +975,10 @@ export class StoryEditor {
         ),
       ),
     );
-    const waveText = chapter.wave ? JSON.stringify(chapter.wave, null, 2) : '';
     replaceKeepingFocus(
       this.editBody,
       h('div', { class: 'insp-section stack' }, field('Chapter title', textInput({ value: chapter.title, fidKey: 'story-chapter-title', commit: (v) => this.commit((st) => (st.chapters[ci].title = v)) }))),
-      h(
-        'div',
-        { class: 'insp-section stack' },
-        h('div', { class: 'insp-section-head' }, h('h3', 'Timing strip')),
-        h('p', { class: 'insp-hint' }, 'Optional waveform under the diagram: { "period", "bits", "rows": [{ "name", "perBit": { "0": [[from, to]], "1": … } } or { "name", "tick", "showBit" }] }. Leave empty for none.'),
-        textInput({
-          value: waveText,
-          multiline: true,
-          mono: true,
-          ariaLabel: 'Timing strip JSON',
-          fidKey: 'story-chapter-wave',
-          commit: (v) => {
-            if (!v.trim()) return this.commit((st) => delete st.chapters[ci].wave);
-            let parsed;
-            try {
-              parsed = JSON.parse(v);
-            } catch (error) {
-              throw new Error(`Not valid JSON: ${error.message}`);
-            }
-            const wave = parseWave(parsed);
-            this.commit((st) => (st.chapters[ci].wave = wave));
-          },
-        }),
-      ),
+      this.chapterWaveformSection(chapter, ci),
       h('div', { class: 'insp-actions' }, button('Add step to this chapter', () => this.addStep(ci), { icon: 'plus', variant: 'ghost' })),
     );
   }

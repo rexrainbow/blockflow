@@ -1499,7 +1499,7 @@ function Fe(e, t, n = {}) {
 	};
 }
 // src/agent-kit/blockchart-edit.js
-var Ie = "blockchart-agent-kit-8ae585e89d19286c40f2", Le = "Usage:\n  node blockchart-edit.mjs inspect diagram.json --module ID\n  node blockchart-edit.mjs inspect diagram.json --group ID [--recursive]\n  node blockchart-edit.mjs apply diagram.json --ops changes.json [--diff-format pointer|semantic] [--write]\n  node blockchart-edit.mjs --help | --version\napply prints a JSON diff. Only --write replaces the diagram. Use --ops - to read operations from stdin.";
+var Ie = "blockchart-agent-kit-23be7e737990fd0d41d1", Le = "Usage:\n  node blockchart-edit.mjs inspect diagram.json --module ID\n  node blockchart-edit.mjs inspect diagram.json --group ID [--recursive]\n  node blockchart-edit.mjs apply diagram.json --ops changes.json [--diff-format pointer|semantic] [--write]\n  node blockchart-edit.mjs --help | --version\napply prints a JSON diff. Only --write replaces the diagram. Use --ops - to read operations from stdin.";
 async function Re(e) {
 	if (e.length === 1 && [
 		"--help",

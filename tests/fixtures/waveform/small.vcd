@@ -1,0 +1,25 @@
+$timescale 1 ns $end
+$scope module top $end
+$var wire 1 ! clk $end
+$var reg 4 " data [3:0] $end
+$var wire 1 # ready $end
+$upscope $end
+$enddefinitions $end
+$dumpvars
+0!
+b0000 "
+x#
+$end
+#2
+1!
+b1010 "
+#3
+0!
+z#
+#8
+1!
+bxxzz "
+#10
+0!
+1#
+#16

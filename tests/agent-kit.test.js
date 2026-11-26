@@ -22,8 +22,17 @@ const names = [
   'statechart.schema.json',
   'story-edit.mjs',
   'story.schema.json',
+  'waveform-edit.mjs',
+  'waveform.schema.json',
 ];
-const guideNames = ['blockchart-edit.md', 'blockchart.md', 'flowchart.md', 'statechart.md', 'story.md'];
+const guideNames = [
+  'blockchart-edit.md',
+  'blockchart.md',
+  'flowchart.md',
+  'statechart.md',
+  'story.md',
+  'waveform.md',
+];
 const artifacts = [
   ...names.filter((name) => !['docs', 'licenses'].includes(name)),
   ...guideNames.map((name) => 'docs/' + name),
@@ -254,6 +263,17 @@ test('isolated Story CLI inspects and edits transactionally, with explicit missi
   const index = JSON.parse(inspect.stdout);
   assert.equal(Object.keys(index.wires).length, 7);
   assert.ok(index.modules['@terminal:Pad']);
+  assert.deepEqual(
+    index.waveforms[0].signals.map((s) => s.id),
+    ['tick', 'start'],
+  );
+  assert.deepEqual(
+    index.waveforms[0].edges.map((e) => e.id),
+    ['timer_tick', 'start_edge'],
+  );
+  assert.equal(index.waveforms[0].links[0].ref, 'timer_tick -> start_edge');
+  assert.equal(index.waveforms[0].markers[0].id, 'packet');
+  assert.deepEqual(index.waveforms[1], { ci: 1, signals: [], edges: [], links: [], markers: [] });
   const args = ['edit', 'story-diagram.json', 'draft.story.json', '--ops', '-'];
   const ops = [{ op: 'replace', path: '/chapters/0/steps/0/title', value: 'Clock starts the timer' }];
   const preview = run(args, JSON.stringify(ops), executable);
@@ -793,4 +813,195 @@ test('isolated kit applies Grid Block minima to SVG and preserves authored JSON 
   assert.equal(bad.status, 1);
   assert.equal(JSON.parse(bad.stderr).stage, 'validation');
   assert.equal(JSON.parse(bad.stderr).path, 'layout.blockMinWidth');
+});
+
+test('isolated Story waveform edits keep preview/write parity and preserve failed batches', async () => {
+  const executable = join(kit, 'story-edit.mjs');
+  const diagram = await readFile(new URL('./fixtures/story/signal-path.json', import.meta.url), 'utf8');
+  const story = JSON.parse(
+    await readFile(new URL('./fixtures/story/signal-path.story.json', import.meta.url), 'utf8'),
+  );
+  const file = join(directory, 'waveform.story.json');
+  await writeFile(join(directory, 'waveform-diagram.json'), diagram);
+  const original = JSON.stringify(story, null, 2) + '\n';
+  await writeFile(file, original);
+  const args = ['edit', 'waveform-diagram.json', 'waveform.story.json', '--ops', '-'];
+  const batch = [
+    { op: 'replace', path: '/chapters/0/waveform/signals/0/id', value: 'renamed_tick' },
+    { op: 'replace', path: '/chapters/0/steps/0/waveform/signals/0', value: 'renamed_tick' },
+    { op: 'add', path: '/chapters/0/steps/0/waveform/markers', value: ['packet'] },
+  ];
+  const failed = run([...args, '--write'], JSON.stringify(batch.slice(0, 1)), executable);
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /signal tick/);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const invalid = run(
+    [...args, '--write'],
+    JSON.stringify([{ op: 'replace', path: '/chapters/0/waveform/signals/0/width', value: 0 }]),
+    executable,
+  );
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /ops\[0\].*waveform.signals\[0\].width/);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const preview = run(args, JSON.stringify(batch), executable);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const written = run([...args, '--write'], JSON.stringify(batch), executable);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, preview.stdout);
+  const saved = JSON.parse(await readFile(file, 'utf8'));
+  assert.equal(saved.chapters[0].waveform.signals[0].id, 'renamed_tick');
+  assert.equal(saved.chapters[0].waveform.links[0].locked, true);
+  const broken = [
+    {
+      op: 'replace',
+      path: '/chapters/0/steps/0/waveform',
+      value: { from: 0, to: 17, signals: ['absent'], links: ['bad -> edge'], markers: ['missing'] },
+    },
+    { op: 'add', path: '/chapters/1/steps/0/waveform', value: {} },
+  ];
+  const allowed = run([...args, '--allow-missing', '--write'], JSON.stringify(broken), executable);
+  assert.equal(allowed.status, 0, allowed.stderr);
+  assert.deepEqual(
+    JSON.parse(allowed.stdout).problems.map((p) => p.type),
+    ['window', 'signal', 'link', 'marker', 'waveform'],
+  );
+  const check = run(['check', 'waveform-diagram.json', 'waveform.story.json'], undefined, executable);
+  assert.equal(check.status, 1);
+  assert.deepEqual(JSON.parse(check.stdout), JSON.parse(allowed.stdout).problems);
+  const exported = run(
+    ['export', 'waveform-diagram.json', 'waveform.story.json', '-o', 'waveform-page.html'],
+    undefined,
+    executable,
+  );
+  assert.equal(exported.status, 0, exported.stderr);
+  const html = await readFile(join(directory, 'waveform-page.html'), 'utf8');
+  const data = JSON.parse(/<script type="application\/json" id="pv-data">([\s\S]*?)<\/script>/.exec(html)[1]);
+  assert.equal(data.chapters[0].waveformView.portWires.start.length, 2);
+  assert.match(data.chapters[0].waveformView.svg, /blockflow-story-waveform-0/);
+  assert.equal(data.chapters[0].waveformView.lanes.renamed_tick, 92);
+  assert.deepEqual(data.problems, JSON.parse(check.stdout));
+  const extracted = run(['extract', 'waveform-page.html'], undefined, executable);
+  assert.equal(extracted.status, 0, extracted.stderr);
+  assert.deepEqual(JSON.parse(extracted.stdout).story, JSON.parse(await readFile(file, 'utf8')));
+  const { default: Ajv2020 } = await import('ajv/dist/2020.js');
+  const schema = JSON.parse(await readFile(join(kit, 'story.schema.json'), 'utf8'));
+  const waveSchema = JSON.parse(await readFile(join(kit, 'waveform.schema.json'), 'utf8'));
+  const validate = new Ajv2020({ strict: false }).addSchema(waveSchema).compile(schema);
+  assert.equal(validate(JSON.parse(extracted.stdout).story), true, JSON.stringify(validate.errors));
+});
+
+test('standalone Waveform CLI previews, writes atomically and preserves draft diagnostics', async () => {
+  const executable = join(kit, 'waveform-edit.mjs');
+  assert.equal(run(['--version'], undefined, executable).stdout.trim(), built.waveformVersion);
+  assert.match(run(['--help'], undefined, executable).stdout, /import-vcd/);
+  const raw = JSON.parse(await readFile(new URL('./fixtures/waveform/dshot.json', import.meta.url), 'utf8'));
+  const file = join(directory, 'timing.json');
+  const original = '\uFEFF' + JSON.stringify(raw, null, 2).replaceAll('\n', '\r\n') + '\r\n';
+  await writeFile(file, original);
+  const inspect = run(['inspect', 'timing.json'], undefined, executable);
+  assert.equal(inspect.status, 0, inspect.stderr);
+  assert.equal(JSON.parse(inspect.stdout).edges[0].id, 'clock_start');
+  assert.deepEqual(JSON.parse(inspect.stdout).problems, []);
+  const batch = [{ op: 'moveEdge', signalId: 'tx', t: 6, to: 5 }];
+  const args = ['apply', 'timing.json', '--ops', '-'];
+  const preview = run(args, JSON.stringify(batch), executable);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const failed = run(
+    [...args, '--write'],
+    JSON.stringify([...batch, { op: 'moveEdge', edgeId: 'absent', to: 3 }]),
+    executable,
+  );
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /ops\[1\].*absent/);
+  assert.equal(await readFile(file, 'utf8'), original);
+  const lock = file + '.blockflow-edit.lock';
+  await writeFile(lock, 'test lock');
+  assert.equal(run([...args, '--write'], JSON.stringify(batch), executable).status, 1);
+  assert.equal(await readFile(file, 'utf8'), original);
+  await rm(lock);
+  const written = run([...args, '--write'], JSON.stringify(batch), executable);
+  assert.equal(written.status, 0, written.stderr);
+  assert.equal(written.stdout, preview.stdout);
+  const saved = await readFile(file, 'utf8');
+  assert.ok(saved.startsWith('\uFEFF'));
+  assert.ok(saved.endsWith('\r\n'));
+  assert.equal(JSON.parse(saved.slice(1)).signals[3].changes[1][0], 5);
+  const missing = JSON.stringify([{ op: 'setLinks', links: [{ from: 'absent', to: 'hi_start' }] }]);
+  assert.equal(run([...args, '--write'], missing, executable).status, 1);
+  assert.equal(await readFile(file, 'utf8'), saved);
+  const draft = run(
+    ['edit', 'timing.json', '--ops', '-', '--allow-problems', '--write'],
+    missing,
+    executable,
+  );
+  assert.equal(draft.status, 0, draft.stderr);
+  assert.equal(JSON.parse(draft.stdout).problems[0].code, 'MISSING_EDGE');
+  const check = run(['check', 'timing.json'], undefined, executable);
+  assert.equal(check.status, 1);
+  assert.deepEqual(JSON.parse(check.stdout), JSON.parse(draft.stdout).problems);
+  assert.deepEqual(
+    (await readdir(directory)).filter((n) => n.endsWith('.tmp') || n.endsWith('.lock')),
+    [],
+  );
+});
+
+test('standalone Waveform exports match runtime and VCD commands protect sources', async () => {
+  const executable = join(kit, 'waveform-edit.mjs');
+  const api = await import('../src/lib/waveform/index.js');
+  const raw = JSON.parse(await readFile(new URL('./fixtures/waveform/dshot.json', import.meta.url), 'utf8'));
+  await writeFile(join(directory, 'export-wave.json'), JSON.stringify(raw));
+  const svg = run(
+    ['export', 'export-wave.json', '-o', '-', '--from', '8', '--to', '16', '--id-prefix', 'test-wave'],
+    undefined,
+    executable,
+  );
+  assert.equal(svg.status, 0, svg.stderr);
+  assert.equal(svg.stdout, api.renderWaveformSvg(raw, { from: 8, to: 16, idPrefix: 'test-wave' }) + '\n');
+  const rail = run(['export', 'export-wave.json', '-o', '-', '--link-route', 'rail'], undefined, executable);
+  assert.equal(rail.status, 0, rail.stderr);
+  assert.equal(rail.stdout, api.renderWaveformSvg(raw, { linkRoute: 'rail' }) + '\n');
+  const normalized = run(
+    ['export', 'export-wave.json', '--format', 'json', '-o', '-'],
+    undefined,
+    executable,
+  );
+  assert.deepEqual(JSON.parse(normalized.stdout), api.parseWaveform(raw));
+  const original = await readFile(join(directory, 'export-wave.json'), 'utf8');
+  assert.equal(
+    run(['export', 'export-wave.json', '-o', 'export-wave.json'], undefined, executable).status,
+    1,
+  );
+  assert.equal(await readFile(join(directory, 'export-wave.json'), 'utf8'), original);
+  await writeFile(join(directory, 'wave.svg'), 'keep');
+  assert.equal(
+    run(['export', 'export-wave.json', '-o', 'wave.svg', '--from', '0.5'], undefined, executable).status,
+    1,
+  );
+  assert.equal(await readFile(join(directory, 'wave.svg'), 'utf8'), 'keep');
+  const vcd = await readFile(new URL('./fixtures/waveform/small.vcd', import.meta.url), 'utf8');
+  await writeFile(join(directory, 'capture.vcd'), vcd);
+  const listed = run(['vcd-list', 'capture.vcd'], undefined, executable);
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.deepEqual(JSON.parse(listed.stdout), api.listVcdSignals(vcd));
+  const imported = run(
+    ['import-vcd', 'capture.vcd', '--signals', 'top.data', '--from', '2', '--to', '8'],
+    undefined,
+    executable,
+  );
+  assert.equal(imported.status, 0, imported.stderr);
+  assert.deepEqual(
+    JSON.parse(imported.stdout),
+    api.importVcd(vcd, { signals: ['top.data'], from: 2, to: 8 }),
+  );
+  assert.equal(run(['vcd-list', 'capture.vcd', '--max-bytes', '10'], undefined, executable).status, 1);
+  assert.equal(run(['import-vcd', 'capture.vcd', '--signals', 'absent'], undefined, executable).status, 1);
+  assert.equal(run(['import-vcd', 'capture.vcd', '-o', 'capture.vcd'], undefined, executable).status, 1);
+  assert.equal(await readFile(join(directory, 'capture.vcd'), 'utf8'), vcd);
+  const probe = `import fs from 'node:fs';import assert from 'node:assert/strict';import * as w from ${JSON.stringify(pathToFileURL(executable).href)};const raw=JSON.parse(fs.readFileSync('export-wave.json'));const saved=structuredClone(raw);const r=w.applyWaveformOps(raw,[{op:'moveEdge',signalId:'tx',t:6,to:5}]);assert.deepEqual(raw,saved);assert.equal(w.inspectWaveform(r.document).document.signals[3].changes[1][0],5);assert.equal(w.snapWaveformTime(raw,5,'bit'),8);assert.ok(w.layoutWaveform(raw).lanes.length);assert.equal(w.validateWaveform(raw).ok,true);assert.equal(typeof w.renderWaveformSvg,'function');assert.equal(typeof w.importVcd,'function');assert.equal(typeof w.listVcdSignals,'function');`;
+  await writeFile(join(directory, 'wave-probe.mjs'), probe);
+  const result = run([], undefined, join(directory, 'wave-probe.mjs'));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
 });

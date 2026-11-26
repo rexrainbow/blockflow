@@ -1,6 +1,6 @@
 # Story Agent Kit
 
-Build `{{KIT_VERSION}}` supplies `story-edit.mjs` and `story.schema.json` for stepped
+Build `{{KIT_VERSION}}` supplies `story-edit.mjs`, `story.schema.json` and `waveform.schema.json` for stepped
 Blockchart presentations. Node.js 22.12+ suffices. The single module includes the
 Blockchart layout/renderer and the existing Story player, CSS and page assembly.
 
@@ -17,7 +17,10 @@ node story-edit.mjs extract presentation.html
 Create a draft as `{ "format": "blockflow-story", "version": 1, "title": "Demo", "chapters": [] }`.
 `inspect` returns the SVG's referable `wires` and `modules`, including terminals
 named `@terminal:ID`. With a Story it includes normalized chapters/steps, missing
-references and advisory `fingerprintMatches`. `check` prints missing references as
+references and advisory `fingerprintMatches`. The `waveforms` array lists each chapter's
+`{ci,signals,edges,links,markers}`; signals use IDs, named edges include signal/tick,
+links include their `from -> to` ref, and markers retain their IDs. Empty chapters
+have empty lists. `check` prints missing references as
 `{ci, si, type, ref}` records and exits 1 when any exist. A fingerprint mismatch
 alone does not fail reference checks.
 
@@ -26,8 +29,9 @@ operations. Paths are non-root JSON Pointers. Array indices are zero-based; `-`
 appends. `add` inserts array items and can set object properties. `replace` and
 `remove` require an existing target. `move` uses `from` and inserts after removing
 the source. All operations apply to a private copy and the complete result is
-normalized/validated once the batch finishes. Unknown structural fields and invalid paths fail the batch. Chapter wave and
-wave-row extension properties are retained for compatibility. Chapter, step, hop, note and wave content use these same operations.
+normalized/validated once the batch finishes. Unknown structural fields and invalid paths fail the batch.
+Chapter, step, hop, note and embedded waveform content use these same operations.
+Legacy chapter.wave/step.wave fields are dropped without validation or conversion.
 
 ```json
 [
@@ -49,7 +53,7 @@ Preview and write both print `{diff, problems}`. Only `--write` replaces the Sto
 using an exclusive lock, adjacent temporary file, source-content check and atomic
 rename. Failure leaves the original file intact. Existing indentation, newline
 style and BOM are retained. The diagram is read-only. `--ops -` reads stdin.
-Missing wire/module references refuse editing by default; `--allow-missing` keeps
+Missing wire/module/waveform focus references and invalid waveform windows refuse editing by default; `--allow-missing` keeps
 them and returns diagnostics. A legacy draft's default filling and cleanup appear
 in the diff. Export accepts missing references, matching the GUI player's behavior
 of skipping them. Export refuses overwriting either source file and writes a
@@ -70,6 +74,8 @@ import {
   exportStory,
   readPresentationSources,
   diagramFingerprint,
+  waveformIndex,
+  wiresForPort,
 } from './story-edit.mjs';
 
 const result = await editStory(diagram, draft, operations);
@@ -81,10 +87,45 @@ transaction API; `index` comes from `svgIndex(svg)` or `inspectStory`. It return
 `{document, diff, problems}` without mutating its inputs. File writes belong to the
 CLI. `parseStory` preserves prototype/default normalization and wire spacing, with
 field-path errors. `story.schema.json` describes normalized output, so validate
-legacy input after `parseStory`. Version must be 1 when supplied. Wave periods
-must be finite/positive, bits binary, tick values finite, and perBit intervals pairs
-of finite numbers; wildcard perBit keys such as `*` are supported. Step wave ranges
-must be finite. These checks catch malformed values previously accepted by the GUI.
+legacy input after `parseStory`. Register the supplied waveform.schema.json with its
+`$id` before compiling story.schema.json, which references it by URN. Version must
+be 1 when supplied.
+
+A chapter may embed one `waveform` in `blockflow-waveform` format. A step may use
+`waveform: {from?,to?,signals?,links?,markers?}`: safe integer tick window endpoints
+(default 0/length), signal IDs, edge-name pairs and marker IDs. For example:
+
+```json
+{
+  "op": "add",
+  "path": "/chapters/0/steps/0/waveform",
+  "value": {
+    "from": 0,
+    "to": 8,
+    "signals": ["start"],
+    "links": ["timer_tick -> start_edge"],
+    "markers": ["packet"]
+  }
+}
+```
+
+Add the chapter waveform and its step focuses in the same batch. Embedded waveform
+structure is validated by parseWaveform. Missing focus references stay stored, with
+problem types `signal`, `link`, `marker`; invalid effective windows use `window`
+(`ref: "from -> to"`). Focus without a chapter waveform uses `waveform`
+(`ref: "waveform"`). `--allow-missing` accepts these draft problems too.
+A signal's optional `port` associates it with diagram wires;
+`wiresForPort(index, port)` returns all touching endpoint pairs, including fan-out.
+Absent/unconnected ports return an empty list without a Story problem.
+`waveformIndex` lists referable waveform objects; both helpers are exported.
+
+Export uses `presentationData` to add chapter `waveformView` SVG and full-capture
+cursor geometry, per-signal lane y and port-to-wire pairs, plus top-level `problems`.
+Waveform SVG definition IDs are prefixed per chapter. Renderer display limits apply.
+Editable sources include the embedded waveform, not generated geometry. GUI/player
+presentation uses the same shared data and HTML assembly. Legacy timing strips are
+ignored. For standalone waveform files, use waveform-edit.mjs and the Waveform guide
+linked from the Agent Kit README.
 
 Fingerprinting is the first 16 hex digits of SHA-256 over `JSON.stringify(diagram)`.
 It is advisory and does not silently rewrite a Story's saved diagram reference.

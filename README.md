@@ -1,6 +1,6 @@
 # RTL Diagram Generator
 
-Describe modules, input/output ports and connections in JSON or the web editor. The generator uses ELK Layered placement and orthogonal routing to produce SVG and PNG diagrams. The library uses JavaScript ES modules and does not include an RTL parser. Try the [offline-capable web app](https://rexrainbow.github.io/blockflow/dist-offline/), which links the Studio and the Story editor.
+Describe modules, input/output ports and connections in JSON or the web editor. The generator uses ELK Layered placement and orthogonal routing to produce SVG and PNG diagrams. The library uses JavaScript ES modules and does not include an RTL parser. Try the [offline-capable web app](https://rexrainbow.github.io/blockflow/dist-offline/), which links the Studio, the Story editor and the Waveform editor.
 
 ## Installation and development
 
@@ -65,21 +65,26 @@ The build produces one folder per page in `dist-offline/`, plus a page that link
 
 ```text
 dist-offline/
-├─ index.html        links the two editors
+├─ index.html        links the three editors
 ├─ studio/           the Studio (Block diagrams, flowcharts, statecharts)
 │  ├─ index.html
 │  ├─ app.js
 │  └─ style.css
-└─ story/            the Story editor (step-by-step presentations of a Block diagram)
+├─ story/            the Story editor (step-by-step presentations of a Block diagram)
+│  ├─ index.html
+│  ├─ app.js
+│  └─ style.css
+└─ wave/             the Waveform editor (synchronous timing diagrams, VCD import)
    ├─ index.html
    ├─ app.js
    └─ style.css
 ```
 
-Copy the entire `dist-offline` folder and double-click `index.html`, or the `index.html` inside `studio/` or `story/`. Users do not need Node.js, a server or a network connection. Keep each folder's three files together; copying only an HTML file is insufficient. Keep `studio/` and `story/` side by side so that Export › Open in Story editor in the Studio and File › Open the Studio in the Story editor find each other.
+Copy the entire `dist-offline` folder and double-click `index.html`, or the `index.html` inside `studio/`, `story/` or `wave/`. Users do not need Node.js, a server or a network connection. Keep each folder's three files together; copying only an HTML file is insufficient. Keep the folders side by side so that Export › Open in Story editor in the Studio and File › Open the Studio in the Story editor find each other.
 
 - The Studio is a complete offline editor that starts with the default example and supports opening/saving JSON, editing blocks/connections/styles/feedback, undo/redo and SVG/PNG export.
 - The Story editor opens a Block diagram JSON, a story JSON or a presentation HTML it exported, and exports presentations as one offline HTML file.
+- The Waveform editor draws synchronous timing diagrams, imports VCD from simulations and exports SVG, PNG and JSON.
 
 Neither build embeds the document currently open in the editor.
 

@@ -4,11 +4,13 @@ import { documentDiff } from '../blockchart/edit-diff.js';
 
 // Normalization accepts legacy defaults; edits must still reject misspelled fields.
 function knownFields(value, definition, path = '') {
+  if (definition.$ref === 'urn:blockflow:waveform:1') return; // parseWaveform owns its strict fields.
   if (definition.$ref) definition = schema.$defs[definition.$ref.split('/').at(-1)];
   if (Array.isArray(value) && definition.items) {
     value.forEach((item, i) => knownFields(item, definition.items, `${path}/${i}`));
   } else if (value && typeof value === 'object' && definition.properties) {
     for (const [key, item] of Object.entries(value)) {
+      if (key === 'wave' && definition.properties.waveform) continue; // retired, ignored data
       const child = definition.properties[key];
       if (!Object.hasOwn(definition.properties, key) && definition.additionalProperties === false)
         throw new Error(`${path}/${key}: unknown field`);

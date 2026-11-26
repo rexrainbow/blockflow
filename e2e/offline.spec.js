@@ -1,4 +1,4 @@
-// Offline build (dist-offline: studio/ and story/ opened from file://): the portable build must work with no
+// Offline build (dist-offline: studio/, story/ and wave/ opened from file://): the portable build must work with no
 // server and no network, for every diagram kind. Feature behavior is covered against the web
 // build by studio/flowchart/statechart/alignment specs; this suite checks what only the
 // offline bundle can break: classic scripts, inline Blob workers, file:// downloads and drops,
@@ -11,12 +11,14 @@ import sharp from 'sharp';
 import { convertDiagram } from '../src/agent-kit/blockchart-converter.js';
 import { convertFlowchart } from '../src/agent-kit/flowchart-converter.js';
 import { convertStatechart } from '../src/agent-kit/statechart-converter.js';
+import { parseWaveform, renderWaveformSvg } from '../src/lib/waveform/index.js';
 
 // Copy the complete artifact to a folder with spaces and Unicode before opening.
 const source = new URL('../dist-offline/', import.meta.url);
 const portable = new URL('../output/editor/offline copy 測試/', import.meta.url);
 const fileUrl = new URL('studio/index.html', portable).href;
 const storyUrl = new URL('story/index.html', portable).href;
+const waveUrl = new URL('wave/index.html', portable).href;
 const example = (path) => readFile(new URL('../examples/' + path, import.meta.url), 'utf8');
 const fixture = (path) => readFile(new URL('../tests/fixtures/' + path, import.meta.url), 'utf8');
 
@@ -46,7 +48,10 @@ async function parity(page, label) {
   expect(svg, label).toBe(await CONVERT[kind](structuredClone(document)));
 }
 async function openText(page, name, text, mimeType = 'application/json') {
-  await page.locator('input[type=file]').setInputFiles({ name, mimeType, buffer: Buffer.from(text) });
+  await page
+    .locator('input[type=file]')
+    .first()
+    .setInputFiles({ name, mimeType, buffer: Buffer.from(text) });
   await expect(page.locator('.toast', { hasText: 'Opened ' + name })).toBeVisible();
   await ready(page);
 }
@@ -102,8 +107,8 @@ test.afterEach(async ({ page }) => {
 
 test('portable folder opens as classic scripts with inline Blob workers and no server', async ({ page }) => {
   // One folder per page plus a chooser that links both.
-  expect((await readdir(source)).sort()).toEqual(['index.html', 'story', 'studio']);
-  for (const page of ['studio', 'story'])
+  expect((await readdir(source)).sort()).toEqual(['index.html', 'story', 'studio', 'wave']);
+  for (const page of ['studio', 'story', 'wave'])
     expect((await readdir(new URL(page + '/', source))).sort()).toEqual([
       'app.js',
       'index.html',
@@ -112,6 +117,7 @@ test('portable folder opens as classic scripts with inline Blob workers and no s
   const chooser = await readFile(new URL('index.html', source), 'utf8');
   expect(chooser).toContain('href="./studio/index.html"');
   expect(chooser).toContain('href="./story/index.html"');
+  expect(chooser).toContain('href="./wave/index.html"');
   const html = await readFile(new URL('studio/index.html', source), 'utf8');
   expect(html).toContain('src="./app.js"');
   expect(html).toContain('href="./style.css"');
@@ -238,19 +244,25 @@ test('Flowchart and Statechart open by file and drop, switch kinds and keep sepa
 
 test('a refused file keeps the current diagram and reports the runtime path', async ({ page }) => {
   const before = await doc(page);
-  await page.locator('input[type=file]').setInputFiles({
-    name: 'broken.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify({ version: 1, diagram: { name: 'x' }, states: [], nodes: [] })),
-  });
+  await page
+    .locator('input[type=file]')
+    .first()
+    .setInputFiles({
+      name: 'broken.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ version: 1, diagram: { name: 'x' }, states: [], nodes: [] })),
+    });
   await expect(page.locator('.toast.error', { hasText: 'Could not open broken.json' })).toContainText(
     'a diagram is one kind',
   );
-  await page.locator('input[type=file]').setInputFiles({
-    name: 'not-json.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from('{ nope'),
-  });
+  await page
+    .locator('input[type=file]')
+    .first()
+    .setInputFiles({
+      name: 'not-json.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from('{ nope'),
+    });
   await expect(page.locator('.toast.error', { hasText: 'Could not open not-json.json' })).toBeVisible();
   expect(await kind(page)).toBe('blockchart');
   expect(await doc(page)).toEqual(before);
@@ -363,22 +375,28 @@ test.describe('Story editor offline', () => {
     new Script(await readFile(new URL('story/app.js', source), 'utf8'));
 
     const diagram = JSON.parse(await fixture(STORY_DIAGRAM));
-    await page.locator('input[type=file]').setInputFiles({
-      name: 'signal-path.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify(diagram)),
-    });
+    await page
+      .locator('input[type=file]')
+      .first()
+      .setInputFiles({
+        name: 'signal-path.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify(diagram)),
+      });
     await laidOut(page);
     expect(page.workers().length).toBeGreaterThan(0);
     expect(page.workers().every((worker) => worker.url().startsWith('blob:'))).toBe(true);
     expect(await page.evaluate(() => window.__story.layout.svg)).toBe(
       await CONVERT.blockchart(structuredClone(diagram)),
     );
-    await page.locator('input[type=file]').setInputFiles({
-      name: 'signal-path.story.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(await fixture(STORY_FILE)),
-    });
+    await page
+      .locator('input[type=file]')
+      .first()
+      .setInputFiles({
+        name: 'signal-path.story.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(await fixture(STORY_FILE)),
+      });
     await expect(page.locator('.story-step')).toHaveCount(5);
     await expect(page.locator('.story-step.warn')).toHaveCount(0);
 
@@ -393,11 +411,14 @@ test.describe('Story editor offline', () => {
     await expect(page.locator('.story-step')).toHaveCount(5);
     await page.evaluate(() => localStorage.clear());
     await page.reload();
-    await page.locator('input[type=file]').setInputFiles({
-      name: 'p.html',
-      mimeType: 'text/html',
-      buffer: Buffer.from(exported),
-    });
+    await page
+      .locator('input[type=file]')
+      .first()
+      .setInputFiles({
+        name: 'p.html',
+        mimeType: 'text/html',
+        buffer: Buffer.from(exported),
+      });
     await laidOut(page);
     expect(await page.evaluate(() => JSON.stringify(window.__story.diagram))).toBe(JSON.stringify(diagram));
     await expect(page.locator('.story-step')).toHaveCount(5);
@@ -432,4 +453,67 @@ test.describe('Story editor offline', () => {
     expect(studio.url()).toBe(fileUrl);
     expect(errors).toEqual([]);
   });
+});
+
+test('Waveform editor opens from file://, draws the runtime SVG, edits, exports and imports VCD', async ({
+  context,
+}) => {
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
+  await page.goto(waveUrl);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  expect(page.url()).toBe(waveUrl);
+  const html = await readFile(new URL('wave/index.html', source), 'utf8');
+  expect(html).toContain('src="./app.js"');
+  expect(html).not.toMatch(/type="module"|modulepreload|crossorigin/);
+  new Script(await readFile(new URL('wave/app.js', source), 'utf8'));
+
+  await page.getByRole('button', { name: 'DShot example' }).click();
+  await expect(page.locator('.wv-sheet svg [data-signal]').first()).toBeAttached();
+  const dshot = JSON.parse(await fixture('waveform/dshot.json'));
+  const { doc, options } = await page.evaluate(() => ({
+    doc: window.__wave.doc,
+    options: window.__wave.exportOptions(),
+  }));
+  expect(doc).toEqual(parseWaveform(dshot));
+  // An edit through the runtime operations, then the SVG download equals the renderer.
+  await page.locator('.wv-list .row', { hasText: 'TX 1 / 0 / 1' }).click();
+  await page.locator('[data-fid="enc-bits"]').fill('110');
+  await page.getByRole('button', { name: 'Generate' }).click();
+  const edited = await page.evaluate(() => window.__wave.doc);
+  // 1, 1, 0 at 8 ticks per bit, high 6 for a 1 and 3 for a 0.
+  expect(edited.signals.find((s) => s.id === 'tx').changes).toEqual([
+    [0, 1],
+    [6, 0],
+    [8, 1],
+    [14, 0],
+    [16, 1],
+    [19, 0],
+  ]);
+  const [svgFile] = await Promise.all([
+    page.waitForEvent('download'),
+    page.evaluate(() => window.__wave.exportSvg()),
+  ]);
+  expect(await readFile(await svgFile.path(), 'utf8')).toBe(renderWaveformSvg(edited, options) + '\n');
+  await page.reload();
+  await expect(page.locator('.wv-sheet svg')).toBeVisible();
+  expect(await page.evaluate(() => window.__wave.doc)).toEqual(edited);
+
+  // VCD import offline.
+  await page
+    .locator('input[type=file]')
+    .first()
+    .setInputFiles({
+      name: 'small.vcd',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(await fixture('waveform/small.vcd')),
+    });
+  await page.getByRole('button', { name: 'Import' }).click();
+  // A reloaded page has no history yet, so the import replaces without asking.
+  await expect.poll(() => page.evaluate(() => window.__wave.doc.title)).toBe('small');
+  await page.screenshot({ path: 'output/editor/offline-wave.png' });
+  expect(errors).toEqual([]);
 });

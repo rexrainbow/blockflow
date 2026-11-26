@@ -12,6 +12,7 @@ import {
   readPresentationSources,
   applyStoryOps,
   diagramFingerprint,
+  waveformIndex,
 } from '../lib/story/index.js';
 import { presentationHtml } from '../story/export.js';
 import { parse, replaceDocument } from './edit-file.js';
@@ -31,6 +32,12 @@ export async function inspectStory(diagram, story) {
     ...(parsed
       ? {
           story: parsed,
+          waveforms: parsed.chapters.map((chapter, ci) => ({
+            ci,
+            ...(chapter.waveform
+              ? waveformIndex(chapter.waveform)
+              : { signals: [], edges: [], links: [], markers: [] }),
+          })),
           problems: storyProblems(parsed, index),
           fingerprintMatches: parsed.diagram?.sha256 ? parsed.diagram.sha256 === fingerprint : null,
         }

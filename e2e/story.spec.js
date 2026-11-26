@@ -22,7 +22,7 @@ async function laidOut(page) {
   });
 }
 async function openDiagram(page, doc, name = 'diagram.json') {
-  await page.locator('input[type=file]').setInputFiles(json(name, doc));
+  await page.locator('input[type=file]').first().setInputFiles(json(name, doc));
   await laidOut(page);
 }
 const blur = (page) => page.evaluate(() => document.activeElement?.blur());
@@ -41,6 +41,7 @@ test('start screen, then a Block diagram drawn exactly as the runtime draws it',
   // Other diagram kinds belong to the Studio.
   await page
     .locator('input[type=file]')
+    .first()
     .setInputFiles(json('flow.json', { version: 1, nodes: [{ id: 'a', label: 'A' }], edges: [] }));
   await expect(page.locator('.toast.error')).toContainText('Flowcharts and statecharts open in the Studio');
 
@@ -135,6 +136,7 @@ test('authoring: picks, notes, story Undo/Redo, reload, story JSON with its diag
   await expect(page.locator('.story-start')).toBeVisible();
   await page
     .locator('input[type=file]')
+    .first()
     .setInputFiles({ name: 'p.html', mimeType: 'text/html', buffer: Buffer.from(html) });
   await laidOut(page);
   expect(await page.evaluate(() => JSON.stringify(window.__story.diagram))).toBe(JSON.stringify(doc));
@@ -164,10 +166,10 @@ test('a story for another diagram keeps its references and marks the missing one
       },
     ],
   };
-  await page.locator('input[type=file]').setInputFiles(json('other.story.json', foreign));
+  await page.locator('input[type=file]').first().setInputFiles(json('other.story.json', foreign));
   await expect(page.locator('.toast.error')).toContainText('made for “Another diagram”');
   await expect(page.locator('.story-step.warn')).toHaveCount(1);
-  await expect(page.locator('.statusbar')).toContainText('2 missing references');
+  await expect(page.locator('.statusbar')).toContainText('2 story problems');
   await expect(page.locator('.story-wires li.missing')).toHaveText(['Gone.out -> Nowhere.in']);
   // Undo returns to the previous story.
   await blur(page);
@@ -192,7 +194,7 @@ test('the test story plays over the test diagram: terminals, a shared fan-out an
       'Timer.tick -> Controller.tick',
     ].sort(),
   );
-  await page.locator('input[type=file]').setInputFiles(json('signal-path.story.json', STORY));
+  await page.locator('input[type=file]').first().setInputFiles(json('signal-path.story.json', STORY));
   await expect(page.locator('.story-step')).toHaveCount(5);
   await expect(page.locator('.story-step.warn')).toHaveCount(0);
   await expect(page.locator('.statusbar')).toContainText('2 chapters · 5 steps');
@@ -213,11 +215,164 @@ test('the test story plays over the test diagram: terminals, a shared fan-out an
   });
   expect(fan).toEqual({ cores: 3, arrows: 3, trunkCovered: true });
   await expect(page.locator('.pv-chip text', { hasText: 'Starts a bit' })).toHaveCount(1);
-  await expect(page.locator('.pv-wave-row.pv-on .pv-wave-name')).toHaveText(['tick']);
 
   // The overview shows every wire of its chapter; a terminal takes a note like a block.
   await page.locator('.story-step', { hasText: 'Overview' }).click();
   expect(await page.locator('.story-stage .pv-core').count()).toBe(7);
   await page.locator('.story-step', { hasText: 'Line to pad' }).click();
   await expect(page.locator('.pv-chip text', { hasText: 'Output pin' })).toHaveCount(1);
+});
+
+test('chapter waveforms: the strip, step focus and sweep, port wires, the Waveform editor round trip and export', async ({
+  page,
+  context,
+}) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await openDiagram(page, structuredClone(DIAGRAM));
+  await page.locator('input[type=file]').first().setInputFiles(json('signal-path.story.json', STORY));
+  const strip = () =>
+    page.evaluate(() => {
+      const box = document.querySelector('.story-stage .pv-wave');
+      const sheet = box?.querySelector('svg');
+      const on = (attr) => [
+        ...new Set(
+          [...(sheet?.querySelectorAll(`[${attr}].pv-wf-on`) ?? [])].map((n) => n.getAttribute(attr)),
+        ),
+      ];
+      return {
+        visible: Boolean(box && !box.hidden),
+        focus: sheet?.classList.contains('pv-wf-focus') ?? false,
+        signals: on('data-signal'),
+        links: [...(sheet?.querySelectorAll('[data-link].pv-wf-on') ?? [])].map(
+          (n) => `${n.dataset.fromEdge} -> ${n.dataset.toEdge}`,
+        ),
+        markers: on('data-marker'),
+        band: Boolean(sheet?.querySelector('.pv-wave-band')),
+        portWires: document.querySelectorAll('.story-stage .pv-port-wire').length,
+        idPrefix: sheet?.querySelector('[id]')?.id.replace(/-lane-labels$/, '') ?? null,
+      };
+    });
+  const step = async (title) => {
+    await page.locator('.story-step', { hasText: title }).click();
+    return strip();
+  };
+  // Step 1 focuses `tick` (port Timer.tick) over ticks 0-8: its wire lights though no hop names it.
+  expect(await step('Clock to timer')).toEqual({
+    visible: true,
+    focus: true,
+    signals: ['tick'],
+    links: [],
+    markers: [],
+    band: true,
+    portWires: 1,
+    idPrefix: 'blockflow-story-waveform-0',
+  });
+  // Step 2 focuses `start` and the locked link; its port wires are already hops, so none are added.
+  expect(await step('Start both stages')).toMatchObject({
+    signals: ['start'],
+    links: ['timer_tick -> start_edge'],
+    portWires: 0,
+  });
+  // Selecting a step shows its end; playing it sweeps the cursor from the window start.
+  await blur(page);
+  const x0 = await page.evaluate(() => +document.querySelector('.pv-wave-head').getAttribute('x1'));
+  await page.keyboard.press('r');
+  await expect
+    .poll(() => page.evaluate(() => +document.querySelector('.pv-wave-head').getAttribute('x1')))
+    .toBeLessThan(x0); // replay restarts the sweep at the window start
+  expect(await step('Data out')).toMatchObject({ markers: ['packet'], band: false });
+  expect(await step('Overview')).toMatchObject({ visible: true, focus: false });
+  expect((await step('Line to pad')).visible).toBe(false); // that chapter has no waveform
+  // The step editor lists the waveform's signals, links and markers to focus.
+  await page.locator('.story-step', { hasText: 'Clock to timer' }).click();
+  await expect(page.locator('[data-fid="story-wf-signals-tick"]')).toBeChecked();
+  await page.locator('[data-fid="story-wf-signals-start"]').check();
+  expect(await page.evaluate(() => window.__story.story.chapters[0].steps[0].waveform.signals)).toEqual([
+    'tick',
+    'start',
+  ]);
+  await blur(page);
+  await page.keyboard.press('Control+z');
+
+  // A waveform file for the second chapter: a second strip with its own id prefix.
+  await page.locator('.story-chapter', { hasText: 'Pad' }).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: 'Open waveform JSON…' }).click(),
+  ]);
+  await chooser.setFiles({
+    name: 'dshot.json',
+    mimeType: 'application/json',
+    buffer: await readFile(new URL('../examples/waveform/dshot.json', import.meta.url)),
+  });
+  expect(await step('Line to pad')).toMatchObject({ visible: true, idPrefix: 'blockflow-story-waveform-1' });
+
+  // Round trip: edit chapter 1's waveform in the Waveform editor and send it back.
+  await page.locator('.story-chapter', { hasText: 'Transmit' }).click();
+  const [wave] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('button', { name: 'Edit in Waveform editor' }).click(),
+  ]);
+  await wave.waitForFunction(() => window.__wave?.returnTo, null, { timeout: 15000 });
+  expect(new URL(wave.url()).pathname).toMatch(/\/wave\.html$/);
+  await wave.evaluate(() =>
+    window.__wave.apply([{ op: 'updateDocument', patch: { title: 'Edited there' } }]),
+  );
+  await wave.getByRole('button', { name: 'Send to Story editor' }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__story.story.chapters[0].waveform.title))
+    .toBe('Edited there');
+  await wave.close();
+
+  // Export: both chapter SVGs, playable; the page reopens with both waveforms.
+  const story = await page.evaluate(() => window.__story.story);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export HTML' }).click(),
+  ]);
+  const html = await readFile(await download.path(), 'utf8');
+  expect([...new Set([...html.matchAll(/blockflow-story-waveform-(\d+)/g)].map((m) => m[1]))]).toEqual([
+    '0',
+    '1',
+  ]);
+  const shown = await context.newPage();
+  await shown.setContent(html);
+  await expect(shown.locator('.pv-wave svg')).toHaveCount(1);
+  await expect(shown.locator('.pv-wave svg.pv-wf-focus')).toHaveCount(1);
+  await shown.close();
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page
+    .locator('input[type=file]')
+    .first()
+    .setInputFiles({ name: 'p.html', mimeType: 'text/html', buffer: Buffer.from(html) });
+  await laidOut(page);
+  expect(await page.evaluate(() => window.__story.story)).toEqual(story);
+  expect(errors).toEqual([]);
+});
+
+test('waveform focus problems are marked and skipped; legacy timing strips are not drawn', async ({
+  page,
+}) => {
+  await openDiagram(page, structuredClone(DIAGRAM));
+  const missing = await fixture('signal-path-missing.story.json');
+  await page.locator('input[type=file]').first().setInputFiles(json('missing.story.json', missing));
+  await expect(page.locator('.story-step.warn')).toHaveCount(1);
+  await page.locator('.story-step.warn').click();
+  await expect(page.locator('.story-wires li.missing')).toHaveText(['removed_signal']);
+  await expect(page.locator('.statusbar')).toContainText('1 story problem');
+  // The strip still shows; the missing signal is skipped.
+  await expect(page.locator('.story-stage .pv-wave')).toBeVisible();
+  // Old chapter.wave / step.wave data: dropped, no strip, no problem.
+  const legacy = structuredClone(STORY);
+  delete legacy.chapters[0].waveform;
+  for (const s of legacy.chapters[0].steps) delete s.waveform;
+  legacy.chapters[0].wave = { period: 8, bits: [1], rows: [{ name: 'old', perBit: { 1: [[0, 4]] } }] };
+  legacy.chapters[0].steps[0].wave = { rows: ['old'], from: 0, to: 8 };
+  await page.locator('input[type=file]').first().setInputFiles(json('legacy.story.json', legacy));
+  await page.locator('.story-step', { hasText: 'Clock to timer' }).click();
+  await expect(page.locator('.story-stage .pv-wave')).toBeHidden();
+  expect(await page.evaluate(() => 'wave' in window.__story.story.chapters[0])).toBe(false);
+  await expect(page.locator('.statusbar')).not.toContainText('problem');
 });

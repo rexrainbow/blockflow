@@ -8,24 +8,6 @@
   "chapters": [
     {
       "title": "Transmit",
-      "wave": {
-        "period": 8,
-        "bits": [1, 0],
-        "rows": [
-          {
-            "name": "tick",
-            "tick": 0,
-            "showBit": true
-          },
-          {
-            "name": "line",
-            "perBit": {
-              "0": [[0, 2]],
-              "1": [[0, 6]]
-            }
-          }
-        ]
-      },
       "steps": [
         {
           "title": "Clock to timer",
@@ -35,7 +17,12 @@
               "kind": "event",
               "wires": ["@terminal:Clock -> Timer.clk"]
             }
-          ]
+          ],
+          "waveform": {
+            "from": 0,
+            "to": 8,
+            "signals": ["tick"]
+          }
         },
         {
           "title": "Start both stages",
@@ -58,10 +45,11 @@
               "text": "Starts a bit"
             }
           ],
-          "wave": {
-            "rows": ["tick"],
+          "waveform": {
             "from": 0,
-            "to": 8
+            "to": 8,
+            "signals": ["start"],
+            "links": ["timer_tick -> start_edge"]
           }
         },
         {
@@ -81,10 +69,10 @@
               "wires": ["Serializer.line -> @terminal:Pad"]
             }
           ],
-          "wave": {
-            "rows": ["line"],
+          "waveform": {
             "from": 0,
-            "to": 16
+            "to": 16,
+            "markers": ["packet"]
           }
         },
         {
@@ -92,9 +80,63 @@
           "body": "Every wire of this chapter at once.",
           "scope": true,
           "camera": "all",
-          "hops": []
+          "hops": [],
+          "waveform": {}
         }
-      ]
+      ],
+      "waveform": {
+        "format": "blockflow-waveform",
+        "version": 1,
+        "title": "Transmit timing",
+        "timescale": "clk",
+        "length": 16,
+        "grid": {
+          "ticksPerBit": 8
+        },
+        "signals": [
+          {
+            "id": "tick",
+            "width": 1,
+            "port": "Timer.tick",
+            "changes": [
+              [0, 0],
+              [1, 1, "timer_tick"],
+              [2, 0],
+              [9, 1],
+              [10, 0]
+            ]
+          },
+          {
+            "id": "start",
+            "width": 1,
+            "port": "Controller.start",
+            "changes": [
+              [0, 0],
+              [2, 1, "start_edge"],
+              [4, 0],
+              [10, 1],
+              [12, 0]
+            ]
+          }
+        ],
+        "links": [
+          {
+            "from": "timer_tick",
+            "to": "start_edge",
+            "label": "start follows tick",
+            "delay": 1,
+            "locked": true
+          }
+        ],
+        "markers": [
+          {
+            "id": "packet",
+            "from": 0,
+            "to": 16,
+            "label": "Packet"
+          }
+        ]
+      }
     },
     {
       "title": "Pad",

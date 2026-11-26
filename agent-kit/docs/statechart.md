@@ -4,7 +4,7 @@ Run examples from the Agent Kit root.
 
 # Statechart Agent Kit
 
-Build: `statechart-agent-kit-f92b60d52c4539839138`; bundled ELK: `0.12.1`.
+Build: `statechart-agent-kit-d932343d6d614decb575`; bundled ELK: `0.12.1`.
 
 Use `statechart-convert.mjs` with `statechart.schema.json` to generate flat FSM
 diagrams. Input is Statechart JSON or the documented `stateDiagram-v2` subset;

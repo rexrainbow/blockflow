@@ -19,6 +19,8 @@ import {
   readPresentationSources,
   diagramFingerprint,
   SOURCES_ID,
+  waveformIndex,
+  wiresForPort,
 } from '../../src/lib/story/model.js';
 
 // The Story editor's own test diagram: terminals at both ends, a group and a shared fan-out.
@@ -200,7 +202,10 @@ test('diagramFingerprint is stable and changes with the diagram', async () => {
 
 test('normalized Stories satisfy the distributed schema, including edited chapters, notes and waves', async () => {
   const schema = JSON.parse(await readFile(new URL('../../schema/story.schema.json', import.meta.url)));
-  const validate = new Ajv2020({ strict: false }).compile(schema);
+  const waveformSchema = JSON.parse(
+    await readFile(new URL('../../schema/waveform.schema.json', import.meta.url)),
+  );
+  const validate = new Ajv2020({ strict: false }).addSchema(waveformSchema).compile(schema);
   const story = parseStory(await example('signal-path.story.json'));
   const { svg } = await laidOut();
   const index = svgIndex(svg),
@@ -214,8 +219,8 @@ test('normalized Stories satisfy the distributed schema, including edited chapte
       { op: 'add', path: '/chapters/2/steps/0/notes', value: [{ module: '@terminal:Pad', text: 'Pin' }] },
       {
         op: 'add',
-        path: '/chapters/2/wave',
-        value: { period: 8, bits: [0, 1], rows: [{ name: 'Tick', tick: 0 }] },
+        path: '/chapters/2/waveform',
+        value: story.chapters[0].waveform,
       },
       { op: 'remove', path: '/chapters/1/steps/0/hops/0/badge' },
     ],
@@ -262,4 +267,115 @@ test('Story numeric/version errors include paths and parsed wave data is owned',
   parsed.rows[0].perBit['*'][0][0] = 2;
   assert.equal(wave.bits[0], 0);
   assert.equal(wave.rows[0].perBit['*'][0][0], 0);
+});
+
+test('Stories embed normalized owned waveforms and drop unvalidated legacy strips', async () => {
+  const raw = await example('signal-path.story.json'),
+    saved = structuredClone(raw);
+  const parsed = parseStory(raw);
+  assert.equal(parsed.chapters[0].waveform.grid.offset, 0);
+  assert.deepEqual(parseStory(parsed), parsed);
+  parsed.chapters[0].waveform.signals[0].changes[1][0] = 3;
+  assert.deepEqual(raw, saved);
+  const legacy = parseStory({ chapters: [{ wave: 'malformed old format', steps: [{ wave: 123 }] }] });
+  assert.equal(legacy.chapters[0].wave, undefined);
+  assert.equal(legacy.chapters[0].steps[0].wave, undefined);
+  raw.chapters[0].waveform.signals[0].width = 0;
+  assert.throws(
+    () => parseStory(raw),
+    (e) => e.path === 'chapters[0].waveform.signals[0].width',
+  );
+  raw.chapters[0].waveform = { ...saved.chapters[0].waveform, typo: true };
+  assert.throws(
+    () => parseStory(raw),
+    (e) => e.path === 'chapters[0].waveform.typo',
+  );
+  raw.chapters[0].waveform = saved.chapters[0].waveform;
+  raw.chapters[0].steps[0].waveform.from = 0.5;
+  assert.throws(() => parseStory(raw), /steps\[0\].waveform.from/);
+});
+
+test('Story waveform problems retain missing focus references and invalid windows', async () => {
+  const story = parseStory(await example('signal-path.story.json'));
+  const index = svgIndex((await laidOut()).svg);
+  story.chapters[0].steps[0].waveform = {
+    from: -1,
+    to: 17,
+    signals: ['absent'],
+    links: ['gone -> edge'],
+    markers: ['missing'],
+  };
+  story.chapters[1].steps[0].waveform = {};
+  assert.deepEqual(storyProblems(story, index), [
+    { ci: 0, si: 0, type: 'window', ref: '-1 -> 17' },
+    { ci: 0, si: 0, type: 'signal', ref: 'absent' },
+    { ci: 0, si: 0, type: 'link', ref: 'gone -> edge' },
+    { ci: 0, si: 0, type: 'marker', ref: 'missing' },
+    { ci: 1, si: 0, type: 'waveform', ref: 'waveform' },
+  ]);
+  for (const focus of [{ from: 8, to: 8 }, { from: 9, to: 2 }, { from: 17 }, { to: 0 }]) {
+    story.chapters[0].steps[0].waveform = focus;
+    assert.equal(storyProblems(story, index)[0].type, 'window');
+  }
+  const missing = parseStory(await example('signal-path-missing.story.json'));
+  assert.deepEqual(storyProblems(missing, index), [{ ci: 0, si: 0, type: 'signal', ref: 'removed_signal' }]);
+});
+
+test('Story waveform presentation carries SVG geometry and fan-out port associations', async () => {
+  const story = parseStory(await example('signal-path.story.json')),
+    saved = structuredClone(story);
+  const { svg } = await laidOut(),
+    index = svgIndex(svg);
+  story.chapters.push(structuredClone(story.chapters[0]));
+  const data = presentationData({ svg, story });
+  const view = data.chapters[0].waveformView;
+  assert.match(view.svg, /data-signal="tick"/);
+  assert.match(view.svg, /data-link="timer_tick -&gt; start_edge"/);
+  assert.match(view.svg, /data-marker="packet"/);
+  assert.match(view.svg, /blockflow-story-waveform-0/);
+  assert.match(data.chapters[2].waveformView.svg, /blockflow-story-waveform-2/);
+  assert.notEqual(view.svg, data.chapters[2].waveformView.svg);
+  assert.equal(view.left + (1 - view.from) * view.pixelsPerTick, 184);
+  assert.equal(view.lanes.tick, 92);
+  const { layoutWaveform } = await import('../../src/lib/waveform/index.js');
+  assert.equal(view.lanes.start, layoutWaveform(story.chapters[0].waveform).lanes[1].y);
+  assert.ok(view.lanes.start > view.lanes.tick + 56, 'gutter growth reaches Story geometry');
+  assert.deepEqual(view.portWires.start, [
+    { from: 'Controller.start', to: 'FIFO.start' },
+    { from: 'Controller.start', to: 'Serializer.start' },
+  ]);
+  assert.deepEqual(wiresForPort(index, 'FIFO.start'), [{ from: 'Controller.start', to: 'FIFO.start' }]);
+  assert.deepEqual(wiresForPort(index, 'Gone.port'), []);
+  assert.deepEqual(data.problems, []);
+  const identities = waveformIndex(story.chapters[0].waveform);
+  assert.deepEqual(identities.edges, [
+    { id: 'timer_tick', signal: 'tick', t: 1 },
+    { id: 'start_edge', signal: 'start', t: 2 },
+  ]);
+  data.chapters[0].waveform.signals[0].label = 'Changed';
+  assert.deepEqual(story.chapters[0], saved.chapters[0]);
+});
+
+test('Story waveform edits validate the final batch and roll back field/reference errors', async () => {
+  const story = parseStory(await example('signal-path.story.json')),
+    saved = structuredClone(story);
+  const index = svgIndex((await laidOut()).svg);
+  const batch = [
+    { op: 'replace', path: '/chapters/0/waveform/signals/0/id', value: 'clock' },
+    { op: 'replace', path: '/chapters/0/steps/0/waveform/signals/0', value: 'clock' },
+    { op: 'replace', path: '/chapters/0/steps/1/waveform/links/0', value: 'timer_tick->start_edge' },
+  ];
+  const edited = applyStoryOps(story, batch, index);
+  assert.equal(edited.document.chapters[0].waveform.signals[0].id, 'clock');
+  assert.equal(edited.document.chapters[0].steps[1].waveform.links[0], 'timer_tick -> start_edge');
+  for (const op of [
+    { op: 'add', path: '/chapters/0/waveform/typo', value: 1 },
+    { op: 'add', path: '/chapters/0/steps/0/waveform/typo', value: 1 },
+    { op: 'replace', path: '/chapters/0/waveform/signals/0/changes/1/0', value: 0 },
+  ])
+    assert.throws(() => applyStoryOps(story, [op], index), /After ops\[0\]/);
+  assert.throws(() => applyStoryOps(story, batch.slice(0, 1), index), /signal tick/);
+  const draft = applyStoryOps(story, batch.slice(0, 1), index, { allowMissing: true });
+  assert.equal(draft.problems[0].type, 'signal');
+  assert.deepEqual(story, saved);
 });

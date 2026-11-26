@@ -4,7 +4,7 @@ Run examples from the Agent Kit root.
 
 # Flowchart Agent Kit
 
-Build: `flowchart-agent-kit-ec8e4e3a99c036e5fd46`
+Build: `flowchart-agent-kit-b7a38f31e9271ee2e379`
 
 Use `flowchart-convert.mjs` for process diagrams. `flowchart.schema.json` is the standalone
 JSON Schema Draft 2020-12; it has no dependency on the Blockchart Schema. The validator

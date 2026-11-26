@@ -35,8 +35,12 @@ async function buildDomain(domain, overview) {
     ...(domain === 'blockchart'
       ? [
           join(root, 'src/agent-kit/story-edit.js'),
+          join(root, 'src/agent-kit/waveform-edit.js'),
+          join(root, 'docs/waveform-agent-kit-readme.md'),
           join(root, 'src/agent-kit/edit-file.js'),
           join(root, 'schema/story.schema.json'),
+          join(root, 'schema/waveform.schema.json'),
+          ...(await sources(join(root, 'src/lib/waveform'))),
           join(root, 'docs/story-agent-kit-readme.md'),
           join(root, 'docs/blockchart-edit-agent-kit-readme.md'),
           ...(await sources(join(root, 'src/lib/story'))),
@@ -106,6 +110,13 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
   const storyEdit =
     block.banner.replace(block.version, storyVersion) +
     (await buildBundle(join(root, 'src/agent-kit/story-edit.js'), 'story', storyVersion));
+  const waveformVersion = block.version.replace('blockchart-', 'waveform-');
+  const waveformEdit =
+    `/* ${waveformVersion} */\n` +
+    (await buildBundle(join(root, 'src/agent-kit/waveform-edit.js'), 'waveform', waveformVersion));
+  const waveformGuide = lf(
+    await readFile(join(root, 'docs/waveform-agent-kit-readme.md'), 'utf8'),
+  ).replaceAll('{{KIT_VERSION}}', waveformVersion);
   const storySchema = lf(await readFile(join(root, 'schema/story.schema.json'), 'utf8'));
   const storyGuide = lf(await readFile(join(root, 'docs/story-agent-kit-readme.md'), 'utf8')).replaceAll(
     '{{KIT_VERSION}}',
@@ -115,7 +126,8 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
     .replaceAll('{{BLOCKCHART_KIT_VERSION}}', block.version)
     .replaceAll('{{FLOWCHART_KIT_VERSION}}', flow.version)
     .replaceAll('{{STATECHART_KIT_VERSION}}', state.version)
-    .replaceAll('{{STORY_KIT_VERSION}}', storyVersion);
+    .replaceAll('{{STORY_KIT_VERSION}}', storyVersion)
+    .replaceAll('{{WAVEFORM_KIT_VERSION}}', waveformVersion);
   const editGuide = lf(
     await readFile(join(root, 'docs/blockchart-edit-agent-kit-readme.md'), 'utf8'),
   ).replaceAll('{{KIT_VERSION}}', block.version);
@@ -125,6 +137,7 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
     'flowchart.md': flow.guide,
     'statechart.md': state.guide,
     'story.md': storyGuide,
+    'waveform.md': waveformGuide,
   };
   await mkdir(target, { recursive: true });
   await mkdir(join(target, 'docs'), { recursive: true });
@@ -142,13 +155,20 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
   }
   await writeFile(join(target, 'blockchart-edit.mjs'), edit, 'utf8');
   await writeFile(join(target, 'story-edit.mjs'), storyEdit, 'utf8');
+  await writeFile(join(target, 'waveform-edit.mjs'), waveformEdit, 'utf8');
   await writeFile(join(target, 'story.schema.json'), storySchema, 'utf8');
+  await writeFile(
+    join(target, 'waveform.schema.json'),
+    lf(await readFile(join(root, 'schema/waveform.schema.json'), 'utf8')),
+    'utf8',
+  );
   await writeFile(join(target, 'README.md'), versions, 'utf8');
   return {
     version: block.version,
     flowchartVersion: flow.version,
     statechartVersion: state.version,
     storyVersion,
+    waveformVersion,
     directory: target,
     bytes: block.bytes,
     flowchartBytes: flow.bytes,
@@ -159,6 +179,6 @@ export async function buildAgentKit(target = join(root, 'agent-kit')) {
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const result = await buildAgentKit();
   console.log(
-    `${result.version}\n${result.flowchartVersion}\n${result.statechartVersion}\n${result.storyVersion}\nGenerated tools, schemas, linked guides and license in ${result.directory}.`,
+    `${result.version}\n${result.flowchartVersion}\n${result.statechartVersion}\n${result.storyVersion}\n${result.waveformVersion}\nGenerated tools, schemas, linked guides and license in ${result.directory}.`,
   );
 }

@@ -4,7 +4,7 @@ Run examples from the Agent Kit root.
 
 # Blockchart editing
 
-Build: `blockchart-agent-kit-8ae585e89d19286c40f2`
+Build: `blockchart-agent-kit-23be7e737990fd0d41d1`
 
 See [Blockchart authoring](blockchart.md) for the diagram format and rendering.
 

@@ -11,6 +11,8 @@ domain; their JSON formats are separate.
 | Process / control flow     | `flowchart-convert.mjs`  | `flowchart.schema.json`  | Mermaid Flowchart subset or Flowchart JSON | JSON, SVG |
 | Flat state machines        | `statechart-convert.mjs` | `statechart.schema.json` | stateDiagram-v2 subset or Statechart JSON  | JSON, SVG |
 
+`waveform-edit.mjs` inspects, checks, edits and renders timing waveforms, and imports VCD captures.
+
 `story-edit.mjs` inspects, checks, transactionally edits, exports and extracts Blockchart Stories.
 
 `blockchart-edit.mjs` provides local Blockchart inspection and transactional editing as a CLI and JavaScript module.
@@ -25,6 +27,7 @@ natural language: an agent translates those sources into Mermaid or domain-speci
 - Flowchart build: `{{FLOWCHART_KIT_VERSION}}`
 - Statechart build: `{{STATECHART_KIT_VERSION}}`
 - Story build: `{{STORY_KIT_VERSION}}`
+- Waveform build: `{{WAVEFORM_KIT_VERSION}}`
 
 ## Guides
 
@@ -39,6 +42,7 @@ is moved or read offline.
 | Convert Mermaid process diagrams                   | [Flowchart](docs/flowchart.md)                |
 | Author flat state machines                         | [Statechart](docs/statechart.md)              |
 | Inspect, edit and export stepped presentations     | [Story](docs/story.md)                        |
+| Edit timing waveforms and import VCD captures      | [Waveform](docs/waveform.md)                  |
 | Read the bundled third-party license               | [elkjs EPL-2.0](licenses/elkjs-EPL-2.0.md)    |
 
 ## Quick start
@@ -48,6 +52,8 @@ node blockchart-convert.mjs hardware.json --check
 node blockchart-convert.mjs hardware.json --output hardware.svg
 node blockchart-edit.mjs inspect hardware.json --group Processing --recursive
 node story-edit.mjs inspect hardware.json draft.story.json
+node waveform-edit.mjs inspect timing.json
+node waveform-edit.mjs export timing.json -o timing.svg
 
 node flowchart-convert.mjs process.mmd --check
 node flowchart-convert.mjs process.mmd --output process.json

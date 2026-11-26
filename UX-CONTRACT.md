@@ -346,7 +346,7 @@ SVG/PNG use the resulting geometry without editor controls. Numeric priorities a
 ## Offline browser runtime
 
 The offline build uses the same editors, tokens and controls. Deliver the entire dist-offline
-folder: its index.html links studio/ and story/, each holding index.html, app.js and style.css.
+folder: its index.html links studio/, story/ and wave/, each holding index.html, app.js and style.css.
 Users open any of these index.html files directly, without a server or network connection; the
 two pages find each other as sibling folders. Neither page embeds a current-document snapshot.
 The normal default example and Open JSON are the entry workflow. Brand navigation explicitly
@@ -720,4 +720,18 @@ the exported page and Preview run one shared player, so authoring shows what the
 sees. Stories refer to wires by endpoints and keep references the diagram lacks, marked and
 skipped when playing. The player selects wires, arrows and blocks only through the rendered
 SVG identity metadata and draws over the unchanged runtime SVG, including every owner of a
-shared path.
+shared path. A chapter can embed one waveform, shown as a strip under the diagram;
+each step focuses a window and some of its signals, links and markers, dimming the rest, and
+signals tied to Block ports light those wires. Waveforms are edited in the Waveform editor and
+sent back to the Story editor as one undoable change. Old timing-strip data is not drawn.
+
+## Waveform editor
+
+The Waveform editor page (wave.html) draws synchronous timing diagrams and never edits
+diagrams. Every change goes through the runtime's waveform operations or its parser, so the
+page holds no validation of its own. Problems such as delay mismatches stay visible instead
+of blocking edits; refused edits leave the document unchanged and say why. The canvas shows
+the runtime SVG unchanged; selection lives on an overlay. Transitions drag with snapping to
+ticks or bits and locked links follow. Links are made from one transition to the one it
+causes. VCD import lets the user choose signals, a window and a timescale, and reports
+errors in its dialog. Exports are the runtime SVG, PNG and the normalized JSON.

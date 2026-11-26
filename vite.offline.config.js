@@ -10,14 +10,23 @@ const offlineRoot = fileURLToPath(new URL('./dist-offline/', import.meta.url));
 
 /**
  * The portable build is one folder per page, each opened from file:// on its own:
- *   dist-offline/index.html   chooser linking both pages
+ *   dist-offline/index.html   chooser linking the pages
  *   dist-offline/studio/      the Studio (`vite build --config vite.offline.config.js`)
  *   dist-offline/story/       the Story editor (`... --mode story`)
+ *   dist-offline/wave/        the Waveform editor (`... --mode wave`)
  * One classic script cannot hold two pages, so each page is its own build.
  */
+// Each page's html entry and where it finds its sibling pages (see src/story/handoff.js).
 const PAGES = {
-  studio: { html: './index.html', other: '../story/index.html' },
-  story: { html: './story.html', other: '../studio/index.html' },
+  studio: { html: './index.html', define: { __BLOCKFLOW_STORY_PAGE__: '../story/index.html' } },
+  story: {
+    html: './story.html',
+    define: {
+      __BLOCKFLOW_STUDIO_PAGE__: '../studio/index.html',
+      __BLOCKFLOW_WAVE_PAGE__: '../wave/index.html',
+    },
+  },
+  wave: { html: './wave.html', define: { __BLOCKFLOW_STUDIO_PAGE__: '../studio/index.html' } },
 };
 
 /**
@@ -63,6 +72,7 @@ const CHOOSER = `<!doctype html>
     <h1>blockflow offline</h1>
     <a href="./studio/index.html"><strong>Studio</strong><br />Edit Block diagrams, flowcharts and statecharts.</a>
     <a href="./story/index.html"><strong>Story editor</strong><br />Present a Block diagram step by step and export one HTML page.</a>
+    <a href="./wave/index.html"><strong>Waveform editor</strong><br />Draw synchronous timing diagrams; import VCD from a simulation.</a>
   </body>
 </html>
 `;
@@ -80,19 +90,15 @@ const offlineFolder = {
 };
 
 export default defineConfig(({ mode }) => {
-  const page = mode === 'story' ? 'story' : 'studio';
-  const { html, other } = PAGES[page];
+  const page = Object.hasOwn(PAGES, mode) ? mode : 'studio';
+  const { html, define } = PAGES[page];
   const single = {
     ...webConfig,
     build: { ...webConfig.build, rolldownOptions: { ...webConfig.build.rolldownOptions, input: undefined } },
   };
   return mergeConfig(single, {
     worker: { format: 'iife' },
-    // Where each page finds the other inside dist-offline (see src/story/handoff.js).
-    define:
-      page === 'studio'
-        ? { __BLOCKFLOW_STORY_PAGE__: JSON.stringify(other) }
-        : { __BLOCKFLOW_STUDIO_PAGE__: JSON.stringify(other) },
+    define: Object.fromEntries(Object.entries(define).map(([k, v]) => [k, JSON.stringify(v)])),
     build: {
       outDir: `dist-offline/${page}`,
       emptyOutDir: true,
@@ -126,7 +132,7 @@ export default defineConfig(({ mode }) => {
         enforce: 'post',
         generateBundle(_, bundle) {
           for (const file of Object.values(bundle))
-            if (file.fileName === 'story.html') file.fileName = 'index.html';
+            if (/^(story|wave)\.html$/.test(file.fileName)) file.fileName = 'index.html';
         },
       },
       offlineFolder,

@@ -1,0 +1,105 @@
+{
+  "format": "blockflow-waveform",
+  "version": 1,
+  "title": "Local gutters and rail fallback",
+  "timescale": "clk",
+  "length": 24,
+  "signals": [
+    {
+      "id": "lane0",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [1, 1, "e0"],
+        [2, 0, "e0fall"],
+        [4, 1],
+        [9, 0]
+      ]
+    },
+    {
+      "id": "lane1",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [2, 1, "e1"],
+        [10, 0]
+      ]
+    },
+    {
+      "id": "lane2",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [3, 1, "e2"],
+        [11, 0]
+      ]
+    },
+    {
+      "id": "lane3",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [4, 1, "e3"],
+        [12, 0]
+      ]
+    },
+    {
+      "id": "lane4",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [5, 1, "e4"],
+        [13, 0]
+      ]
+    },
+    {
+      "id": "lane5",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [6, 1, "e5"],
+        [14, 0]
+      ]
+    },
+    {
+      "id": "lane6",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [7, 1, "e6"],
+        [15, 0]
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "e0",
+      "to": "e2",
+      "delay": 2,
+      "label": "First local"
+    },
+    {
+      "from": "e1",
+      "to": "e2",
+      "delay": 1,
+      "label": "Second local"
+    },
+    {
+      "from": "e0fall",
+      "to": "e2",
+      "delay": 1,
+      "label": "Third local"
+    },
+    {
+      "from": "e3",
+      "to": "e2",
+      "label": "Upward local"
+    },
+    {
+      "from": "e0",
+      "to": "e6",
+      "delay": 6,
+      "label": "Far fallback"
+    }
+  ]
+}

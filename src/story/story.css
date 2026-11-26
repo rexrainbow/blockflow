@@ -180,6 +180,13 @@
 .story-app [data-fid='story-step-body'] {
   min-height: 84px;
 }
-.story-app [data-fid='story-chapter-wave'] {
-  min-height: 160px;
+.story-wf-group {
+  display: grid;
+  gap: 4px;
+}
+.story-wf-label {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }

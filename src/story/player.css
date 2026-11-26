@@ -53,8 +53,7 @@
   text-align: center;
 }
 .pv-placeholder[hidden],
-.pv-tip[hidden],
-.pv-wave[hidden] {
+.pv-tip[hidden] {
   display: none;
 }
 .pv-tip {
@@ -220,57 +219,39 @@
   fill: rgba(36, 87, 214, 0.06);
 }
 
-/* Timing strip */
+/* Timing strip: the chapter's waveform as the runtime drew it (white sheet, like the diagram). */
 .pv-wave {
   display: block;
-  width: 100%;
-  background: var(--pv-surface);
+  max-height: 38vh;
+  overflow: auto;
+  background: #ffffff;
   border-top: 1px solid var(--pv-border);
 }
+.pv-wave[hidden] {
+  display: none;
+}
+.pv-wave-sheet {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* With a step focus, everything the step does not name is dimmed. */
+.pv-wf-focus [data-signal]:not(.pv-wf-on),
+.pv-wf-focus [data-link]:not(.pv-wf-on),
+.pv-wf-focus [data-marker]:not(.pv-wf-on) {
+  opacity: 0.22;
+}
 .pv-wave-band {
-  fill: var(--pv-band);
-}
-.pv-wave-grid {
-  stroke: var(--pv-border);
-}
-.pv-wave-bit {
-  font-size: 12px;
-  fill: var(--pv-muted);
-  text-anchor: middle;
-}
-.pv-wave-name {
-  font-size: 12.5px;
-  fill: var(--pv-ink);
-  dominant-baseline: central;
-}
-.pv-wave-row.pv-on .pv-wave-name {
-  font-weight: 600;
-}
-.pv-wave-row.pv-off {
-  opacity: 0.28;
-}
-.pv-wave-line {
-  fill: none;
-  stroke: var(--pv-muted);
-  stroke-width: 1.6;
-  stroke-linejoin: round;
-}
-.pv-wave-row.pv-on .pv-wave-line {
-  stroke: var(--pv-ink);
-}
-.pv-wave-tick {
-  stroke: var(--pv-event);
-  stroke-width: 2;
-}
-.pv-wave-tick-text {
-  font-size: 11.5px;
-  font-weight: 600;
   fill: var(--pv-event);
-  dominant-baseline: central;
+  fill-opacity: 0.07;
 }
 .pv-wave-head {
   stroke: var(--pv-event);
   stroke-width: 2;
+}
+.pv-port-wire {
+  stroke-dasharray: 10 8;
+  animation: pv-flow 0.9s linear infinite;
 }
 
 /* Playback controls */
@@ -369,6 +350,9 @@
   .pv-chip {
     animation: none;
     opacity: 1;
+  }
+  .pv-port-wire {
+    animation: none;
   }
   .pv-burst {
     display: none;

@@ -1,0 +1,114 @@
+{
+  "format": "blockflow-waveform",
+  "version": 1,
+  "title": "DShot synchronous timing",
+  "timescale": "clk",
+  "grid": {
+    "ticksPerBit": 8,
+    "offset": 0
+  },
+  "length": 24,
+  "signals": [
+    {
+      "id": "clock",
+      "label": "Bit clock",
+      "width": 1,
+      "port": "Clock.out",
+      "changes": [
+        [0, 0],
+        [1, 1, "clock_start"],
+        [2, 0],
+        [8, 1],
+        [9, 0],
+        [16, 1],
+        [17, 0]
+      ]
+    },
+    {
+      "id": "trigger",
+      "label": "Trigger",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [2, 1, "trigger_start"],
+        [3, 0, "trigger_done"]
+      ]
+    },
+    {
+      "id": "hi",
+      "label": "HI timer",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [3, 1, "hi_start"],
+        [7, 0, "hi_done"]
+      ]
+    },
+    {
+      "id": "tx",
+      "label": "TX 1 / 0 / 1",
+      "width": 1,
+      "scope": "FC.TX",
+      "changes": [
+        [0, 1],
+        [6, 0],
+        [8, 1],
+        [11, 0],
+        [16, 1],
+        [22, 0]
+      ]
+    },
+    {
+      "id": "sample",
+      "label": "Receiver sample",
+      "width": 1,
+      "changes": [
+        [0, 0],
+        [5, 1, "sample_edge"],
+        [6, 0],
+        [13, 1],
+        [14, 0]
+      ]
+    },
+    {
+      "id": "bus",
+      "label": "Payload",
+      "width": 4,
+      "changes": [
+        [0, 10],
+        [8, "b0101"],
+        [16, "x"],
+        [20, "z"]
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": "trigger_start",
+      "to": "hi_start",
+      "label": "start HI",
+      "delay": 1,
+      "locked": true
+    },
+    {
+      "from": "hi_start",
+      "to": "sample_edge",
+      "label": "sample after HI",
+      "delay": 2,
+      "locked": true
+    }
+  ],
+  "markers": [
+    {
+      "id": "cursor",
+      "t": 8,
+      "label": "bit 1"
+    },
+    {
+      "id": "packet",
+      "from": 0,
+      "to": 24,
+      "label": "packet"
+    }
+  ]
+}

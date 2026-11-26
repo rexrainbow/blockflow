@@ -4,7 +4,7 @@ Run examples from the Agent Kit root.
 
 # Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-8ae585e89d19286c40f2`
+Build: `blockchart-agent-kit-23be7e737990fd0d41d1`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the

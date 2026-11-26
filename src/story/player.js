@@ -37,7 +37,7 @@ export function createPlayer(root, options = {}) {
   const stage = html('div', { class: 'pv-stage' });
   const tip = html('div', { class: 'pv-tip', role: 'tooltip', hidden: '' });
   const placeholder = html('div', { class: 'pv-placeholder', hidden: '' });
-  const wave = el('svg', { class: 'pv-wave', 'aria-label': 'Timing diagram' });
+  const wave = html('div', { class: 'pv-wave', role: 'img', 'aria-label': 'Timing diagram', hidden: '' });
   const controls = html('div', { class: 'pv-controls' });
   stage.append(placeholder, tip);
   root.append(stage, wave, controls);
@@ -70,6 +70,7 @@ export function createPlayer(root, options = {}) {
   function setData(next, { index = cur, instant = true, keepCamera = false, hop = null } = {}) {
     clearTimeline();
     data = next;
+    waveChapter = -1; // new data: the strip SVG is rebuilt
     steps = [];
     (data?.chapters ?? []).forEach((ch, ci) => (ch.steps ?? []).forEach((s, si) => steps.push({ ...s, ci, si, hops: s.hops ?? [], notes: s.notes ?? [] })));
     svg?.remove();
@@ -344,7 +345,11 @@ export function createPlayer(root, options = {}) {
       hole(activeModules, activeWires, '#000');
       for (const [w, kind] of all) el('path', { class: 'pv-core', d: idx.wires[w].d, stroke: color(kind), 'stroke-width': 3, opacity: 0.85 }, layers.fx);
     } else {
-      activeWires = stepWires(s);
+      // Wires at the Block ports of focused waveform signals light with them, steady.
+      const hopWires = stepWires(s);
+      const portWires = focusPortWires(s).filter((w) => !hopWires.includes(w));
+      for (const w of portWires) el('path', { class: 'pv-core pv-port-wire', d: idx.wires[w].d, stroke: color('level'), 'stroke-width': 3 }, layers.fx);
+      activeWires = [...hopWires, ...portWires];
       activeModules = [...new Set([...ends(activeWires), ...s.notes.map((n) => n.module).filter((id) => idx.modules[id])])];
       hole(activeModules, activeWires, '#000');
     }
@@ -532,52 +537,59 @@ export function createPlayer(root, options = {}) {
   }
 
   // ---------- timing strip ----------
-  let waveHead = null, waveSpan = null;
+  // ---------- timing strip: the chapter's waveform, drawn by the runtime ----------
+  // A chapter with a waveform carries waveformView: the runtime SVG plus the numbers that map
+  // ticks to x. The strip shows it whole; the step's focus dims every other signal, link and
+  // marker; a band marks the step window and a cursor sweeps it while the step plays.
+  // Old chapter.wave data is not drawn (the runtime drops it).
+  let waveHead = null, waveSpan = null, waveChapter = -1;
+  const focusOf = (s) => {
+    const view = data.chapters[s.ci]?.waveformView;
+    if (!view) return null;
+    const bad = (data.problems ?? []).some((p) => p.ci === s.ci && p.si === s.si && p.type === 'window');
+    const f = s.waveform ?? {};
+    return { view, from: bad ? view.from : (f.from ?? view.from), to: bad ? view.to : (f.to ?? view.to), signals: f.signals ?? [], links: f.links ?? [], markers: f.markers ?? [] };
+  };
+  /** Block wires at the ports of the step's focused waveform signals. */
+  const focusPortWires = (s) => {
+    const f = focusOf(s);
+    if (!f) return [];
+    const refs = f.signals.flatMap((id) => (f.view.portWires?.[id] ?? []).map((w) => `${w.from} -> ${w.to}`));
+    return [...new Set(refs)].filter((ref) => idx.wires[ref]);
+  };
   function drawWave(s) {
-    const W = s ? data.chapters[s.ci]?.wave : null;
-    wave.replaceChildren();
+    const f = s ? focusOf(s) : null;
     waveHead = null;
-    if (!W?.rows?.length || !W.bits?.length || !(W.period > 0)) return wave.setAttribute('hidden', '');
-    wave.removeAttribute('hidden');
-    const width = wave.clientWidth || root.clientWidth || 800, LAB = 112, RIGHT = 16, ROW = 24, TOP = 22;
-    const total = W.period * W.bits.length;
-    const x = (t) => LAB + (Math.max(0, Math.min(total, t)) / total) * (width - LAB - RIGHT);
-    const height = TOP + W.rows.length * ROW + 8;
-    wave.setAttribute('height', height);
-    wave.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    const focus = s.wave?.rows?.length ? s.wave.rows : null;
-    const span = s.wave && Number.isFinite(s.wave.from) && Number.isFinite(s.wave.to) ? s.wave : null;
-    if (span) el('rect', { class: 'pv-wave-band', x: x(span.from), y: 4, width: Math.max(2, x(span.to) - x(span.from)), height: height - 8 }, wave);
-    W.bits.forEach((b, i) => {
-      el('line', { class: 'pv-wave-grid', x1: x(i * W.period), x2: x(i * W.period), y1: 4, y2: height - 4 }, wave);
-      el('text', { class: 'pv-wave-bit', x: x((i + 0.5) * W.period), y: 13 }, wave, `bit ${b}`);
-    });
-    W.rows.forEach((row, r) => {
-      const y0 = TOP + r * ROW, hi = y0 + 4, lo = y0 + ROW - 6;
-      const on = !focus || focus.includes(row.name);
-      const g = el('g', { class: on && focus ? 'pv-wave-row pv-on' : on ? 'pv-wave-row' : 'pv-wave-row pv-off' }, wave);
-      el('text', { class: 'pv-wave-name', x: 12, y: (hi + lo) / 2 }, g, row.name);
-      if (row.tick != null) {
-        W.bits.forEach((b, i) => {
-          const tx = x(i * W.period + row.tick);
-          el('line', { class: 'pv-wave-tick', x1: tx, x2: tx, y1: hi - 2, y2: lo + 2 }, g);
-          if (row.showBit) el('text', { class: 'pv-wave-tick-text', x: tx + 6, y: (hi + lo) / 2 }, g, `→ ${b}`);
-        });
-        return;
-      }
-      let d = `M${x(0)} ${lo}`;
-      W.bits.forEach((b, i) => {
-        for (const [a, z] of row.perBit?.[String(b)] ?? row.perBit?.['*'] ?? []) {
-          const xa = x(i * W.period + a), xz = Math.max(x(i * W.period + z), xa + 2.5);
-          d += ` L${xa} ${lo} L${xa} ${hi} L${xz} ${hi} L${xz} ${lo}`;
-        }
-      });
-      el('path', { class: 'pv-wave-line', d: d + ` L${x(total)} ${lo}` }, g);
-    });
-    if (span) {
-      waveSpan = [x(span.from), x(span.to)];
-      waveHead = el('line', { class: 'pv-wave-head', x1: waveSpan[0], x2: waveSpan[0], y1: 4, y2: height - 4 }, wave);
+    if (!f) {
+      wave.replaceChildren();
+      wave.hidden = true;
+      waveChapter = -1;
+      return;
     }
+    wave.hidden = false;
+    if (waveChapter !== s.ci) {
+      wave.innerHTML = f.view.svg;
+      const sheet = wave.querySelector('svg');
+      sheet.removeAttribute('width');
+      sheet.removeAttribute('height');
+      sheet.classList.add('pv-wave-sheet');
+      waveChapter = s.ci;
+    }
+    const sheet = wave.querySelector('svg');
+    sheet.querySelector('.pv-wave-fx')?.remove();
+    for (const n of sheet.querySelectorAll('.pv-wf-on')) n.classList.remove('pv-wf-on');
+    const on = (nodes, keep) => nodes.forEach((n) => keep(n) && n.classList.add('pv-wf-on'));
+    const signals = new Set(f.signals), links = new Set(f.links), markers = new Set(f.markers);
+    on(sheet.querySelectorAll('[data-signal]'), (n) => signals.has(n.getAttribute('data-signal')));
+    on(sheet.querySelectorAll('[data-link]'), (n) => links.has(`${n.getAttribute('data-from-edge')} -> ${n.getAttribute('data-to-edge')}`));
+    on(sheet.querySelectorAll('[data-marker]'), (n) => markers.has(n.getAttribute('data-marker')));
+    sheet.classList.toggle('pv-wf-focus', Boolean(signals.size || links.size || markers.size));
+    const x = (t) => f.view.left + (t - f.view.from) * f.view.pixelsPerTick;
+    const fx = el('g', { class: 'pv-wave-fx' }, sheet);
+    const y0 = f.view.top, y1 = f.view.height - 4;
+    if (f.from > f.view.from || f.to < f.view.to) el('rect', { class: 'pv-wave-band', x: x(f.from), y: y0, width: Math.max(2, x(f.to) - x(f.from)), height: y1 - y0 }, fx);
+    waveSpan = [x(f.from), x(f.to)];
+    waveHead = el('line', { class: 'pv-wave-head', x1: waveSpan[0], x2: waveSpan[0], y1: y0, y2: y1 }, fx);
   }
   function tickWave(p) {
     if (!waveHead) return;
@@ -589,8 +601,7 @@ export function createPlayer(root, options = {}) {
   const resizer = new ResizeObserver(() => {
     const before = stageRect;
     stageRect = stage.getBoundingClientRect();
-    if (!svg || !steps.length || (before.width === stageRect.width && before.height === stageRect.height && wave.clientWidth)) return;
-    drawWave(steps[cur]);
+    if (!svg || !steps.length || (before.width === stageRect.width && before.height === stageRect.height)) return;
     rescale();
   });
   resizer.observe(root);

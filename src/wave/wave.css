@@ -1,0 +1,144 @@
+/* Waveform editor (wave.html). Reuses the Studio frame and the Story editor's list styles
+   (story.css); these rules add the scrolling sheet, its overlay and the selection marks.
+   The waveform itself is the runtime SVG and always shows on white, like every export. */
+.wv-scroll {
+  grid-row: 2;
+  overflow: auto;
+  min-height: 0;
+  min-width: 0;
+  background: var(--canvas);
+}
+.wv-scroll[hidden] {
+  display: none;
+}
+.wv-canvas {
+  position: relative;
+  margin: 16px;
+  background: #ffffff;
+  box-shadow: var(--sheet-shadow);
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+}
+.wv-canvas.over-edge {
+  cursor: ew-resize;
+}
+.wave-app.linking .wv-canvas {
+  cursor: alias;
+}
+.wv-canvas:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.wv-sheet,
+.wv-sheet svg {
+  display: block;
+  user-select: none;
+}
+.wv-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.wv-range {
+  fill: var(--accent);
+  fill-opacity: 0.14;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.wv-lane-sel {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.wv-edge-sel {
+  fill: var(--accent);
+  fill-opacity: 0.35;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.wv-edge-link {
+  fill: var(--warn);
+  fill-opacity: 0.3;
+  stroke: var(--warn);
+  stroke-width: 1.5;
+}
+/* Selected link and marker: the runtime's own groups, found by data-link / data-marker. */
+.wv-sheet [data-link],
+.wv-sheet [data-marker] {
+  cursor: pointer;
+}
+.wv-sheet .wv-selected path,
+.wv-sheet .wv-selected line {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.wv-sheet .wv-selected text {
+  fill: var(--accent);
+  font-weight: 700;
+}
+.wv-error {
+  margin: 0;
+  padding: 24px;
+  max-width: 60ch;
+  color: var(--danger);
+}
+.wv-zoom {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 6.5em;
+  text-align: center;
+}
+.wv-list-head {
+  margin: 14px 14px 4px;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.wv-empty {
+  margin: 2px 14px 6px;
+}
+.wv-problems {
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+.wv-vcd-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wv-vcd-head .input {
+  flex: 1;
+  min-width: 0;
+}
+.wv-vcd-list {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 0;
+}
+.wv-vcd-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.wv-vcd-row:hover {
+  background: var(--surface-hover);
+}
+.wv-vcd-row .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wv-vcd-meta {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}

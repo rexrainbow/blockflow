@@ -9,11 +9,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     chunkSizeWarningLimit: 2000,
-    // Two pages: the Studio and the Story editor (presentations of Block diagrams).
+    // Three pages: the Studio, the Story editor (presentations of Block diagrams) and the
+    // Waveform editor (synchronous timing diagrams).
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         story: fileURLToPath(new URL('./story.html', import.meta.url)),
+        wave: fileURLToPath(new URL('./wave.html', import.meta.url)),
       },
     },
   },

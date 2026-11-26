@@ -68,6 +68,8 @@ test('copied standalone Flowchart kit compiles Mermaid to portable JSON and exac
     'statechart.schema.json',
     'story-edit.mjs',
     'story.schema.json',
+    'waveform-edit.mjs',
+    'waveform.schema.json',
   ]);
   const json = run(['source.mmd', '--output', '-', '--format', 'json']);
   assert.equal(json.status, 0, json.stderr);
