@@ -100,14 +100,31 @@ view, call `service.request(document, { rootGroupId, paintOnly: true })` with
 the complete current document. The service sends the revisioned request on the
 next timer tick, skipping the usual 180 ms coalescing delay.
 
+Ordinary rectangle Block titles and internal Port labels also qualify when their
+normalized `moduleGeometry()` signatures are identical. The signature includes
+dimensions, title position, Port points and label positions. Explicitly sided Ports,
+Concat, other appearances, Group titles and external signal/receiver labels retain
+the full-layout path for text edits. The key uses measured geometry for eligible
+text and keeps the existing identity and routing checks. Invalid drafts receive a
+literal key and are validated by the Worker.
+
+On reuse, the Worker refreshes Block `label`, Port `displayName`, and their
+`labelBounds` at cached positions. New text must fit the Block and introduce no
+new overlap with its other visible text or routed strokes. Otherwise it falls
+back to full layout within the same request. These checks reuse coordinates and
+routes while publishing current text and hit geometry. Font, padding, visibility
+and other measured style edits still require full layout. The same contract applies
+to Top and scoped views. The GUI continues comparing `geometryKey` and sending
+`paintOnly: true`; no additional request flag is needed.
+
 The same paint fields qualify at the diagram-default and local override levels.
 Removing an override restores the inherited value.
 
-| Edit | Fields eligible for geometry reuse |
-| --- | --- |
-| Module and Group bodies | `fillColor`, `fillOpacity`, `borderColor`, `borderOpacity`, `borderStyle` |
-| Net and branch strokes | `strokeColor`, `opacity`, `lineStyle` |
-| Text | `color`, `opacity`, `backgroundColor`, `backgroundOpacity`, `textAlign` on titles, Port labels, Terminals, Net labels and captions, including their diagram defaults |
+| Edit                        | Fields eligible for geometry reuse                                                                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module and Group bodies     | `fillColor`, `fillOpacity`, `borderColor`, `borderOpacity`, `borderStyle`                                                                                                                |
+| Net and branch strokes      | `strokeColor`, `opacity`, `lineStyle`                                                                                                                                                    |
+| Text                        | `color`, `opacity`, `backgroundColor`, `backgroundOpacity`, `textAlign` on titles, Port labels, Terminals, Net labels and captions, including their diagram defaults                     |
 | Module, Group and Port keys | An item with an explicit label can be renamed when its references still resolve to the same authoring slots. Membership, Grid cells and connection endpoints must all follow the rename. |
 
 The Worker validates the entire document and keeps one private full-layout

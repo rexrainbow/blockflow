@@ -1,0 +1,185 @@
+/* Story editor (story.html). The page reuses the Studio frame (tokens.css, studio.css: top bar,
+   workspace tracks, panes, inspector fields, status bar, toasts); these rules add the story
+   list, step editor and the player stage. The player's own styles are in player.css. */
+.story-stage {
+  grid-row: 2;
+  display: grid; /* the player root: stage, timing strip, controls */
+  min-height: 0;
+  min-width: 0;
+}
+.story-stage[hidden] {
+  display: none;
+}
+.story-start {
+  grid-row: 2;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.story-start[hidden] {
+  display: none;
+}
+.story-start h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-lg, 16px);
+}
+.story-start p {
+  margin: 0;
+  max-width: 46ch;
+}
+.story-start .insp-actions {
+  justify-content: center;
+}
+.story-source {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.story-list {
+  flex: 1;
+  overflow: auto;
+  padding-bottom: 16px;
+}
+.story-title {
+  padding: 4px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.story-rows {
+  padding-top: 6px;
+}
+.story-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  padding-left: 14px;
+}
+.story-row .row-label {
+  flex: 1;
+  max-width: none;
+}
+.story-chapter {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.story-chapter .icon {
+  color: var(--muted);
+}
+.story-step {
+  padding-left: 22px;
+}
+.story-n {
+  min-width: 1.6em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.story-tag {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+.story-warn,
+.story-problems .icon,
+.story-wires li.missing .icon {
+  color: var(--warn);
+}
+.story-problems {
+  margin: 4px 14px 0;
+}
+.story-hop {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.story-hop.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--selection);
+  cursor: default;
+}
+.story-hop-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  gap: 4px;
+  align-items: center;
+}
+.story-hop-n {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  padding-left: 8px;
+  border-left: 3px solid var(--k);
+  white-space: nowrap;
+}
+.story-wires {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.story-wires li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  min-width: 0;
+}
+.story-wires li .mono {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.story-wires li.missing .mono {
+  color: var(--warn);
+  text-decoration: line-through;
+}
+.story-empty {
+  margin: 6px 0 0;
+}
+.story-note {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) auto;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.story-note-block {
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.story-note.missing .story-note-block {
+  color: var(--warn);
+  text-decoration: line-through;
+}
+.story-wave-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.studio.narrow .canvas-tools .btn span {
+  display: none;
+}
+.story-app [data-fid='story-step-body'] {
+  min-height: 84px;
+}
+.story-app [data-fid='story-chapter-wave'] {
+  min-height: 160px;
+}

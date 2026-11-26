@@ -237,6 +237,15 @@ Undo/Redo therefore all qualify without per-control wiring. Measured properties
 (`borderWidth`, `strokeWidth`, arrows, `fontSize`, `padding`, `hidden`) and renaming an
 unlabelled key, which is its visible text, still run a full layout.
 
+Text edits of ordinary rectangle Block titles and internal Port labels qualify when the
+runtime's measured key is unchanged, that is, the new text keeps the Block's size.
+Coordinates and routes are kept, the drawing shows the new text, and label bounds (and so
+the F2 rename box) follow it. Text that adds a line or widens the Block changes the key, so
+Studio requests a full layout. On DShot v3 in Top and Bank0, a same-size title or Port
+edit and its Undo/Redo reach the canvas in about 75 to 200 ms. A third title line or an
+overflowing Port name takes the full layout (about 2.4 to 7 s on this laptop). Evidence:
+`output/gui-label-repaint-acceptance/`.
+
 The hint is given only for a document change in the same view as the previous request.
 Opening or replacing a document and real view switches are ordinary requests.
 Renaming the viewed group's key is the same view. The Blockchart Store keeps the view
@@ -389,11 +398,101 @@ tuned for that sheet.
 
 ## Copy JSON
 
-**Copy JSON to clipboard** (File menu, Export › Whole diagram source › Copy JSON, command
-palette) copies exactly what Save JSON writes: the whole document, 2-space indented, in any
+**Copy JSON to clipboard** (File menu, Export › Whole diagram source, command palette)
+copies exactly what Save JSON writes: the whole document, 2-space indented, in any
 group view. A toast confirms the block count and size. If the browser blocks the clipboard,
 the legacy copy command is tried, then a dialog shows the JSON already selected. There is no
 shortcut: Ctrl+C is kept for copying selections and Ctrl+Shift+C opens browser devtools.
+
+The Export menu repeats the two whole-source actions under *Whole diagram source* with the
+File menu's names, **Save JSON** and **Copy JSON to clipboard**: one action has one name
+wherever it appears.
+
+## Story editor (presentations)
+
+The **Story editor** (`story.html`, `src/story/`) is a separate page that authors a
+**story**: chapters of steps that animate signals hop by hop over a Block diagram, for
+presenting how data moves between hardware blocks. The diagram is input only. The Studio
+has no Story mode and no story code; it imports only `src/story/handoff.js`.
+
+- **Input and output.**
+  - Input: a Block diagram JSON. The Story editor never changes it.
+  - Output: a story JSON (`"format": "blockflow-story"`). *Save story JSON* adds
+    `diagram: { name, sha256 }`. Opening a story made for another diagram name, or for
+    another version of this diagram, says so.
+  - Export: one offline HTML page. It holds the player, the drawn SVG and both sources.
+  - Opening that exported HTML in the Story editor brings back its diagram and story for
+    further editing.
+- **Getting there.**
+  - From the Studio: *Export › Open in Story editor* (Block diagrams, command palette too)
+    opens `story.html` in a new tab with the whole diagram. The hand-off is one-shot browser
+    storage (`blockflow.story.incoming`), removed when read and ignored after a minute.
+  - Opening a story JSON or presentation HTML in the Studio keeps the current diagram and
+    offers *Open Story editor*.
+  - In the Story editor, *Open…*, Ctrl+O or dropping a file accepts a Block diagram, a story
+    or an exported presentation. Flowcharts and statecharts are refused.
+- **Drawing.** The diagram is laid out by the Block diagram Worker (`LayoutService`). The
+  player shows the resulting SVG, the same text Studio *Export › SVG* writes for the whole
+  diagram, unchanged.
+- **The player** (`src/story/player.js`, no imports) adds a dimming mask, wire highlights,
+  moving dots, note and badge chips, a camera that follows each hop, and the chapter timing
+  strip. The Story editor runs it with editing picks; the exported page runs the same file
+  without them. It receives no layout geometry: it finds wires and blocks through the
+  SVG [identity metadata](blockchart-layout.md#rendered-svg-identity-contract).
+  - A wire is every `connection-path` whose owners include its endpoint pair, either
+    through `data-from`/`data-to` or through `data-endpoints` on shared paths. Its
+    sections are chained from source to target, so a dot can travel the route. Its arrows
+    fill in when the hop arrives.
+  - A block is its `block` rect or `block-body` wrapper (`data-module`). Its tooltip and
+    note name come from the `block-label` text. Terminals are `@terminal:ID`.
+  - Reference checks use the same metadata (`svgIndex` in `model.js`).
+- **Authoring.** The left pane lists chapters and steps. The right pane edits the selected
+  step or chapter:
+  - title, caption, *Animated hops* or *Chapter overview*, and camera;
+  - hops in order, each with a kind and an optional badge. Clicking a wire on the stage
+    adds it to the selected hop or removes it, and Shift+click starts a new hop;
+  - notes, added by clicking a block or terminal;
+  - timing-strip rows and range when the chapter has a strip (chapter JSON in the chapter view).
+- **References by endpoint.** A hop names wires as `Module.port -> Module.port` (a terminal
+  end is `@terminal:ID`), the same pairs the SVG exposes, never by layout ids. Reordering
+  connections therefore keeps the story. References the diagram does not have are kept:
+  they are marked in the list and editor, counted in the status bar and skipped when playing.
+- **History and storage.**
+  - Undo/Redo (buttons, Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y) apply to the story. Opening a
+    story is one undoable change.
+  - The open diagram is kept in this browser (`blockflow.story.session`), so a reload
+    continues.
+  - Stories are kept per diagram name (`blockflow.story.stories`). Stories from the
+    former Studio Story mode (`blockflow.studio.stories`) are still read.
+  - Ctrl+S saves the story JSON.
+  - The theme follows the Studio's preference.
+- **Playback keys** (outside text fields): ← → steps, R replays, P plays all, A toggles the
+  whole-diagram camera. The wheel zooms and dragging the background pans the stage.
+- **Export.** *Export HTML* (canvas head, Export menu) downloads the page:
+  - player, page shell (`present.js`, `present.css`) and data inlined, with no network
+    access;
+  - sources in `<script type="application/json" id="blockflow-sources">`.
+
+  *Preview* opens the same page in a new tab at the selected step. The page has chapter
+  tabs, the caption, the step list, `#step-N` links, F for full screen and its own dark
+  theme around the white sheet.
+- **Builds.** `story.html` is a second page of the web build. Offline, `npm run
+  build:offline` builds each page into its own folder:
+  - `dist-offline/studio/` and `dist-offline/story/`, each with `index.html`, `app.js`
+    and `style.css`;
+  - `dist-offline/index.html`, which links the two.
+
+  One classic script cannot hold two pages, so `vite.offline.config.js` runs once per page
+  (`--mode story` for the Story editor). It defines where each page finds the other
+  (`../story/index.html`, `../studio/index.html`).
+- **Hand-off messages.** The Studio opens the Story editor tab and listens; the tab asks its
+  opener with `postMessage` and receives the diagram the same way (`handoff.js`). No
+  browser storage is involved, so this also works between the two offline folders under
+  `file://`. A reloaded tab does not ask again; it restores its own session.
+- **Tests** use the Story editor's own Block diagram and story,
+  `tests/fixtures/story/signal-path.json` and `signal-path.story.json`. They contain
+  terminals at both ends, a group and a start Net that fans out over a shared trunk.
+  Coverage: `tests/story/model.test.js` and `e2e/story.spec.js`.
 
 ## Keyboard
 
@@ -435,6 +534,14 @@ src/studio/
     state/store.js         Flowchart store rules (draft key, selection existence)
     state/actions.js       lookups, edge keys, move targets, problem paths
     state/style-schema.js  node/edge style fields, runtime-probed defaults, quick styles
+src/story/                  Story editor (story.html); reuses src/studio/ui and styles
+  main.js, editor.js       entry; StoryEditor: page, files, hand-off, story history, list and step panes
+  handoff.js               Studio → Story editor hand-off (the only file the Studio imports)
+  model.js                 story format, validation, SVG identity index, sources of exported pages
+  player.js, player.css    presentation player shared with the exported page (no imports)
+  present.js, present.css  exported page shell around the player
+  export.js                standalone presentation HTML (inlines player, shell, SVG and sources)
+  story.css                story list, step editor and stage
 ```
 
 Editor support comes from `src/editor/` ([Editor support APIs](editor-runtime.md)): each
@@ -444,8 +551,16 @@ resolves each domain service's `./worker-factory.js` to the sibling
 diagram kind gets its own inline Worker. `e2e/studio.spec.js` covers the Block diagram
 editor, `e2e/flowchart.spec.js` the Flowchart editor and `e2e/statechart.spec.js` the
 Statechart editor (both also cover kind switching), and `e2e/alignment.spec.js` text
-alignment in all three. `e2e/offline.spec.js` (`npm run test:e2e:offline`) opens the
-portable `dist-offline/` folder from `file://` with no network: classic scripts and
-Blob workers, every bundled example of every kind against its converter, downloads,
-file open and drop, separate drafts, unavailable storage, phone width with an axe scan,
-and recovery from a crashed worker.
+alignment in all three. `e2e/story.spec.js` covers the Story editor.
+
+`e2e/offline.spec.js` (`npm run test:e2e:offline`) copies the whole `dist-offline/` folder
+and opens both pages from `file://` with no network. Studio checks:
+- classic scripts and Blob workers;
+- every bundled example of every kind against its converter;
+- downloads, file open and drop;
+- separate drafts and unavailable storage;
+- phone width with an axe scan;
+- recovery from a crashed worker.
+
+Story editor checks: the test diagram against its converter, the story fixture, export
+and reopening the export, and the Studio-to-Story hand-off between the two folders.

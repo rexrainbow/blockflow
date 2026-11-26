@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import sharp from 'sharp';
+import { DOMParser } from '@xmldom/xmldom';
 import { createDiagramModel, layoutDiagram, renderSvg } from '../../src/lib/index.js';
 import { copyLayout, connectionKey } from '../../src/lib/blockchart/view/layout.js';
 import {
@@ -15,7 +16,9 @@ import {
 } from '../../src/editor/blockchart/commands.js';
 import { endpointKey } from '../../src/lib/blockchart/endpoints.js';
 
-const example = JSON.parse(await readFile(new URL('../../examples/blockchart/terminals.json', import.meta.url), 'utf8'));
+const example = JSON.parse(
+  await readFile(new URL('../../examples/blockchart/terminals.json', import.meta.url), 'utf8'),
+);
 const schema = JSON.parse(
   await readFile(new URL('../../schema/blockchart.schema.json', import.meta.url), 'utf8'),
 );
@@ -153,7 +156,9 @@ for (const direction of ['right'])
     assert.equal(connectionKey(layout.connections[0]), '@terminal:DataIn->Processor.data_in');
     const svg = renderSvg(layout);
     assert.equal((svg.match(/data-role="terminal"/g) ?? []).length, 5);
-    assert.ok(!svg.includes('@terminal:'));
+    assert.ok(svg.includes('data-from="@terminal:DataIn"'));
+    const rendered = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    assert.ok(!rendered.documentElement.textContent.includes('@terminal:'));
     assert.ok(svg.includes('<tspan'));
     const png = await sharp(Buffer.from(svg)).png().toBuffer();
     assert.ok(png.length > 0);

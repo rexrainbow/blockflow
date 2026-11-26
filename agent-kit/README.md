@@ -18,7 +18,7 @@ Move this folder to any location. Each converter can run independently; its Sche
 this guide help agents author input. The converters interpret neither screenshots nor
 natural language: an agent translates those sources into Mermaid or domain-specific JSON.
 
-- Blockchart build: `blockchart-agent-kit-2ffebf38bb1286bf8e4f`
+- Blockchart build: `blockchart-agent-kit-c625d92bd8ed00789e87`
 - Flowchart build: `flowchart-agent-kit-7e77070a5e76bde58be4`
 - Statechart build: `statechart-agent-kit-e22450b41f976624cbe2`
 
@@ -51,7 +51,7 @@ license attribution; its full license appears at the end of this README.
 
 ## Blockchart Agent Kit
 
-Build: `blockchart-agent-kit-2ffebf38bb1286bf8e4f`
+Build: `blockchart-agent-kit-c625d92bd8ed00789e87`
 
 Use this kit to turn a screenshot or a text description into editable Blockchart JSON and
 an automatically laid-out SVG. The agent interprets the source and writes JSON; the
@@ -287,6 +287,15 @@ must end in `.json` or `.svg`; an explicit `--format` must match its extension.
 `--check` only validates; it does not perform layout or create files. JSON export validates
 and pretty-prints the original full document, preserving port order, optional omissions,
 labels and styles. It never saves inferred widths, layout coordinates or virtual ports.
+SVG selection metadata supports exported presentations. Blocks and their title/Port
+text carry `data-module`; Port text also carries `data-port`. Branch paths and arrows
+carry `data-connection`, `data-net`, `data-from` and `data-to`. Endpoint strings use
+`Module.port` or `@terminal:ID` and support lookup across authoring-array reorderings.
+A shared path/start arrow lists its owners in `data-connections` and their endpoint
+pairs in JSON `data-endpoints`; the singular attributes describe the first owner.
+Layout branch IDs and generated Net IDs can change across reorderings. Group Ports
+use `data-group` with `data-port`. Attributes preserve the existing SVG drawing.
+
 SVG export uses the same model/layout/renderer as the editor. Export creates parent output
 directories and replaces an existing output file, but refuses to overwrite the input JSON,
 including path aliases. Validation/layout failures leave existing output files untouched.

@@ -308,8 +308,9 @@ the key input. The rename is already applied; Undo restores it and all endpoint 
 
 The desktop toolbar is one 49px row. File is the single owner of New document, Open JSON,
 Save JSON and Load example (the empty preview can also offer its contextual starter).
-Export owns SVG, PNG and the labeled native PNG scale select. Copy JSON (File, Export
-under "Whole diagram source", command palette; no shortcut) copies exactly the Save JSON
+Export owns SVG, PNG and the labeled native PNG scale select. Its "Whole diagram source"
+section repeats Save JSON and Copy JSON to clipboard under the File menu's names. Copy JSON
+(File, Export, command palette; no shortcut) copies exactly the Save JSON
 text for the whole document in any view, confirms with block count and size, and falls back
 to execCommand and then a dialog with the text selected when the clipboard is blocked. Undo/Redo, view cycling and
 Layout settings remain directly accessible. There is no workspace caption or global footer.
@@ -344,9 +345,10 @@ SVG/PNG use the resulting geometry without editor controls. Numeric priorities a
 
 ## Offline browser runtime
 
-The offline build uses the same editor, tokens and controls. Deliver the entire dist-offline
-folder (index.html, app.js, style.css); users open index.html directly, without a server or
-network connection. There is no new export-menu action or embedded current-document snapshot.
+The offline build uses the same editors, tokens and controls. Deliver the entire dist-offline
+folder: its index.html links studio/ and story/, each holding index.html, app.js and style.css.
+Users open any of these index.html files directly, without a server or network connection; the
+two pages find each other as sibling folders. Neither page embeds a current-document snapshot.
 The normal default example and Open JSON are the entry workflow. Brand navigation explicitly
 uses ./index.html, including when opened from a local folder.
 
@@ -705,3 +707,17 @@ Default visibility/arrows move out of Layout settings into Defaults, with one na
 shortcut in Layout settings. Edit defaults reveals the workspace in Split mode when invoked
 from Preview-only mode and focuses the Defaults tab. The document schema and agent kit
 share the same hierarchy.
+
+## Story editor
+
+Presentations are authored in the separate Story editor page (story.html), never inside the
+Studio. The Studio offers Export › Open in Story editor for the whole Block diagram and hands
+story files and exported presentations over instead of opening them as diagrams. The Story
+editor reads a Block diagram and never edits it. It writes a story JSON naming its diagram and
+exports one offline HTML file carrying the player, the drawn SVG and both sources; opening that
+file in the Story editor restores both for editing. Undo/Redo apply to the story. The stage,
+the exported page and Preview run one shared player, so authoring shows what the audience
+sees. Stories refer to wires by endpoints and keep references the diagram lacks, marked and
+skipped when playing. The player selects wires, arrows and blocks only through the rendered
+SVG identity metadata and draws over the unchanged runtime SVG, including every owner of a
+shared path.

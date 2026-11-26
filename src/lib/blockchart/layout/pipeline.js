@@ -13,6 +13,8 @@ import { adjustPorts } from './port-adjustment.js';
 import { finalizeLayout } from './finalize.js';
 import { routeWorkingConnections, routeSemanticConnections } from './routing-policy.js';
 import { alignPeripheralGroups } from './peripheral-alignment.js';
+import { compactMovedFrames, canRepackRoot } from './frame-compaction.js';
+import { evaluateRoutedTrial } from './routing-trial.js';
 
 // Required stage order. Working signal nodes survive through placement and routing.
 // These phases are deliberately explicit: route repairs within a phase are needed
@@ -35,8 +37,23 @@ async function placeNodes({ result, model, elk, grid }) {
 }
 
 /** Refine geometry with bounded route trials; owned signal nodes move with owners. */
-function refineAnchors({ result, model, grid }) {
-  if (grid) alignPeripheralGroups(result, model);
+async function refineAnchors({ result, model, grid, elk }) {
+  if (grid) {
+    const before = new Map(
+      result.groups.map((g) => [g.id, { x: g.x, y: g.y, width: g.width, height: g.height }]),
+    );
+    if (alignPeripheralGroups(result, model)) {
+      const trial = structuredClone(result);
+      if (compactMovedFrames(trial, model, before)) {
+        try {
+          if (canRepackRoot(model)) await arrangeGrids(trial, model, elk, { rootOnly: true });
+          if (evaluateRoutedTrial(trial, model, { reason: 'frame-compaction' })) Object.assign(result, trial);
+        } catch {
+          // Optional repacking keeps the already-routed placement on failure.
+        }
+      }
+    }
+  }
   if (planAutoChannels(result, model)) routeFixed(result, model);
   alignTerminals(result, model);
   alignReceivers(result, model);
@@ -66,7 +83,7 @@ export async function layoutPass(input, receivers) {
     model.groups.some((group) => !group.collapsed && group.layout?.type === 'grid');
   const context = { model, elk, result, grid };
   await placeNodes(context);
-  refineAnchors(context);
+  await refineAnchors(context);
   routeConnections(context);
   return completeLayout(context);
 }

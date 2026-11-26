@@ -8,8 +8,8 @@ import { resolveLayoutSpacing } from '../layout-spacing.js';
 import { containerExitMargins } from './container-spacing.js';
 
 /** Arrange existing node envelopes; callers must reroute connections afterwards. */
-export async function arrangeGrids(result, model, elk) {
-  result._gridChannels = [];
+export async function arrangeGrids(result, model, elk, { rootOnly = false } = {}) {
+  result._gridChannels = rootOnly ? (result._gridChannels ?? []).filter((c) => c.owner !== '') : [];
   // Derive against semantic members before signal wrappers replace cell IDs.
   // Plans live only for this pass and are never added to config or model.
   const semantic = model._signalOriginal ?? model,
@@ -355,8 +355,10 @@ export async function arrangeGrids(result, model, elk) {
         );
       }
   }
-  prepare(roots, model.rootGroupId ? undefined : model.layout, '');
-  for (const n of roots) await group(n.id);
+  if (!rootOnly) {
+    prepare(roots, model.rootGroupId ? undefined : model.layout, '');
+    for (const n of roots) await group(n.id);
+  }
   await place(
     roots,
     model.rootGroupId ? undefined : model.layout,

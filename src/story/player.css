@@ -1,0 +1,376 @@
+/* Presentation player: Studio Story mode and the exported presentation share this file.
+   Studio tokens apply when present; the fallbacks are the exported page's light theme.
+   The diagram sheet itself always stays white, like every export. */
+.pv-root {
+  --pv-event: #2563eb;
+  --pv-level: #059669;
+  --pv-data: #7c3aed;
+  --pv-control: #dc2626;
+  --pv-surface: var(--surface, #ffffff);
+  --pv-ink: var(--ink, #1b1f24);
+  --pv-muted: var(--muted, #5f6b7a);
+  --pv-border: var(--border, #dde1e6);
+  --pv-hover: var(--surface-hover, #f4f5f7);
+  --pv-accent: var(--accent, #2457d6);
+  --pv-band: var(--selection, #eef3fe);
+  --pv-chip: #111827;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  background: var(--pv-surface);
+  color: var(--pv-ink);
+  font-family: var(--font-ui, 'Segoe UI', 'Microsoft JhengHei', 'Noto Sans TC', system-ui, sans-serif);
+}
+.pv-stage {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  background: #ffffff;
+  cursor: grab;
+  touch-action: none;
+}
+.pv-stage.pv-panning {
+  cursor: grabbing;
+}
+.pv-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+}
+.pv-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #5f6b7a;
+  font-size: 14px;
+  padding: 16px;
+  text-align: center;
+}
+.pv-placeholder[hidden],
+.pv-tip[hidden],
+.pv-wave[hidden] {
+  display: none;
+}
+.pv-tip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--pv-chip);
+  color: #ffffff;
+  font-size: 12.5px;
+  line-height: 1.45;
+  padding: 7px 10px;
+  border-radius: 6px;
+  white-space: pre-line;
+  max-width: 340px;
+}
+
+/* Overlay inside the diagram SVG */
+.pv-dim {
+  fill: #ffffff;
+  fill-opacity: 0.86;
+  transition: fill-opacity 0.2s;
+}
+.pv-edit-mode .pv-dim {
+  fill-opacity: 0.62; /* authors still see the wires they may pick */
+}
+.pv-dim.pv-off,
+.pv-edit-mode .pv-dim.pv-off {
+  fill-opacity: 0;
+}
+.pv-glow,
+.pv-core,
+.pv-trail,
+.pv-outline,
+.pv-burst,
+.pv-dot,
+.pv-badge rect,
+.pv-wire-hit {
+  vector-effect: non-scaling-stroke;
+}
+.pv-glow {
+  fill: none;
+  stroke-width: 11;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.2;
+}
+.pv-glow.pv-edit {
+  opacity: 0.45;
+  stroke-width: 14;
+}
+.pv-core {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pv-core.pv-dimmed {
+  opacity: 0.45;
+}
+.pv-flow {
+  animation: pv-flow 0.9s linear infinite;
+}
+@keyframes pv-flow {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+.pv-trail {
+  fill: none;
+  stroke-width: 2.4;
+  opacity: 0.45;
+  stroke-linejoin: round;
+}
+.pv-outline {
+  fill: none;
+  stroke: #334155;
+  stroke-width: 2.5;
+}
+.pv-pulse {
+  animation: pv-pulse 0.7s ease-out 2;
+}
+@keyframes pv-pulse {
+  0% {
+    stroke-width: 9;
+    stroke-opacity: 0.35;
+  }
+  100% {
+    stroke-width: 2.5;
+    stroke-opacity: 1;
+  }
+}
+.pv-dot {
+  fill: #ffffff;
+  stroke-width: 3;
+}
+.pv-burst {
+  fill: none;
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pv-burst 0.6s ease-out forwards;
+}
+@keyframes pv-burst {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(5);
+    opacity: 0;
+  }
+}
+.pv-chip {
+  opacity: 0;
+  animation: pv-in 0.35s ease-out forwards;
+}
+@keyframes pv-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pv-chip rect {
+  fill: var(--pv-chip);
+}
+.pv-chip text {
+  fill: #ffffff;
+  font: 600 13px 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  dominant-baseline: central;
+  text-anchor: middle;
+}
+.pv-badge rect {
+  fill: #ffffff;
+  stroke-width: 1.5;
+}
+.pv-badge text {
+  font-size: 12px;
+}
+.pv-hit {
+  fill: transparent;
+  pointer-events: all;
+  cursor: help;
+}
+.pv-wire-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.pv-wire-hit:hover {
+  stroke: rgba(36, 87, 214, 0.35);
+}
+.pv-edit-mode .pv-module-hit {
+  cursor: pointer;
+}
+.pv-edit-mode .pv-module-hit:hover {
+  fill: rgba(36, 87, 214, 0.06);
+}
+
+/* Timing strip */
+.pv-wave {
+  display: block;
+  width: 100%;
+  background: var(--pv-surface);
+  border-top: 1px solid var(--pv-border);
+}
+.pv-wave-band {
+  fill: var(--pv-band);
+}
+.pv-wave-grid {
+  stroke: var(--pv-border);
+}
+.pv-wave-bit {
+  font-size: 12px;
+  fill: var(--pv-muted);
+  text-anchor: middle;
+}
+.pv-wave-name {
+  font-size: 12.5px;
+  fill: var(--pv-ink);
+  dominant-baseline: central;
+}
+.pv-wave-row.pv-on .pv-wave-name {
+  font-weight: 600;
+}
+.pv-wave-row.pv-off {
+  opacity: 0.28;
+}
+.pv-wave-line {
+  fill: none;
+  stroke: var(--pv-muted);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.pv-wave-row.pv-on .pv-wave-line {
+  stroke: var(--pv-ink);
+}
+.pv-wave-tick {
+  stroke: var(--pv-event);
+  stroke-width: 2;
+}
+.pv-wave-tick-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  fill: var(--pv-event);
+  dominant-baseline: central;
+}
+.pv-wave-head {
+  stroke: var(--pv-event);
+  stroke-width: 2;
+}
+
+/* Playback controls */
+.pv-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--pv-border);
+  background: var(--pv-surface);
+  min-width: 0;
+}
+.pv-btn,
+.pv-select {
+  height: 30px;
+  border: 1px solid var(--pv-border);
+  border-radius: 6px;
+  background: var(--pv-surface);
+  color: var(--pv-ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.pv-btn {
+  cursor: pointer;
+  min-width: 34px;
+}
+.pv-btn:hover:not(:disabled) {
+  background: var(--pv-hover);
+}
+.pv-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.pv-btn[aria-pressed='true'] {
+  background: var(--pv-ink);
+  border-color: var(--pv-ink);
+  color: var(--pv-surface);
+}
+.pv-btn:focus-visible,
+.pv-select:focus-visible,
+.pv-dot-btn:focus-visible {
+  outline: 2px solid var(--pv-accent);
+  outline-offset: 2px;
+}
+.pv-progress {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 30px;
+  min-width: 60px;
+}
+.pv-dot-btn {
+  flex: 1;
+  height: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--pv-border);
+  cursor: pointer;
+}
+.pv-dot-btn.pv-done {
+  background: #9db7f3;
+}
+.pv-dot-btn[aria-current='true'] {
+  background: var(--pv-accent);
+  height: 10px;
+}
+.pv-gap {
+  width: 10px;
+  flex: none;
+}
+.pv-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--pv-muted);
+  font-size: 13px;
+  min-width: 4em;
+  text-align: right;
+}
+@media (max-width: 700px) {
+  .pv-controls {
+    flex-wrap: wrap;
+  }
+  .pv-progress {
+    order: 9;
+    flex-basis: 100%;
+    height: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-flow,
+  .pv-pulse,
+  .pv-chip {
+    animation: none;
+    opacity: 1;
+  }
+  .pv-burst {
+    display: none;
+  }
+}

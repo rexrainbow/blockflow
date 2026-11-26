@@ -3,6 +3,14 @@ import { TEXT_STYLE } from '../../lib/blockchart/styles.js';
 import { scopeModel } from '../../lib/blockchart/layout/scope.js';
 import { visibleModel } from '../../lib/blockchart/layout/visibility.js';
 import { receiverLabels, signalModel } from '../../lib/blockchart/layout/signals.js';
+import { createDiagramModel } from '../../lib/blockchart/model.js';
+import { moduleGeometry, textBounds } from '../../lib/blockchart/geometry.js';
+import {
+  rectangleContains,
+  rectanglesOverlap,
+  sectionSegments,
+  segmentStrokeBounds,
+} from '../../lib/blockchart/layout/routing-geometry.js';
 
 const text = ['color', 'opacity', 'backgroundColor', 'backgroundOpacity', 'textAlign'];
 const body = ['fillColor', 'borderColor', 'fillOpacity', 'borderOpacity', 'borderStyle'];
@@ -21,6 +29,29 @@ function stripStyle(owner, key, fields, textSlots = []) {
 // Retain literal keys wherever layout can use them as text or internal routing IDs.
 export function geometryKey(document) {
   const copy = structuredClone(document);
+  let model;
+  try {
+    model = createDiagramModel(document);
+  } catch {
+    // Invalid drafts have no reusable geometry; the Worker reports validation.
+    return JSON.stringify(document);
+  }
+  for (const [i, node] of copy.modules.entries()) {
+    if (
+      node.type === 'concat' ||
+      (node.appearance?.type ?? 'rectangle') !== 'rectangle' ||
+      (node.ports ?? []).some((p) => p.side)
+    )
+      continue;
+    const geometry = moduleGeometry(model.modules[i], model.layout.direction);
+    // Port identities retain the existing rename rules; geometry follows slot order.
+    geometry.portPoints = model.modules[i].ports.map((p) => geometry.portPoints[p.id]);
+    if (geometry.portLabels)
+      geometry.portLabels = model.modules[i].ports.map((p) => geometry.portLabels[p.id]);
+    node._paintGeometry = geometry;
+    if (node.label !== undefined) node.label = '#measured-label';
+    for (const port of node.ports ?? []) if (port.label !== undefined) port.label = '#measured-label';
+  }
   const nodes = [...copy.modules, ...(copy.groups ?? [])];
   const ids = new Map(),
     endpoints = new Map();
@@ -135,16 +166,57 @@ export function repaintLayout(previous, model, oldModel = model, rootGroupId = p
       node.id = rename(node.id);
       const ref = refs.get(node.id);
       node.style = structuredClone(ref.style);
+      if (type === 'modules') {
+        node.label = ref.label;
+        node.labelBounds = textBounds(node.label, node.labelPosition, node.style.label);
+      }
       if (ref.portLabelStyle) node.portLabelStyle = structuredClone(ref.portLabelStyle);
       for (const [i, p] of node.ports.entries()) {
         p.id = ref.ports[i].id;
         p.style = structuredClone(ref.ports[i].style);
+        if (type === 'modules') {
+          p.displayName = ref.ports[i].displayName;
+          p.labelBounds = p.style.hidden
+            ? { x: p.x, y: p.y, width: 0, height: 0 }
+            : textBounds(p.displayName, p.labelPosition, p.style);
+        }
       }
       if (renamed.size && node.members) {
         node.members = node.members.map(rename);
         node.blockIds = node.blockIds.map(rename);
         if (node.layout?.cells) node.layout.cells = node.layout.cells.map((row) => row.map(rename));
       }
+    }
+  }
+  // A changed text envelope must fit its owner and introduce no text/wire contact.
+  for (const [i, node] of layout.modules.entries()) {
+    const old = previous.modules[i];
+    const labels = [node, ...node.ports],
+      before = [old, ...old.ports];
+    for (const [j, label] of labels.entries()) {
+      if (
+        (j ? label.displayName === before[j].displayName : label.label === before[j].label) ||
+        label.style.hidden ||
+        (!j && node.style.label.hidden)
+      )
+        continue;
+      const box = label.labelBounds;
+      if (!rectangleContains(node, box)) return null;
+      if (
+        labels.some(
+          (other, k) =>
+            k !== j &&
+            !(k ? other.style.hidden : node.style.label.hidden) &&
+            rectanglesOverlap(box, other.labelBounds) &&
+            !rectanglesOverlap(before[j].labelBounds, before[k].labelBounds),
+        )
+      )
+        return null;
+      for (const edge of layout.connections)
+        for (const segment of sectionSegments(edge.sections)) {
+          const wire = segmentStrokeBounds(...segment, edge.style.strokeWidth / 2);
+          if (rectanglesOverlap(box, wire) && !rectanglesOverlap(before[j].labelBounds, wire)) return null;
+        }
     }
   }
   const terminals = new Map((view.terminals ?? []).map((t) => [t.id, t]));

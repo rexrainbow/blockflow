@@ -3,28 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#2457d6" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#121926" media="(prefers-color-scheme: dark)" />
-    <meta
-      name="description"
-      content="Create hardware blocks and port connections, preview your diagram and export SVG or PNG."
-    />
-    <title>blockflow Studio</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%232457d6'/%3E%3Cpath d='M10 10v20m0-10h20V10m0 10v10' stroke='white' stroke-width='3' fill='none'/%3E%3C/svg%3E"
-    />
-    <script>
-      // Apply the saved theme before first paint to avoid a light/dark flash.
-      try {
-        var t = JSON.parse(localStorage.getItem('blockflow.studio.prefs') || '{}').theme;
-        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-      } catch (e) {}
-    </script>
-    <script defer src="./app.js"></script>
-    <link rel="stylesheet" href="./style.css">
+    <title>blockflow offline</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-content: center; gap: 16px; padding: 24px;
+        font: 15px/1.5 'Segoe UI', system-ui, sans-serif; color: #1b1f24; background: #f4f5f7; }
+      h1 { margin: 0; font-size: 20px; }
+      a { display: block; padding: 14px 18px; border: 1px solid #dde1e6; border-radius: 8px; background: #fff;
+        color: inherit; text-decoration: none; max-width: 420px; }
+      a:hover { border-color: #2457d6; }
+      strong { color: #2457d6; }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e6e9ee; background: #121926; }
+        a { background: #1b2433; border-color: #2c3748; }
+        strong { color: #8fb0ff; }
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <h1>blockflow offline</h1>
+    <a href="./studio/index.html"><strong>Studio</strong><br />Edit Block diagrams, flowcharts and statecharts.</a>
+    <a href="./story/index.html"><strong>Story editor</strong><br />Present a Block diagram step by step and export one HTML page.</a>
   </body>
 </html>

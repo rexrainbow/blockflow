@@ -1,5 +1,5 @@
 import { h, fill, modKey, singleLine } from '../ui/dom.js';
-import { showMenu } from '../ui/controls.js';
+import { showMenu, button } from '../ui/controls.js';
 import { StudioShell } from '../core/shell.js';
 import { Store } from './state/store.js';
 import { Canvas } from './components/canvas.js';
@@ -30,6 +30,7 @@ import {
   moveTargets,
 } from './state/actions.js';
 import { EXAMPLES } from './examples.js';
+import { openInStoryEditor } from '../../story/handoff.js';
 
 /** Block diagram (Blockchart) editor session. */
 export class BlockchartStudio extends StudioShell {
@@ -58,6 +59,41 @@ export class BlockchartStudio extends StudioShell {
     this.outline = new Outline(this.store, cb);
     this.inspector = new Inspector(this.store, cb);
     this.layoutService = new LayoutService((result) => this.onLayout(result));
+  }
+
+  /* ---------------- presentations (Story editor) ---------------- */
+  /** Opens the Story editor in a new tab with this whole diagram (and a story or page, if given). */
+  openStoryEditor(extra = {}) {
+    if (!this.store.document.modules.length) return this.notify('Add blocks before making a presentation.', 'error');
+    if (!openInStoryEditor({ diagram: this.store.document, ...extra }))
+      this.notify('The browser blocked the Story editor tab. Allow pop-ups for this page, then try again.', 'error');
+  }
+
+  exportExtras() {
+    return ['-', { heading: 'Presentation of the whole diagram' }, { label: 'Open in Story editor', icon: 'enter', action: () => this.openStoryEditor() }];
+  }
+
+  /** Story files and exported presentations belong to the Story editor; offer it instead. */
+  async openFile(file) {
+    if (file && /\.(json|html?)$/i.test(file.name)) {
+      const text = await file.text().catch(() => '');
+      let value = null;
+      if (/\.json$/i.test(file.name))
+        try {
+          value = JSON.parse(text);
+        } catch {
+          value = null;
+        }
+      const story = value && typeof value === 'object' && (value.format === 'blockflow-story' || (Array.isArray(value.chapters) && !Array.isArray(value.modules)));
+      if (story || /\.html?$/i.test(file.name)) {
+        const extra = story ? { story: value, name: file.name } : { html: text, name: file.name };
+        return this.notify(`${file.name} is a presentation. Presentations are edited in the Story editor.`, 'info', {
+          label: 'Open Story editor',
+          run: () => this.openStoryEditor(extra),
+        });
+      }
+    }
+    return super.openFile(file);
   }
 
   emptyDocument() {
@@ -137,6 +173,7 @@ export class BlockchartStudio extends StudioShell {
     const sel = this.store.selection;
     const has = (t) => sel?.type === t;
     return [
+      { group: 'Presentation', label: 'Make a presentation in the Story editor', icon: 'enter', run: () => this.openStoryEditor() },
       { group: 'Create', label: 'Add block', icon: 'block', shortcut: 'B', run: () => this.run('add-block') },
       { group: 'Create', label: 'Add group', icon: 'group', shortcut: 'G', run: () => this.run('add-group') },
       { group: 'Create', label: 'Add external input', icon: 'terminal', run: () => this.run('add-input') },

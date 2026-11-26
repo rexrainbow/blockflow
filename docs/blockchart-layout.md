@@ -484,10 +484,28 @@ from Block/group Ports, not Terminal sources.
 
 After Grid placement and its fixed-route repair, `peripheral-alignment.js` refines
 small ordinary Auto leaf Containers beside Grid siblings. It uses actual Port
-anchors rather than the pre-Grid compound-node positions. Right flow adjusts Y;
-Down flow adjusts X. Explicit Grid participants (including children in an expanded
-cross-group Grid), Grid ordering, Grid node geometry, source models and parent
-frames are unchanged by this phase. Downstream Port adjustment can still tune
+anchors rather than the pre-Grid compound-node positions. Tangent alignment adjusts
+Y for Right flow and X for Down flow. Explicit Grid participants (including children
+in an expanded cross-group Grid), Grid ordering, Grid node geometry and source
+models retain their geometry. Parent frames retain their dimensions during tangent
+alignment; the downstream candidate described below may grow Auto ancestors.
+After accepted moves, `frame-compaction.js` remeasures affected ordinary Auto
+ancestor frames along the tangent axis. It preserves the existing origin, authored
+minimum size, title/padding and child exit margins while reclaiming obsolete extent.
+Grid-owning, Boundary/Collection/collapsed and Port-bearing frames are protected,
+as are frames expanded by a cross-group Grid and frames below an explicit Grid.
+
+Where the root Grid contains whole participants, the existing Grid placer repacks
+only that root using current envelope sizes. Nested Grid geometry and internal
+Container arrangements are retained, and root row/column gap and channel budgets
+are recalculated. Nested channel plans keep live node references as entire root
+subtrees move. Root grids with expanded cross-group participants retain their
+existing track placement. Scoped views remeasure eligible frames without applying
+the document's root Grid. Repacking and fixed-route repair run on a disposable
+copy; a failed trial retains the accepted pre-compaction layout. Full working and
+semantic routing continue afterwards against the compacted frames.
+
+Downstream Port adjustment can still tune
 Ports using the existing rules.
 
 Eligible Containers have one to four ordinary Block members and at least one
@@ -524,6 +542,52 @@ spacing and anchor-improvement checks apply. Both routing trials include the
 other wires. A trial that increases total working-route length is discarded, as
 is one that introduces the first crossing or the first foreign-Net overlap.
 If both trials fail, the group keeps its previous placement.
+
+A small Auto Container displaced below a sibling Grid's flow band can also try
+one rigid downstream position. Right flow offers the Grid's right side; Down
+flow offers its bottom side. Left flow retains tangent alignment. The offer
+preserves internal geometry and uses the same constraining-anchor median for
+its tangent coordinate. Constraining Ports with explicit sides transverse to the
+main flow retain tangent alignment. It does not override explicitly pinned Containers.
+
+Placement-enabled direct branches also establish dependencies between sibling
+Auto Containers. The refinement processes upstream Containers before downstream
+ones, preserving authored order wherever dependencies allow. An eligible Auto
+Container anchored to a Grid can then act as a Port-anchor peer for its directly
+connected downstream Auto Container. This propagates along a chain within the
+same parent; standalone Auto diagrams retain their existing behavior. Cyclic
+Auto dependencies do not impose ordering or provide additional peer anchors.
+
+Dependency order and target Port coordinates use the normalized per-branch
+`constraint` value. A branch with `constraint: false` does not establish a
+dependency, including when other destinations of its Net enable Placement.
+Disabled branches still participate in route validation and route quality, so
+they may reject an unsafe candidate. Changing Placement can also change ELK's
+initial geometry; disabling a dependency does not pin the affected Containers.
+
+For downstream Auto-to-Auto offers, route quality is measured on disposable
+copies after `finishSignals` and the semantic route policies. Synthetic signal
+segments can otherwise make a shorter, clearer Net appear worse when a label
+changes the upstream frame's width. The committed candidate keeps its working
+signal nodes for subsequent pipeline phases. Restoration failure rejects the
+optional offer and retains tangent fallback. A zero-overlap candidate that also
+shortens the restored routes is accepted immediately after passing the crossing
+guard; otherwise the second overlap-aware alternative can still be tried.
+
+Ordinary Auto ancestor frames may grow along the flow axis to contain this
+candidate. Growth is rejected at a Grid-owning ancestor, an unrelated obstacle,
+a visible Terminal label or a sibling-frame collision. Existing Grid nodes,
+other siblings and their authored cells retain their positions. The enclosing
+root Grid participant's frame may widen or deepen where other participants leave
+space; the root Grid cells retain their order.
+
+The baseline and the side candidate receive full working-route repair. At most
+two routing alternatives are tried at this one side position, sharing identical
+searches. A candidate must not increase either foreign-Net overlaps or crossings.
+Survivors rank overlaps, crossings, total length and bends lexicographically and
+must improve on the baseline. Thus fewer conflicts can justify a longer drawing.
+Failure retains the existing tangent-alignment behavior. These measurements apply
+to working routes; subsequent semantic cleanup can change final route counts.
 
 For fully anchored groups, only the best two geometrically feasible plans
 per group are tried, each with ordinary and optional overlap-aware routing. Each
@@ -843,3 +907,57 @@ visible to the next wire's evaluation.
   layout DTO (including geometry and routes) and the SVG against a fresh full
   layout of the same document and view. Paint-only edits use the existing
   [paint-only runtime contract](editor-runtime.md#paint-only-blockchart-edits).
+
+## Rendered SVG identity contract
+
+`renderSvg(layout, { idPrefix })` adds selection metadata to the existing drawing.
+The Worker, Studio SVG export and Agent Kit converter use this same renderer.
+For the same layout and `idPrefix`, `renderSvg()` returns identical SVG text.
+Worker replies use that text directly. The Agent Kit converter appends its existing
+single trailing newline, so `convertDiagram(...).text === renderSvg(layout) + '\n'`.
+Consumers can
+style the actual SVG elements without reconstructing geometry.
+
+| Element                   | Identity attributes                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Branch section path       | `data-role="connection-path"`, `data-connection`, `data-net`, `data-from`, `data-to`                     |
+| End/start arrow polygon   | Existing `connection-arrow` / `connection-start-arrow` role plus the same branch/Net/endpoint attributes |
+| Block body                | `data-module` on its `block` rect or `block-body` shape wrapper                                          |
+| Block title               | `data-role="block-label"` and `data-module` on the text                                                  |
+| Block Port text           | `data-role="port-label"`, `data-module`, `data-port`                                                     |
+| Group title               | `data-role="group-label"`, `data-group`                                                                  |
+| Group Port marker/text    | Existing `group-port` marker or `port-label` text with `data-group`, `data-port`                         |
+| Text background           | Existing `label-background` role plus the associated object identity                                     |
+| Net label, leader, anchor | Existing roles plus branch/Net/endpoint attributes; label text uses `connection-label-text`              |
+
+Ordinary Block Ports are represented by their existing labels and body attachment
+coordinates; the renderer adds no marker geometry. Appearance shapes and multiline
+`tspan` children inherit identity through their containing element. Collapsed Groups
+retain their existing `data-group` identity. Terminals retain `data-terminal`.
+
+`data-from` and `data-to` use the semantic endpoint form `Module.port`, including
+Group Ports. Terminals use `@terminal:ID`. Branch IDs such as
+`connection_3_branch_0` are layout identities and can change when authoring arrays
+are reordered. Endpoint pairs supply order-independent branch lookup. `data-net`
+is the layout Net ID, preserving an authored Net ID where supplied. Generated Net
+IDs are scoped to that layout. Attributes are XML-escaped; DOM `getAttribute()`
+returns the decoded strings. Minimal handcrafted layouts without semantic endpoints
+omit endpoint attributes.
+
+Each Connection section produces one path. The renderer deduplicates identical
+path geometry within the same Net, preserving the existing paint/mask behavior.
+Thus path counts can exceed branch counts. Inline label masks hide ink without
+splitting paths; separate label leaders also contribute paths.
+
+A shared path or shared start arrow has `data-connection` identifying its first
+rendered branch and `data-connections` listing every owner separated by spaces.
+`data-endpoints` contains a JSON array of `{ "from": "Module.port", "to": "Module.port" }`
+objects in the same order as that owner list. Shared Net labels expose the same
+owner metadata. Consumers highlighting one branch must include shared elements
+whose owner list contains that branch. `data-from`/`data-to` describe the first
+owner; use `data-endpoints` to find all shared endpoint pairs. Junctions retain their
+existing `data-net` and `data-connections` contract.
+
+All body, text, path and arrow coordinates, masks, styles, paint order and path
+sharing behavior remain those of the supplied layout. Metadata is derived at
+render time and is never persisted into authoring JSON.

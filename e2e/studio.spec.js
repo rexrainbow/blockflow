@@ -428,7 +428,9 @@ test('Copy JSON puts exactly the saved file on the clipboard, from any view', as
   await ready(page);
   await page.getByRole('button', { name: 'Export' }).click();
   await expect(page.locator('.menu')).toContainText('Whole diagram source');
-  await page.getByRole('menuitem', { name: 'Copy JSON' }).click();
+  // Same names as in the File menu: one action, one name.
+  await expect(page.getByRole('menuitem', { name: 'Save JSON', exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Copy JSON to clipboard', exact: true }).click();
   await expect.poll(clipboard).toBe(saved);
 
   // Command palette.
@@ -1593,4 +1595,46 @@ test('Appearance edits and labelled key renames reuse layout; the view follows a
   await commit(`(d) => { d.groups[0].style.fillColor = '#fde68a'; }`);
   await parity();
   expect(await hints()).toEqual([true]);
+});
+
+test('presentations open in the Story editor: no Story mode here, Export hands the whole diagram over', async ({
+  page,
+  context,
+}) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await expect(page.locator('[data-fid="mode-story"]')).toHaveCount(0);
+  await expect(page.locator('.story-stage, .story-pane')).toHaveCount(0);
+  const doc = await page.evaluate(() => window.__studio.store.document);
+
+  // Export › Open in Story editor: a new tab with this diagram, laid out by the Block runtime.
+  await page.evaluate((g) => window.__studio.enterGroup(g), doc.groups?.[0]?.id ?? '');
+  await page.getByRole('button', { name: 'Export' }).click();
+  await expect(page.locator('.menu')).toContainText('Presentation of the whole diagram');
+  const [story] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('menuitem', { name: 'Open in Story editor' }).click(),
+  ]);
+  await story.waitForFunction(() => window.__story?.layout && !window.__story.layoutPending, null, {
+    timeout: 30000,
+  });
+  expect(new URL(story.url()).pathname).toMatch(/\/story\.html$/);
+  expect(await story.evaluate(() => JSON.stringify(window.__story.diagram))).toBe(JSON.stringify(doc));
+  const reference = await convertDiagram(doc, { format: 'svg' });
+  expect(await story.evaluate(() => window.__story.layout.svg)).toBe(reference.text.trimEnd());
+  await story.close();
+
+  // A story file is not a diagram: the Studio keeps its diagram and offers the Story editor.
+  const storyFile = { format: 'blockflow-story', title: 'T', chapters: [{ title: 'C', steps: [] }] };
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'demo.story.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(storyFile)),
+  });
+  await expect(page.locator('.toast').first()).toContainText('Presentations are edited in the Story editor');
+  await expect(
+    page.locator('.toast').first().getByRole('button', { name: 'Open Story editor' }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => JSON.stringify(window.__studio.store.document))).toBe(JSON.stringify(doc));
+  expect(errors).toEqual([]);
 });

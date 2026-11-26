@@ -1,0 +1,1322 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "TGEN2 Bidirectional DShot",
+    "style": {
+      "module": {
+        "fillColor": "#ffffff",
+        "borderColor": "#64748b"
+      },
+      "connection": {
+        "strokeColor": "#7d7d7d",
+        "endArrow": "triangle",
+        "label": {
+          "repeatAtEnd": "never"
+        }
+      }
+    }
+  },
+  "modules": [
+    {
+      "id": "TriggerDone",
+      "label": "TX · TriggerDone · TP 1\nINIT=15 · SAMP=0 · SKIP=15",
+      "ports": [
+        {
+          "id": "waveform",
+          "direction": "input",
+          "width": 1,
+          "label": "Bit reference"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "17th rising edge"
+        }
+      ]
+    },
+    {
+      "id": "TXGluelogic0",
+      "label": "Gluelogic0 · Pass A",
+      "ports": [
+        {
+          "id": "in",
+          "direction": "input",
+          "width": 1,
+          "label": "TimerBitPeriod.waveform"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        }
+      ]
+    },
+    {
+      "id": "TXTrigOutput0",
+      "label": "TrigOutput0\nSEL=1",
+      "ports": [
+        {
+          "id": "src",
+          "direction": "input",
+          "width": 1,
+          "label": "Gluelogic0"
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "width": 1,
+          "label": "TOUT"
+        }
+      ]
+    },
+    {
+      "id": "FIFO0",
+      "label": "TX · FIFO0 · Unit 1\n10 for bit 0 · 00 for bit 1",
+      "ports": [
+        {
+          "id": "sample",
+          "direction": "input",
+          "width": 1,
+          "label": "Shift"
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "width": 1,
+          "label": "Stop"
+        },
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 32,
+          "label": "FIFODATA0"
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "width": 1,
+          "label": "TOUT"
+        }
+      ]
+    },
+    {
+      "id": "OVlOutTimer0",
+      "label": "FC.TX · Overlay output 0\nBit reference",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "pad",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    },
+    {
+      "id": "OVlOutFIFO0",
+      "label": "FC.TX · Overlay output 1\nDShot waveform",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "dir",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "pad",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    },
+    {
+      "id": "OVlInTimer0",
+      "label": "ESC.RX · Overlay input 16\nBit reference",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "label": "In 16",
+          "width": 1
+        },
+        {
+          "id": "output",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        },
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "OVlInFIFO0",
+      "label": "ESC.RX · Overlay input 17\nDShot waveform",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "label": "In 17",
+          "width": 1
+        },
+        {
+          "id": "output",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        },
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "ESCRXTriggerSampleInput",
+      "label": "ESC.RX · TriggerSampleInput · TP 0\nSRC=32 · SAMP=15 · SKIP=0",
+      "ports": [
+        {
+          "id": "overlay",
+          "direction": "input",
+          "width": 1,
+          "label": "Bit reference"
+        },
+        {
+          "id": "sample",
+          "direction": "output",
+          "width": 1,
+          "label": "First 16 rising edges"
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "ESCTXTimer0",
+      "label": "TX · Timer0 · Unit 2\n21 cycles",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input"
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "label": "TOUT",
+          "width": 1
+        }
+      ]
+    },
+    {
+      "id": "ESCTXFIFO0",
+      "label": "TX · FIFO0 · Unit 1\n21 NRZI levels",
+      "ports": [
+        {
+          "id": "sample",
+          "direction": "input",
+          "label": "Sample / TEN",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop / CEN",
+          "width": 1
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "label": "OUT",
+          "width": 1
+        },
+        {
+          "id": "dir",
+          "direction": "output",
+          "label": "DIR",
+          "width": 1
+        }
+      ]
+    },
+    {
+      "id": "ESCTXTriggerSample",
+      "label": "TX · TriggerSample · TP 2",
+      "ports": [
+        {
+          "id": "waveform",
+          "direction": "input",
+          "label": "Timer TOUT",
+          "width": 1
+        },
+        {
+          "id": "rise",
+          "direction": "output",
+          "label": "Every rising edge",
+          "width": 1
+        }
+      ]
+    },
+    {
+      "id": "ESCTXTriggerDone",
+      "label": "TX · TriggerDone · TP 3",
+      "ports": [
+        {
+          "id": "waveform",
+          "direction": "input",
+          "label": "Timer TOUT",
+          "width": 1
+        },
+        {
+          "id": "done",
+          "direction": "output",
+          "label": "21st falling edge",
+          "width": 1
+        }
+      ]
+    },
+    {
+      "id": "OVlOutESCFIFO",
+      "label": "Overlay output 17\nNRZI data",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "dir",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "pad",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        }
+      }
+    },
+    {
+      "id": "OVlInESCFIFO",
+      "label": "RX · Overlay input 1\nNRZI data",
+      "ports": [
+        {
+          "id": "input",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "output",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "portLabel": {
+          "hidden": true
+        },
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "FCRXTriggerReSync",
+      "label": "RX · TriggerReSyncInput · TP 4",
+      "ports": [
+        {
+          "id": "overlay",
+          "direction": "input",
+          "label": "Data",
+          "width": 1
+        },
+        {
+          "id": "start",
+          "direction": "input",
+          "label": "Start",
+          "width": 1,
+          "style": {
+            "color": "#c62828"
+          }
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop",
+          "width": 1
+        },
+        {
+          "id": "edge",
+          "direction": "output",
+          "label": "Rising or falling",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "FCRXTriggerDone",
+      "label": "RX · TriggerDone · TP 5",
+      "ports": [
+        {
+          "id": "last",
+          "direction": "input",
+          "label": "FIFO0.lastBit",
+          "width": 1
+        },
+        {
+          "id": "start",
+          "direction": "input",
+          "label": "Start",
+          "width": 1
+        },
+        {
+          "id": "done",
+          "direction": "output",
+          "label": "Stop pulse",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3",
+        "borderWidth": 0.5
+      }
+    },
+    {
+      "id": "FCRXTimer",
+      "label": "RX · Timer0 · Unit 4\nResync + half-bit delay",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "label": "Restart / TM=2",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop / CEN",
+          "width": 1
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "label": "Go to HI",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "FCRXFIFO",
+      "label": "RX · FIFO0 · Unit 5\n21-bit NRZI capture",
+      "ports": [
+        {
+          "id": "sample",
+          "direction": "input",
+          "label": "Sample / Buddy",
+          "width": 1
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "label": "Stop / CEN",
+          "width": 1
+        },
+        {
+          "id": "data",
+          "direction": "input",
+          "label": "Data / INSEL=1",
+          "width": 1
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "label": "21st sample",
+          "width": 1
+        },
+        {
+          "id": "readback",
+          "direction": "output",
+          "label": "FIFODATA3",
+          "width": 21
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "HiZTimer",
+      "label": "HiZ · Timer0 · Unit 17",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "label": "Start / TEN",
+          "width": 1,
+          "style": {
+            "color": "#c62828"
+          }
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "label": "TOUT",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#fefcec"
+      }
+    },
+    {
+      "id": "HiZTriggerDone",
+      "label": "HiZ TriggerDone · TP 16",
+      "ports": [
+        {
+          "id": "timerDone",
+          "direction": "input",
+          "label": "Timer0.done",
+          "width": 1
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1
+        }
+      ],
+      "style": {
+        "fillColor": "#fefcec"
+      }
+    },
+    {
+      "id": "firmware",
+      "ports": [
+        {
+          "id": "data",
+          "direction": "output",
+          "width": 32,
+          "label": "FIFO0 word"
+        },
+        {
+          "id": "data1",
+          "direction": "output",
+          "width": 32,
+          "label": "FIFO1 word"
+        },
+        {
+          "id": "start",
+          "direction": "output",
+          "width": 1,
+          "label": "TX start"
+        }
+      ]
+    },
+    {
+      "id": "TimerBitPeriod",
+      "label": "TX · TimerBitPeriod · Unit 16\n17 cycles · 1 HI / 159 LO clocks",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "width": 1,
+          "label": "FW start"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "Bit reference"
+        }
+      ]
+    },
+    {
+      "id": "TimerPad",
+      "label": "TX · TimerPad · Unit 18",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "width": 1,
+          "label": "FW start"
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        },
+        {
+          "id": "dir",
+          "direction": "output",
+          "width": 1,
+          "label": "DIR"
+        }
+      ]
+    },
+    {
+      "id": "TimerHI0",
+      "label": "TX · TimerHI0 · Unit 0\nHI = 60 clocks",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "width": 1,
+          "label": "Start"
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "width": 1,
+          "label": "Stop"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        }
+      ]
+    },
+    {
+      "id": "TimerHI1",
+      "label": "TX · TimerHI1 · Unit 2\nHI = 100 clocks",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "width": 1,
+          "label": "Start"
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "width": 1,
+          "label": "Stop"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        }
+      ]
+    },
+    {
+      "id": "FIFO1",
+      "label": "TX · FIFO1 · Unit 3\n00 for bit 0 · 10 for bit 1",
+      "ports": [
+        {
+          "id": "sample",
+          "direction": "input",
+          "width": 1,
+          "label": "Shift"
+        },
+        {
+          "id": "stop",
+          "direction": "input",
+          "width": 1,
+          "label": "Stop"
+        },
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 32,
+          "label": "FIFODATA0"
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "width": 1,
+          "label": "TOUT"
+        }
+      ]
+    },
+    {
+      "id": "TriggerBitStart",
+      "label": "TX · TriggerBitStart · TP 0\nSAMP=31 · SKIP=1",
+      "ports": [
+        {
+          "id": "waveform",
+          "direction": "input",
+          "width": 1,
+          "label": "Bit reference"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "Both edges · first 16 cycles"
+        }
+      ]
+    },
+    {
+      "id": "TXGluelogic1",
+      "label": "Gluelogic1 · Data OR",
+      "ports": [
+        {
+          "id": "a",
+          "direction": "input",
+          "width": 1,
+          "label": "A: TimerPad low"
+        },
+        {
+          "id": "aDir",
+          "direction": "input",
+          "width": 1,
+          "label": "Direction from A"
+        },
+        {
+          "id": "hi0",
+          "direction": "input",
+          "width": 1,
+          "label": "B: TimerHI0"
+        },
+        {
+          "id": "hi1",
+          "direction": "input",
+          "width": 1,
+          "label": "B: TimerHI1"
+        },
+        {
+          "id": "out",
+          "direction": "output",
+          "width": 1,
+          "label": "OUT"
+        },
+        {
+          "id": "dir",
+          "direction": "output",
+          "width": 1,
+          "label": "DIR"
+        }
+      ]
+    },
+    {
+      "id": "TimerESC",
+      "label": "ESC.RX · TimerESC · Unit 4\n80-clock initial delay",
+      "ports": [
+        {
+          "id": "start",
+          "direction": "input",
+          "width": 1
+        },
+        {
+          "id": "tout",
+          "direction": "output",
+          "width": 1,
+          "label": "Go-to-HI"
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    },
+    {
+      "id": "FIFOESC",
+      "label": "ESC.RX · FIFOESC · Unit 5\n16-bit input capture",
+      "ports": [
+        {
+          "id": "sample",
+          "direction": "input",
+          "width": 1,
+          "label": "Buddy sample"
+        },
+        {
+          "id": "data",
+          "direction": "input",
+          "width": 1,
+          "label": "Data / INSEL=1"
+        },
+        {
+          "id": "readback",
+          "direction": "output",
+          "width": 16,
+          "label": "FIFODATA3[15:0]"
+        }
+      ],
+      "style": {
+        "fillColor": "#e3e3e3"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "Bank0",
+      "label": "Bank 0 : FC",
+      "members": [
+        "Bank0TriggerProcessors",
+        "Bank0Functions",
+        "Bank0OverlayOutputs",
+        "Bank0OverlayInputs",
+        "firmware",
+        "Bank0TXClockRouting"
+      ],
+      "style": {
+        "borderColor": "#8ea8d6",
+        "fillColor": "#eff6ff",
+        "borderStyle": "solid"
+      }
+    },
+    {
+      "id": "Bank0TriggerProcessors",
+      "label": "Trigger processors",
+      "members": ["TriggerBitStart", "TriggerDone", "FCRXTriggerReSync", "FCRXTriggerDone", "HiZTriggerDone"],
+      "layout": {
+        "type": "grid",
+        "cells": [
+          ["TriggerBitStart"],
+          ["TriggerDone"],
+          ["HiZTriggerDone"],
+          ["FCRXTriggerReSync"],
+          ["FCRXTriggerDone"]
+        ],
+        "blockMinWidth": 2.2,
+        "blockAlign": "left"
+      }
+    },
+    {
+      "id": "Bank0Functions",
+      "label": "Functions",
+      "members": [
+        "TimerBitPeriod",
+        "TimerPad",
+        "FIFO0",
+        "TimerHI0",
+        "FIFO1",
+        "TimerHI1",
+        "FCRXTimer",
+        "FCRXFIFO",
+        "HiZTimer"
+      ],
+      "style": {
+        "fillColor": "#ffffff"
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [
+          ["TimerPad", null],
+          ["TimerBitPeriod", null],
+          ["FIFO0", "TimerHI0"],
+          ["FIFO1", "TimerHI1"],
+          ["HiZTimer", null],
+          ["FCRXTimer", "FCRXFIFO"]
+        ],
+        "blockMinWidth": 2.2,
+        "blockAlign": "left"
+      }
+    },
+    {
+      "id": "Bank0OverlayOutputs",
+      "label": "Overlay outputs",
+      "members": ["OVlOutTimer0", "OVlOutFIFO0"]
+    },
+    {
+      "id": "Bank1",
+      "label": "Bank 1 : ESC",
+      "members": ["Bank1OverlayInputs", "Bank1TriggerProcessors", "Bank1Functions", "Bank1OverlayOutputs"],
+      "style": {
+        "borderColor": "#5fa691",
+        "fillColor": "#ecfdf5",
+        "borderStyle": "solid"
+      }
+    },
+    {
+      "id": "Bank1OverlayInputs",
+      "label": "Overlay inputs",
+      "members": ["OVlInTimer0", "OVlInFIFO0"]
+    },
+    {
+      "id": "Bank1TriggerProcessors",
+      "label": "Trigger processors",
+      "members": ["ESCRXTriggerSampleInput", "ESCTXTriggerSample", "ESCTXTriggerDone"],
+      "layout": {
+        "type": "grid",
+        "cells": [["ESCTXTriggerSample"], ["ESCTXTriggerDone"], ["ESCRXTriggerSampleInput"]],
+        "blockMinWidth": 2.2,
+        "blockAlign": "left"
+      }
+    },
+    {
+      "id": "Bank1Functions",
+      "label": "Functions",
+      "members": ["TimerESC", "FIFOESC", "ESCTXTimer0", "ESCTXFIFO0"],
+      "style": {
+        "fillColor": "#ffffff"
+      },
+      "layout": {
+        "type": "grid",
+        "cells": [["ESCTXTimer0"], ["ESCTXFIFO0"], ["TimerESC"], ["FIFOESC"]],
+        "blockMinWidth": 2.2,
+        "blockAlign": "left"
+      }
+    },
+    {
+      "id": "Bank0OverlayInputs",
+      "label": "Overlay inputs",
+      "members": ["OVlInESCFIFO"]
+    },
+    {
+      "id": "Bank1OverlayOutputs",
+      "label": "Overlay outputs",
+      "members": ["OVlOutESCFIFO"]
+    },
+    {
+      "id": "Bank0TXClockRouting",
+      "label": "TX clock routing",
+      "members": ["TXGluelogic0", "TXTrigOutput0", "TXGluelogic1"]
+    }
+  ],
+  "connections": [
+    {
+      "from": "TXTrigOutput0.tout",
+      "to": [
+        {
+          "endpoint": "TriggerDone.waveform",
+          "constraint": false,
+          "feedback": true,
+          "style": {
+            "strokeColor": "#2457d6"
+          }
+        },
+        {
+          "endpoint": "TriggerBitStart.waveform",
+          "constraint": false,
+          "feedback": true
+        }
+      ],
+      "label": "Bit reference"
+    },
+    {
+      "from": "TriggerDone.out",
+      "to": [
+        "FIFO0.stop",
+        {
+          "endpoint": "HiZTimer.start",
+          "feedback": true,
+          "constraint": false,
+          "style": {
+            "strokeColor": "#2457d6"
+          }
+        },
+        {
+          "endpoint": "TimerHI0.stop",
+          "constraint": false
+        },
+        {
+          "endpoint": "TimerHI1.stop",
+          "constraint": false
+        },
+        {
+          "endpoint": "FIFO1.stop",
+          "constraint": false
+        },
+        {
+          "endpoint": "TimerPad.stop",
+          "constraint": false
+        }
+      ],
+      "feedback": true,
+      "label": "TX done"
+    },
+    {
+      "from": "TXGluelogic0.out",
+      "to": [
+        "OVlOutTimer0.input",
+        {
+          "endpoint": "TXTrigOutput0.src",
+          "constraint": false
+        }
+      ],
+      "label": "Bit reference"
+    },
+    {
+      "from": "FIFO0.tout",
+      "to": [
+        {
+          "endpoint": "TimerHI0.start",
+          "constraint": false
+        }
+      ],
+      "label": "Buddy",
+      "style": {
+        "strokeColor": "#2457d6"
+      }
+    },
+    {
+      "from": "OVlOutTimer0.pad",
+      "to": [
+        {
+          "endpoint": "OVlInTimer0.input",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "style": {
+        "lineStyle": "dashed"
+      }
+    },
+    {
+      "from": "OVlOutFIFO0.pad",
+      "to": [
+        {
+          "endpoint": "OVlInFIFO0.input",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "style": {
+        "strokeColor": "#047857",
+        "lineStyle": "dashed"
+      }
+    },
+    {
+      "from": "OVlInTimer0.output",
+      "to": ["ESCRXTriggerSampleInput.overlay"]
+    },
+    {
+      "from": "ESCRXTriggerSampleInput.sample",
+      "to": ["TimerESC.start"]
+    },
+    {
+      "from": "OVlInFIFO0.output",
+      "to": ["FIFOESC.data"],
+      "style": {
+        "strokeColor": "#047857"
+      }
+    },
+    {
+      "from": "ESCTXTimer0.tout",
+      "to": [
+        {
+          "endpoint": "ESCTXTriggerSample.waveform",
+          "feedback": true
+        },
+        {
+          "endpoint": "ESCTXTriggerDone.waveform",
+          "feedback": true
+        }
+      ],
+      "label": "waveform"
+    },
+    {
+      "from": "ESCTXTriggerSample.rise",
+      "to": ["ESCTXFIFO0.sample"],
+      "feedback": true
+    },
+    {
+      "from": "ESCTXTriggerDone.done",
+      "to": ["ESCTXFIFO0.stop"],
+      "feedback": true
+    },
+    {
+      "from": "ESCTXFIFO0.out",
+      "to": ["OVlOutESCFIFO.input"],
+      "label": "data",
+      "style": {
+        "strokeColor": "#047857"
+      }
+    },
+    {
+      "from": "ESCTXFIFO0.dir",
+      "to": ["OVlOutESCFIFO.dir"],
+      "style": {
+        "strokeColor": "#64748b",
+        "lineStyle": "dashed"
+      }
+    },
+    {
+      "from": "OVlOutESCFIFO.pad",
+      "to": [
+        {
+          "endpoint": "OVlInESCFIFO.input",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "style": {
+        "strokeColor": "#047857",
+        "lineStyle": "dashed",
+        "strokeWidth": 2
+      }
+    },
+    {
+      "from": "OVlInESCFIFO.output",
+      "to": ["FCRXTriggerReSync.overlay", "FCRXFIFO.data"],
+      "style": {
+        "strokeColor": "#047857"
+      }
+    },
+    {
+      "from": "FCRXTriggerReSync.edge",
+      "to": ["FCRXTimer.start"],
+      "style": {
+        "strokeColor": "#2457d6"
+      }
+    },
+    {
+      "from": "FCRXTimer.tout",
+      "to": [
+        {
+          "endpoint": "FCRXFIFO.sample",
+          "constraint": false
+        }
+      ],
+      "label": "buddy",
+      "style": {
+        "strokeColor": "#2457d6"
+      }
+    },
+    {
+      "from": "FCRXFIFO.tout",
+      "to": [
+        {
+          "endpoint": "FCRXTriggerDone.last",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "label": "last bit",
+      "style": {
+        "strokeColor": "#2457d6"
+      }
+    },
+    {
+      "from": "FCRXTriggerDone.done",
+      "to": [
+        {
+          "endpoint": "FCRXTimer.stop",
+          "constraint": false,
+          "feedback": true
+        },
+        {
+          "endpoint": "FCRXFIFO.stop",
+          "feedback": true,
+          "constraint": false
+        },
+        {
+          "endpoint": "FCRXTriggerReSync.stop",
+          "feedback": true,
+          "constraint": false,
+          "style": {
+            "strokeColor": "#2457d6"
+          }
+        }
+      ],
+      "label": "Task done"
+    },
+    {
+      "from": "HiZTimer.tout",
+      "to": [
+        {
+          "endpoint": "HiZTriggerDone.timerDone",
+          "feedback": true,
+          "constraint": false
+        }
+      ],
+      "label": "done",
+      "style": {
+        "strokeColor": "#2457d6"
+      }
+    },
+    {
+      "from": "HiZTriggerDone.out",
+      "to": [
+        {
+          "endpoint": "FCRXTriggerReSync.start",
+          "feedback": true,
+          "constraint": false,
+          "style": {
+            "strokeColor": "#2457d6"
+          }
+        },
+        {
+          "endpoint": "FCRXTriggerDone.start",
+          "feedback": true,
+          "constraint": false,
+          "style": {
+            "strokeColor": "#2457d6"
+          }
+        }
+      ],
+      "label": "Task done"
+    },
+    {
+      "id": "fw_start",
+      "from": "firmware.start",
+      "to": [
+        {
+          "endpoint": "TimerBitPeriod.start",
+          "style": {
+            "strokeColor": "#c62828"
+          }
+        },
+        {
+          "endpoint": "TimerPad.start",
+          "constraint": false,
+          "style": {
+            "strokeColor": "#c62828"
+          }
+        }
+      ],
+      "label": "Task start"
+    },
+    {
+      "id": "fw_data",
+      "from": "firmware.data",
+      "to": [
+        {
+          "endpoint": "FIFO0.data",
+          "constraint": false
+        }
+      ],
+      "style": {
+        "strokeColor": "#c62828"
+      }
+    },
+    {
+      "style": {
+        "strokeColor": "#c62828"
+      },
+      "from": "firmware.data1",
+      "to": [
+        {
+          "endpoint": "FIFO1.data",
+          "constraint": false
+        }
+      ]
+    },
+    {
+      "label": "Bit reference",
+      "from": "TimerBitPeriod.out",
+      "to": [
+        {
+          "endpoint": "TXGluelogic0.in",
+          "constraint": false
+        }
+      ]
+    },
+    {
+      "label": "Shift",
+      "feedback": true,
+      "from": "TriggerBitStart.out",
+      "to": ["FIFO0.sample", "FIFO1.sample"]
+    },
+    {
+      "from": "TimerHI0.out",
+      "to": [
+        {
+          "endpoint": "TXGluelogic1.hi0",
+          "constraint": false
+        }
+      ],
+      "label": "Waveform"
+    },
+    {
+      "label": "Buddy",
+      "style": {
+        "strokeColor": "#2457d6"
+      },
+      "from": "FIFO1.tout",
+      "to": [
+        {
+          "endpoint": "TimerHI1.start",
+          "constraint": false
+        }
+      ]
+    },
+    {
+      "from": "TimerHI1.out",
+      "to": [
+        {
+          "endpoint": "TXGluelogic1.hi1",
+          "constraint": false
+        }
+      ],
+      "label": "Waveform"
+    },
+    {
+      "from": "TimerPad.out",
+      "to": ["TXGluelogic1.a"],
+      "label": "0"
+    },
+    {
+      "style": {
+        "strokeColor": "#64748b",
+        "lineStyle": "dashed"
+      },
+      "from": "TimerPad.dir",
+      "to": ["TXGluelogic1.aDir"]
+    },
+    {
+      "label": "HI0/HI1",
+      "style": {
+        "strokeColor": "#047857"
+      },
+      "from": "TXGluelogic1.out",
+      "to": ["OVlOutFIFO0.input"]
+    },
+    {
+      "style": {
+        "strokeColor": "#64748b",
+        "lineStyle": "dashed"
+      },
+      "from": "TXGluelogic1.dir",
+      "to": [
+        {
+          "endpoint": "OVlOutFIFO0.dir",
+          "constraint": false
+        }
+      ]
+    },
+    {
+      "label": "Buddy",
+      "style": {
+        "strokeColor": "#2457d6"
+      },
+      "from": "TimerESC.tout",
+      "to": ["FIFOESC.sample"]
+    }
+  ],
+  "layout": {
+    "moduleSpacing": 36,
+    "type": "grid",
+    "cells": [["Bank0"], ["Bank1"]],
+    "layerSpacing": 80
+  }
+}

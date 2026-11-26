@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "diagram": {
+    "name": "Story editor test: signal path",
+    "style": { "connection": { "endArrow": "triangle" } }
+  },
+  "terminals": [
+    { "id": "Clock", "label": "Clock in", "direction": "input", "width": 1 },
+    { "id": "Pad", "label": "Pad out", "direction": "output", "width": 1 }
+  ],
+  "modules": [
+    {
+      "id": "Timer",
+      "label": "Bit timer",
+      "ports": [
+        { "id": "clk", "direction": "input", "width": 1 },
+        { "id": "tick", "direction": "output", "width": 1 }
+      ]
+    },
+    {
+      "id": "Source",
+      "label": "Data source",
+      "ports": [{ "id": "data", "direction": "output", "width": 8 }]
+    },
+    {
+      "id": "Controller",
+      "label": "Controller",
+      "ports": [
+        { "id": "tick", "direction": "input", "width": 1 },
+        { "id": "start", "direction": "output", "width": 1 }
+      ]
+    },
+    {
+      "id": "FIFO",
+      "label": "FIFO",
+      "ports": [
+        { "id": "start", "direction": "input", "width": 1 },
+        { "id": "data", "direction": "input", "width": 8 },
+        { "id": "q", "direction": "output", "width": 8 }
+      ]
+    },
+    {
+      "id": "Serializer",
+      "label": "Serializer",
+      "ports": [
+        { "id": "start", "direction": "input", "width": 1 },
+        { "id": "q", "direction": "input", "width": 8 },
+        { "id": "line", "direction": "output", "width": 1 }
+      ]
+    }
+  ],
+  "groups": [{ "id": "TX", "label": "Transmitter", "members": ["Controller", "FIFO", "Serializer"] }],
+  "connections": [
+    { "from": { "terminal": "Clock" }, "to": ["Timer.clk"] },
+    { "from": "Timer.tick", "to": ["Controller.tick"], "label": "tick" },
+    { "from": "Controller.start", "to": ["FIFO.start", "Serializer.start"], "label": "start" },
+    { "from": "Source.data", "to": ["FIFO.data"], "label": "data" },
+    { "from": "FIFO.q", "to": ["Serializer.q"], "label": "q" },
+    { "from": "Serializer.line", "to": [{ "terminal": "Pad" }] }
+  ]
+}

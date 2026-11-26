@@ -17,6 +17,59 @@ const fixture = () => ({
   connections: [{ from: 'Source.out', to: ['SinkA.in', 'SinkB.in'], label: 'Data' }],
 });
 
+for (const direction of ['right', 'down'])
+  test(`measured Block and internal Port labels reuse cached geometry (${direction})`, async () => {
+    const h = countingRunner();
+    const document = fixture();
+    document.layout = { direction };
+    document.modules[0].label = 'Source';
+    document.modules[0].width = 4;
+    document.modules[0].height = 4;
+    document.modules[0].ports[0].label = 'OUT';
+    const first = await h.run({ document, revision: 1 });
+    document.modules[0].label = 'Clock';
+    document.modules[0].ports[0].label = 'Tick';
+    const next = await h.run({ document, revision: 2, paintOnly: true });
+    assert.equal(next.error, undefined);
+    assert.equal(h.calls(), 1);
+    assert.equal(next.layout.modules[0].label, 'Clock');
+    assert.equal(next.layout.modules[0].ports[0].displayName, 'Tick');
+    assert.deepEqual(next.layout.connections, first.layout.connections);
+    assert.equal(next.layout.modules[0].ports[0].x, first.layout.modules[0].ports[0].x);
+    assert.equal(next.layout.modules[0].ports[0].y, first.layout.modules[0].ports[0].y);
+    assert.match(next.svg, /Clock/);
+    assert.match(next.svg, /Tick/);
+    assert.notDeepEqual(
+      next.layout.modules[0].ports[0].labelBounds,
+      first.layout.modules[0].ports[0].labelBounds,
+    );
+    document.modules[0].label = 'Clock reference '.repeat(100);
+    await h.run({ document, revision: 3, paintOnly: true });
+    assert.equal(h.calls(), 2);
+  });
+
+test('scoped label repaint rejects geometry changes and explicit side-port text changes', async () => {
+  const document = fixture(),
+    h = countingRunner();
+  document.modules[0].label = 'Clock';
+  document.modules[0].width = 4;
+  document.modules[0].ports[0].label = 'Tick';
+  const original = structuredClone(document);
+  await h.run({ document, revision: 1, rootGroupId: 'Group' });
+  document.modules[0].label = 'Timer';
+  document.modules[0].ports[0].label = 'Data';
+  const painted = await h.run({ document, revision: 2, rootGroupId: 'Group', paintOnly: true });
+  assert.equal(painted.error, undefined);
+  assert.equal(h.calls(), 1);
+  assert.deepEqual(painted, await runLayoutJob({ document, revision: 2, rootGroupId: 'Group' }));
+  document.modules[0].ports[0].side = 'top';
+  await h.run({ document, revision: 3, rootGroupId: 'Group', paintOnly: true });
+  document.modules[0].ports[0].label = 'More data';
+  await h.run({ document, revision: 4, rootGroupId: 'Group', paintOnly: true });
+  assert.equal(h.calls(), 3);
+  assert.equal(original.modules[0].label, 'Clock');
+});
+
 test('Blockchart jobs preserve revision, authoring identity and fan-out hit targets', async () => {
   const document = fixture(),
     before = structuredClone(document),

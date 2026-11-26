@@ -1,11 +1,11 @@
-// Offline Studio (dist-offline, opened from file://): the portable build must work with no
+// Offline build (dist-offline: studio/ and story/ opened from file://): the portable build must work with no
 // server and no network, for every diagram kind. Feature behavior is covered against the web
 // build by studio/flowchart/statechart/alignment specs; this suite checks what only the
 // offline bundle can break: classic scripts, inline Blob workers, file:// downloads and drops,
 // browser drafts, storage failures and worker recovery. The canvas must equal each converter.
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { readFile, readdir, mkdir, copyFile } from 'node:fs/promises';
+import { readFile, readdir, cp, rm } from 'node:fs/promises';
 import { Script } from 'node:vm';
 import sharp from 'sharp';
 import { convertDiagram } from '../src/agent-kit/blockchart-converter.js';
@@ -15,7 +15,8 @@ import { convertStatechart } from '../src/agent-kit/statechart-converter.js';
 // Copy the complete artifact to a folder with spaces and Unicode before opening.
 const source = new URL('../dist-offline/', import.meta.url);
 const portable = new URL('../output/editor/offline copy 測試/', import.meta.url);
-const fileUrl = new URL('index.html', portable).href;
+const fileUrl = new URL('studio/index.html', portable).href;
+const storyUrl = new URL('story/index.html', portable).href;
 const example = (path) => readFile(new URL('../examples/' + path, import.meta.url), 'utf8');
 const fixture = (path) => readFile(new URL('../tests/fixtures/' + path, import.meta.url), 'utf8');
 
@@ -75,8 +76,8 @@ async function drop(page, name, text, type) {
 
 const failures = new WeakMap();
 test.beforeAll(async () => {
-  await mkdir(portable, { recursive: true });
-  for (const name of await readdir(source)) await copyFile(new URL(name, source), new URL(name, portable));
+  await rm(portable, { recursive: true, force: true });
+  await cp(source, portable, { recursive: true });
 });
 
 test.beforeEach(async ({ page, context }) => {
@@ -100,13 +101,23 @@ test.afterEach(async ({ page }) => {
 });
 
 test('portable folder opens as classic scripts with inline Blob workers and no server', async ({ page }) => {
-  expect((await readdir(source)).sort()).toEqual(['app.js', 'index.html', 'style.css']);
-  const html = await readFile(new URL('index.html', source), 'utf8');
+  // One folder per page plus a chooser that links both.
+  expect((await readdir(source)).sort()).toEqual(['index.html', 'story', 'studio']);
+  for (const page of ['studio', 'story'])
+    expect((await readdir(new URL(page + '/', source))).sort()).toEqual([
+      'app.js',
+      'index.html',
+      'style.css',
+    ]);
+  const chooser = await readFile(new URL('index.html', source), 'utf8');
+  expect(chooser).toContain('href="./studio/index.html"');
+  expect(chooser).toContain('href="./story/index.html"');
+  const html = await readFile(new URL('studio/index.html', source), 'utf8');
   expect(html).toContain('src="./app.js"');
   expect(html).toContain('href="./style.css"');
   expect(html).not.toMatch(/type="module"|modulepreload|crossorigin/);
   // A classic-script parser rejects any remaining top-level import or import.meta.
-  new Script(await readFile(new URL('app.js', source), 'utf8'));
+  new Script(await readFile(new URL('studio/app.js', source), 'utf8'));
   expect(page.url()).toBe(fileUrl);
   expect(page.workers().length).toBeGreaterThan(0);
   expect(page.workers().every((worker) => worker.url().startsWith('blob:'))).toBe(true);
@@ -320,4 +331,105 @@ test('a crashed Blob worker reports the failure; the next edit recovers and the 
   const svg = await download(page, 'export-svg');
   expect(await readFile(svg.path, 'utf8')).toContain('Offline final');
   expect(page.workers().every((w) => w.url().startsWith('blob:'))).toBe(true);
+});
+
+test.describe('Story editor offline', () => {
+  const STORY_DIAGRAM = 'story/signal-path.json';
+  const STORY_FILE = 'story/signal-path.story.json';
+  const laidOut = (page) =>
+    page.waitForFunction(() => window.__story?.layout && !window.__story.layoutPending, null, {
+      timeout: 60000,
+    });
+  const watch = (page) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
+    return errors;
+  };
+
+  test('opens from file:// with a Blob worker, draws the runtime SVG, exports and reopens its page', async ({
+    context,
+  }) => {
+    const page = await context.newPage();
+    const errors = watch(page);
+    await page.goto(storyUrl);
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    expect(page.url()).toBe(storyUrl);
+    await expect(page.locator('.story-start')).toBeVisible();
+    const html = await readFile(new URL('story/index.html', source), 'utf8');
+    expect(html).toContain('src="./app.js"');
+    expect(html).not.toMatch(/type="module"|modulepreload|crossorigin/);
+    new Script(await readFile(new URL('story/app.js', source), 'utf8'));
+
+    const diagram = JSON.parse(await fixture(STORY_DIAGRAM));
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'signal-path.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(diagram)),
+    });
+    await laidOut(page);
+    expect(page.workers().length).toBeGreaterThan(0);
+    expect(page.workers().every((worker) => worker.url().startsWith('blob:'))).toBe(true);
+    expect(await page.evaluate(() => window.__story.layout.svg)).toBe(
+      await CONVERT.blockchart(structuredClone(diagram)),
+    );
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'signal-path.story.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(await fixture(STORY_FILE)),
+    });
+    await expect(page.locator('.story-step')).toHaveCount(5);
+    await expect(page.locator('.story-step.warn')).toHaveCount(0);
+
+    const [file] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Export HTML' }).click(),
+    ]);
+    const exported = await readFile(await file.path(), 'utf8');
+    expect(exported).toContain('id="blockflow-sources"');
+    await page.reload();
+    await laidOut(page);
+    await expect(page.locator('.story-step')).toHaveCount(5);
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'p.html',
+      mimeType: 'text/html',
+      buffer: Buffer.from(exported),
+    });
+    await laidOut(page);
+    expect(await page.evaluate(() => JSON.stringify(window.__story.diagram))).toBe(JSON.stringify(diagram));
+    await expect(page.locator('.story-step')).toHaveCount(5);
+    await page.screenshot({ path: 'output/editor/offline-story.png' });
+    expect(errors).toEqual([]);
+  });
+
+  test('the offline Studio hands the whole diagram to the offline Story editor next to it', async ({
+    page,
+    context,
+  }) => {
+    const diagram = await fixture(STORY_DIAGRAM);
+    await openText(page, 'signal-path.json', diagram);
+    await page.getByRole('button', { name: 'Export' }).click();
+    const [story] = await Promise.all([
+      context.waitForEvent('page'),
+      page.getByRole('menuitem', { name: 'Open in Story editor' }).click(),
+    ]);
+    const errors = watch(story);
+    await laidOut(story);
+    expect(story.url()).toBe(storyUrl);
+    expect(await story.evaluate(() => JSON.stringify(window.__story.diagram))).toBe(
+      JSON.stringify(JSON.parse(diagram)),
+    );
+    // And back: File › Open the Studio opens the sibling folder.
+    await story.getByRole('button', { name: 'File' }).click();
+    const [studio] = await Promise.all([
+      context.waitForEvent('page'),
+      story.getByRole('menuitem', { name: 'Open the Studio' }).click(),
+    ]);
+    await studio.waitForLoadState();
+    expect(studio.url()).toBe(fileUrl);
+    expect(errors).toEqual([]);
+  });
 });

@@ -1,6 +1,6 @@
 # RTL Diagram Generator
 
-Describe modules, input/output ports and connections in JSON or the web editor. The generator uses ELK Layered placement and orthogonal routing to produce SVG and PNG diagrams. The library uses JavaScript ES modules and does not include an RTL parser. Try the [offline-capable web app](https://rexrainbow.github.io/blockflow/dist-offline/).
+Describe modules, input/output ports and connections in JSON or the web editor. The generator uses ELK Layered placement and orthogonal routing to produce SVG and PNG diagrams. The library uses JavaScript ES modules and does not include an RTL parser. Try the [offline-capable web app](https://rexrainbow.github.io/blockflow/dist-offline/), which links the Studio and the Story editor.
 
 ## Installation and development
 
@@ -61,20 +61,31 @@ After installing the project's development dependencies, run:
 npm.cmd run build:offline
 ```
 
-The build produces the following files in `dist-offline/`:
+The build produces one folder per page in `dist-offline/`, plus a page that links both:
 
 ```text
 dist-offline/
-├─ index.html
-├─ app.js
-└─ style.css
+├─ index.html        links the two editors
+├─ studio/           the Studio (Block diagrams, flowcharts, statecharts)
+│  ├─ index.html
+│  ├─ app.js
+│  └─ style.css
+└─ story/            the Story editor (step-by-step presentations of a Block diagram)
+   ├─ index.html
+   ├─ app.js
+   └─ style.css
 ```
 
-Copy the entire folder and double-click `index.html` to open the editor. Users do not need Node.js, a server or a network connection. Keep all three files together; copying only the HTML file is insufficient. This is a complete offline editor that starts with the default example and supports opening/saving JSON, editing blocks/connections/styles/feedback, undo/redo and SVG/PNG export. The build does not embed the document currently open in the editor.
+Copy the entire `dist-offline` folder and double-click `index.html`, or the `index.html` inside `studio/` or `story/`. Users do not need Node.js, a server or a network connection. Keep each folder's three files together; copying only an HTML file is insufficient. Keep `studio/` and `story/` side by side so that Export › Open in Story editor in the Studio and File › Open the Studio in the Story editor find each other.
+
+- The Studio is a complete offline editor that starts with the default example and supports opening/saving JSON, editing blocks/connections/styles/feedback, undo/redo and SVG/PNG export.
+- The Story editor opens a Block diagram JSON, a story JSON or a presentation HTML it exported, and exports presentations as one offline HTML file.
+
+Neither build embeds the document currently open in the editor.
 
 The offline version uses classic scripts, an embedded Blob Worker and system fonts, with no CDN or external layout service. Draft storage under `file://` varies by browser. Moving the folder or switching browsers may prevent draft recovery, so use **File -> Save JSON** for durable storage. Editing and downloading still work when storage is unavailable. The standard `npm.cmd run build` continues to produce `dist/`.
 
-Offline browser tests copy the build to a path containing spaces and Chinese characters, open it through `file://` and block network access. They do not start a test server:
+Offline browser tests copy the whole build to a path containing spaces and Chinese characters, open both pages through `file://` and block network access. They do not start a test server:
 
 ```powershell
 npm.cmd run test:e2e:offline

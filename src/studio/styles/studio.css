@@ -2221,3 +2221,7 @@ button.ovr.on:hover {
   color: var(--accent);
   flex: none;
 }
+
+.canvas-tools .segmented {
+  flex-wrap: nowrap;
+}

@@ -1466,7 +1466,7 @@ function Me(e, t, n = {}) {
 	};
 }
 // src/agent-kit/blockchart-edit.js
-var Ne = "blockchart-agent-kit-2ffebf38bb1286bf8e4f", Pe = "Usage:\n  node blockchart-edit.mjs inspect diagram.json --module ID\n  node blockchart-edit.mjs inspect diagram.json --group ID [--recursive]\n  node blockchart-edit.mjs apply diagram.json --ops changes.json [--diff-format pointer|semantic] [--write]\n  node blockchart-edit.mjs --help | --version\napply prints a JSON diff. Only --write replaces the diagram. Use --ops - to read operations from stdin.";
+var Ne = "blockchart-agent-kit-c625d92bd8ed00789e87", Pe = "Usage:\n  node blockchart-edit.mjs inspect diagram.json --module ID\n  node blockchart-edit.mjs inspect diagram.json --group ID [--recursive]\n  node blockchart-edit.mjs apply diagram.json --ops changes.json [--diff-format pointer|semantic] [--write]\n  node blockchart-edit.mjs --help | --version\napply prints a JSON diff. Only --write replaces the diagram. Use --ops - to read operations from stdin.";
 function Fe(e, t) {
 	try {
 		return JSON.parse(e.replace(/^\uFEFF/, ""));

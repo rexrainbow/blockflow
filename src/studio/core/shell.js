@@ -665,13 +665,19 @@ export class StudioShell {
           checked: this.store.prefs.pngScale === n,
           action: () => (this.store.setPref('pngScale', n), this.run('export-png', n)),
         })),
+        ...this.exportExtras(),
         '-',
         { heading: 'Whole diagram source' },
-        { label: 'JSON', icon: 'download', action: () => this.run('save') },
-        { label: 'Copy JSON', icon: 'copy', action: () => this.run('copy-json') },
+        { label: 'Save JSON', icon: 'download', action: () => this.run('save') },
+        { label: 'Copy JSON to clipboard', icon: 'copy', action: () => this.run('copy-json') },
       ],
       { label: 'Export', align: 'right' },
     );
+  }
+
+  /** domain: extra Export menu items after the image formats. */
+  exportExtras() {
+    return [];
   }
 
   contextMenu(sel, at) {

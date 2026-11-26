@@ -1,0 +1,122 @@
+{
+  "format": "blockflow-story",
+  "version": 1,
+  "title": "Signal path",
+  "diagram": {
+    "name": "Story editor test: signal path"
+  },
+  "chapters": [
+    {
+      "title": "Transmit",
+      "wave": {
+        "period": 8,
+        "bits": [1, 0],
+        "rows": [
+          {
+            "name": "tick",
+            "tick": 0,
+            "showBit": true
+          },
+          {
+            "name": "line",
+            "perBit": {
+              "0": [[0, 2]],
+              "1": [[0, 6]]
+            }
+          }
+        ]
+      },
+      "steps": [
+        {
+          "title": "Clock to timer",
+          "body": "The external clock drives the bit timer.",
+          "hops": [
+            {
+              "kind": "event",
+              "wires": ["@terminal:Clock -> Timer.clk"]
+            }
+          ]
+        },
+        {
+          "title": "Start both stages",
+          "body": "One start net fans out to the FIFO and the Serializer.",
+          "hops": [
+            {
+              "kind": "event",
+              "badge": "tick",
+              "wires": ["Timer.tick -> Controller.tick"]
+            },
+            {
+              "kind": "control",
+              "badge": "start",
+              "wires": ["Controller.start -> FIFO.start", "Controller.start -> Serializer.start"]
+            }
+          ],
+          "notes": [
+            {
+              "module": "Controller",
+              "text": "Starts a bit"
+            }
+          ],
+          "wave": {
+            "rows": ["tick"],
+            "from": 0,
+            "to": 8
+          }
+        },
+        {
+          "title": "Data out",
+          "body": "Data moves through the FIFO to the pad.",
+          "hops": [
+            {
+              "kind": "data",
+              "wires": ["Source.data -> FIFO.data"]
+            },
+            {
+              "kind": "data",
+              "wires": ["FIFO.q -> Serializer.q"]
+            },
+            {
+              "kind": "level",
+              "wires": ["Serializer.line -> @terminal:Pad"]
+            }
+          ],
+          "wave": {
+            "rows": ["line"],
+            "from": 0,
+            "to": 16
+          }
+        },
+        {
+          "title": "Overview",
+          "body": "Every wire of this chapter at once.",
+          "scope": true,
+          "camera": "all",
+          "hops": []
+        }
+      ]
+    },
+    {
+      "title": "Pad",
+      "steps": [
+        {
+          "title": "Line to pad",
+          "body": "",
+          "hops": [
+            {
+              "kind": "level",
+              "badge": "line",
+              "wires": ["Serializer.line -> @terminal:Pad"]
+            }
+          ],
+          "notes": [
+            {
+              "module": "@terminal:Pad",
+              "text": "Output pin"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

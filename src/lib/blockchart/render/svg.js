@@ -2,6 +2,7 @@ import { textLines } from '../geometry.js';
 import { alignedTextPosition } from '../../shared/text.js';
 import { TEXT_STYLE, BLOCK_STYLE, connectionStyle, paint, groupCornerRadius } from '../styles.js';
 import { connectionLabels } from '../layout/edge-labels.js';
+import { endpointKey } from '../endpoints.js';
 
 const MARGIN = 20;
 import { escapeXml as escape, fillAttributes, strokeAttributes } from '../../shared/svg.js';
@@ -38,6 +39,34 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
   }
   const netPaths = new Set(),
     netArrows = new Set();
+  const pathOwners = new Map(),
+    arrowOwners = new Map();
+  const pathData = (section) =>
+    section.points.map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  function owners(map, key, connection) {
+    if (!map.has(key)) map.set(key, []);
+    if (!map.get(key).includes(connection)) map.get(key).push(connection);
+  }
+  for (const connection of layout.connections) {
+    if (!connection.netId) continue;
+    for (const section of connection.sections)
+      owners(pathOwners, connection.netId + ':' + pathData(section), connection);
+    if (connection.startArrow)
+      owners(
+        arrowOwners,
+        connection.netId + ':' + connection.startArrow.points.map((p) => `${p.x},${p.y}`).join(' '),
+        connection,
+      );
+  }
+  function identity(connection, shared = [connection]) {
+    if (!shared.length) shared = [connection];
+    const endpoints = shared.map((c) => ({ from: endpointKey(c.source), to: endpointKey(c.target) }));
+    const endpointAttributes =
+      connection.source && connection.target
+        ? ` data-from="${escape(endpoints[0].from)}" data-to="${escape(endpoints[0].to)}"`
+        : '';
+    return `data-connection="${escape(connection.id)}"${connection.netId ? ` data-net="${escape(connection.netId)}"` : ''}${endpointAttributes}${shared.length > 1 ? ` data-connections="${escape(shared.map((c) => c.id).join(' '))}" data-endpoints="${escape(JSON.stringify(endpoints))}"` : ''}`;
+  }
   lines.push('<g data-role="connection-layer">');
   for (const connection of layout.connections) {
     const style = { ...connectionStyle(connection.width), ...connection.style };
@@ -51,12 +80,12 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
         partStyle.strokeWidth,
         partStyle.lineStyle,
       );
-      const d = section.points.map((point, i) => `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+      const d = pathData(section);
       const key = connection.netId ? connection.netId + ':' + d : null;
       if (key && netPaths.has(key)) continue;
       if (key) netPaths.add(key);
       lines.push(
-        `<path d="${d}" ${partStroke}${masks[layout.connections.indexOf(connection)].length ? ` mask="url(#${maskId(layout.connections.indexOf(connection))})"` : ''}/>`,
+        `<path d="${d}" ${partStroke} data-role="connection-path" ${identity(connection, key ? pathOwners.get(key) : [connection])}${masks[layout.connections.indexOf(connection)].length ? ` mask="url(#${maskId(layout.connections.indexOf(connection))})"` : ''}/>`,
       );
     }
     if (connection.startArrow) {
@@ -64,13 +93,13 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
         key = connection.netId ? connection.netId + ':' + points : null;
       if (!key || !netArrows.has(key))
         lines.push(
-          `<polygon data-role="connection-start-arrow" points="${points}" ${fillAttributes(connection.netStyle?.strokeColor ?? style.strokeColor, connection.netStyle?.opacity ?? style.opacity)} stroke="none"/>`,
+          `<polygon data-role="connection-start-arrow" ${identity(connection, key ? arrowOwners.get(key) : [connection])} points="${points}" ${fillAttributes(connection.netStyle?.strokeColor ?? style.strokeColor, connection.netStyle?.opacity ?? style.opacity)} stroke="none"/>`,
         );
       if (key) netArrows.add(key);
     }
     if (connection.arrow)
       lines.push(
-        `<polygon data-role="connection-arrow" points="${connection.arrow.points.map((p) => `${p.x},${p.y}`).join(' ')}" ${fillAttributes(style.strokeColor, style.opacity)} stroke="none"/>`,
+        `<polygon data-role="connection-arrow" ${identity(connection)} points="${connection.arrow.points.map((p) => `${p.x},${p.y}`).join(' ')}" ${fillAttributes(style.strokeColor, style.opacity)} stroke="none"/>`,
       );
   }
   for (const junction of layout.junctions ?? []) {
@@ -86,7 +115,7 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
     const inset = style.borderWidth / 2;
     if (module.body) {
       lines.push(
-        `<g data-role="block-body" data-appearance="${escape(module.body.type)}" transform="translate(${module.x} ${module.y})">`,
+        `<g data-role="block-body" data-appearance="${escape(module.body.type)}" transform="translate(${module.x} ${module.y})" data-module="${escape(module.id)}">`,
       );
       for (const shape of module.body.shapes) {
         const geometry =
@@ -108,7 +137,7 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
       );
     }
     lines.push(
-      `<rect ${module.collapsed ? `data-role="group" data-group="${escape(module.id)}" data-collapsed="true" ` : ''}x="${module.x + inset}" y="${module.y + inset}" width="${module.width - style.borderWidth}" height="${(module.faceHeight ?? module.height) - style.borderWidth}" ${module.collapsed ? roundingAttributes(module) : ''}${fillAttributes(style.fillColor, style.fillOpacity)} ${strokeAttributes(style.borderColor, style.borderOpacity, style.borderWidth, style.borderStyle)}/>`,
+      `<rect ${module.collapsed ? `data-role="group" data-group="${escape(module.id)}" data-collapsed="true" ` : `data-role="block" data-module="${escape(module.id)}" `}x="${module.x + inset}" y="${module.y + inset}" width="${module.width - style.borderWidth}" height="${(module.faceHeight ?? module.height) - style.borderWidth}" ${module.collapsed ? roundingAttributes(module) : ''}${fillAttributes(style.fillColor, style.fillOpacity)} ${strokeAttributes(style.borderColor, style.borderOpacity, style.borderWidth, style.borderStyle)}/>`,
     );
   }
   for (const group of layout.groups ?? [])
@@ -117,7 +146,7 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
         `<circle data-role="group-port" data-group="${escape(group.id)}" data-port="${escape(port.id)}" cx="${port.x}" cy="${port.y}" r="3" fill="#ffffff" ${strokeAttributes(group.style.borderColor, group.style.borderOpacity, 1.5, 'solid')}/>`,
       );
   lines.push('</g>', '<g fill="#000000" font-family="monospace" font-size="12" dominant-baseline="central">');
-  function text(value, position, bounds, partial) {
+  function text(value, position, bounds, partial, attributes = '', role = 'label') {
     const style = { ...TEXT_STYLE, ...partial };
     if (style.hidden) return;
     const background = paint(style.backgroundColor, style.backgroundOpacity);
@@ -137,7 +166,7 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
           ? ` ${strokeAttributes(style.borderColor, style.borderOpacity ?? 1, stroke, 'solid')}`
           : '';
       lines.push(
-        `<rect data-role="label-background" x="${bounds.x + inset}" y="${bounds.y + inset}" width="${width}" height="${height}" ${rounding}${fillAttributes(style.backgroundColor, style.backgroundOpacity)}${frame}/>`,
+        `<rect data-role="label-background" ${attributes} x="${bounds.x + inset}" y="${bounds.y + inset}" width="${width}" height="${height}" ${rounding}${fillAttributes(style.backgroundColor, style.backgroundOpacity)}${frame}/>`,
       );
     }
     const rows = textLines(value);
@@ -152,32 +181,53 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
             )
             .join('');
     lines.push(
-      `<text x="${position.x}" y="${position.y}" text-anchor="${escape(position.anchor)}" font-size="${style.fontSize}" ${fillAttributes(style.color, style.opacity)} xml:space="preserve">${content}</text>`,
+      `<text x="${position.x}" y="${position.y}" text-anchor="${escape(position.anchor)}" font-size="${style.fontSize}" ${fillAttributes(style.color, style.opacity)} xml:space="preserve" data-role="${role}"${attributes ? ` ${attributes}` : ''}>${content}</text>`,
     );
   }
   const sharedLabels = new Set();
+  const connectionsById = new Map(layout.connections.map((connection) => [connection.id, connection]));
   for (const connection of layout.connections)
     if (connection.label !== undefined && !connection.style.label.hidden)
       for (const label of connectionLabels(connection)) {
         if (label.sharedKey && sharedLabels.has(label.sharedKey)) continue;
         if (label.sharedKey) sharedLabels.add(label.sharedKey);
+        const labelIdentity = identity(
+          connection,
+          label.connectionIds
+            ? label.connectionIds.map((id) => connectionsById.get(id)).filter(Boolean)
+            : [connection],
+        );
         lines.push(
-          `<g data-role="connection-label" data-connection="${escape(connection.id)}" data-label-position="${escape(label.role)}" data-label-placement="${escape(label.placement)}"${label.connectionIds ? ` data-connections="${escape(label.connectionIds.join(' '))}"` : ''}>`,
+          `<g data-role="connection-label" ${labelIdentity} data-label-position="${escape(label.role)}" data-label-placement="${escape(label.placement)}"${label.connectionIds?.length === 1 ? ` data-connections="${escape(label.connectionIds.join(' '))}"` : ''}>`,
         );
         if (label.leader) {
           const [a, b] = label.leader;
           lines.push(
-            `<path data-role="label-leader" d="M ${a.x} ${a.y} L ${b.x} ${b.y}" fill="none" ${strokeAttributes(connection.style.strokeColor, connection.style.opacity, 1, 'solid')}/>`,
+            `<path data-role="label-leader" ${labelIdentity} d="M ${a.x} ${a.y} L ${b.x} ${b.y}" fill="none" ${strokeAttributes(connection.style.strokeColor, connection.style.opacity, 1, 'solid')}/>`,
           );
           lines.push(
-            `<circle data-role="label-anchor" cx="${a.x}" cy="${a.y}" r="1.5" ${fillAttributes(connection.style.strokeColor, connection.style.opacity)}/>`,
+            `<circle data-role="label-anchor" ${labelIdentity} cx="${a.x}" cy="${a.y}" r="1.5" ${fillAttributes(connection.style.strokeColor, connection.style.opacity)}/>`,
           );
         }
-        text(connection.label, label.position, label.bounds, connection.style.label);
+        text(
+          connection.label,
+          label.position,
+          label.bounds,
+          connection.style.label,
+          labelIdentity,
+          'connection-label-text',
+        );
         lines.push('</g>');
       }
   for (const group of layout.groups ?? [])
-    text(group.label, group.labelPosition, group.labelBounds, group.style.label);
+    text(
+      group.label,
+      group.labelPosition,
+      group.labelBounds,
+      group.style.label,
+      `data-group="${escape(group.id)}"`,
+      'group-label',
+    );
   for (const terminal of layout.terminals ?? []) {
     lines.push(`<g data-role="terminal" data-terminal="${escape(terminal.id)}">`);
     text(terminal.displayName, terminal.labelPosition, terminal.labelBounds, terminal.style);
@@ -185,11 +235,33 @@ export function renderSvg(layout, { idPrefix = 'blockflow' } = {}) {
   }
   for (const group of layout.groups ?? [])
     for (const port of group.ports ?? [])
-      text(port.displayName, port.labelPosition, port.labelBounds, port.style);
+      text(
+        port.displayName,
+        port.labelPosition,
+        port.labelBounds,
+        port.style,
+        `data-group="${escape(group.id)}" data-port="${escape(port.id)}"`,
+        'port-label',
+      );
   for (const module of layout.modules)
-    text(module.label, module.labelPosition, module.labelBounds, module.style?.label);
+    text(
+      module.label,
+      module.labelPosition,
+      module.labelBounds,
+      module.style?.label,
+      `data-module="${escape(module.id)}"`,
+      'block-label',
+    );
   for (const module of layout.modules)
-    for (const port of module.ports) text(port.displayName, port.labelPosition, port.labelBounds, port.style);
+    for (const port of module.ports)
+      text(
+        port.displayName,
+        port.labelPosition,
+        port.labelBounds,
+        port.style,
+        `data-module="${escape(module.id)}" data-port="${escape(port.id)}"`,
+        'port-label',
+      );
   if (layout.caption)
     text(layout.caption.text, layout.caption.labelPosition, layout.caption.labelBounds, layout.caption.style);
   lines.push('</g>', '</svg>');
